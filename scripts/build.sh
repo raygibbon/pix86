@@ -21,11 +21,16 @@ mkdir -p "$ROOT/build" "$ROOT/mnt"
 cd "$ROOT/build"
 # Never leave a stale release executable after a failed compile/link.
 rm -f PIX86.EXE "$ROOT/mnt/PIX86.EXE"
+# Exclusive create/stat/fdopen are Watcom CRT extensions, isolated in fileio.
+wcc -bt=dos -ms -0 -ze -wx -w4 -os "$ROOT/src/fileio.c"
 wcl -bt=dos -ms -0 -za -wx -w4 -os -k4096 \
     "$ROOT/src/main.c" "$ROOT/src/video.c" "$ROOT/src/mouse.c" \
-    "$ROOT/src/keyboard.c" "$ROOT/src/canvas.c" "$ROOT/src/cursor.c" \
+    "$ROOT/src/keyboard.c" "$ROOT/src/keymap.c" \
+    "$ROOT/src/menu.c" "$ROOT/src/menudraw.c" "$ROOT/src/canvas.c" "$ROOT/src/cursor.c" \
     "$ROOT/src/tools.c" "$ROOT/src/history.c" "$ROOT/src/view.c" \
     "$ROOT/src/editor.c" "$ROOT/src/render.c" \
+    fileio.o "$ROOT/src/project.c" \
+    "$ROOT/src/dialog.c" "$ROOT/src/dlginput.c" \
     -fm=PIX86.MAP -fe=PIX86.EXE
 if [ ! -s PIX86.EXE ]; then
     echo "Open Watcom did not produce PIX86.EXE." >&2
