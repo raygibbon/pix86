@@ -126,6 +126,10 @@ These are planned features, not claims of current implementation.
 
 Zine is a static-site generator, **not** a graphics editor. Its Watt-32 networking and bundled third-party dependencies are not required for Pix86 and must not be imported merely because Zine uses them. Review licences and implementation suitability before any intentional reuse; by default write Pix86-specific code.
 
+## DOS interface reference: TDE
+
+[TDE (Thomson-Davis Editor)](http://adoxa.altervista.org/tde/dl.php?f=source) is a reference for the look and operation of compact DOS interfaces: menu bars, keyboard-first navigation, dialogs, status bars, and consistency between mouse and keyboard controls. Its software is described as public domain, but Pix86 should not incorporate TDE source or assets without a separate explicit review. Develop original VGA UI code suited to a graphics editor, rather than porting TDE's text-mode UI.
+
 ## References, not dependencies
 
 [GrafX2](https://grafx2.chez.com/) and [Autodesk Animator / Animator Pro](https://github.com/AnimatorPro) may be studied **only as references** for user workflows, expected features, and broad design ideas.
