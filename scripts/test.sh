@@ -16,3 +16,21 @@ mkdir -p "$ROOT/build"
     "$ROOT/src/canvas.c" "$ROOT/src/tools.c" "$ROOT/src/history.c" \
     "$ROOT/src/view.c" "$ROOT/src/editor.c" -o "$ROOT/build/rentest"
 "$ROOT/build/rentest"
+mkdir -p "$ROOT/build/iotest"
+"${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror -I"$ROOT/src" \
+    -Dfwrite=fault_write -Dfflush=fault_flush -Dfclose=fault_close \
+    -Drename=fault_rename -Dremove=fault_remove \
+    -c "$ROOT/src/fileio.c" -o "$ROOT/build/faultio.o"
+"${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror -DIO_FAULTS \
+    -I"$ROOT/src" "$ROOT/tests/testfile.c" "$ROOT/build/faultio.o" \
+    "$ROOT/src/project.c" "$ROOT/src/editor.c" "$ROOT/src/canvas.c" \
+    "$ROOT/src/tools.c" "$ROOT/src/history.c" "$ROOT/src/view.c" \
+    "$ROOT/src/dlginput.c" -o "$ROOT/build/filetest"
+(cd "$ROOT/build/iotest" && "$ROOT/build/filetest")
+"${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror \
+    -I"$ROOT/tests/stubs" -I"$ROOT/src" "$ROOT/tests/testui.c" \
+    "$ROOT/src/menu.c" "$ROOT/src/menudraw.c" "$ROOT/src/keymap.c" \
+    "$ROOT/src/dialog.c" "$ROOT/src/dlginput.c" "$ROOT/src/editor.c" \
+    "$ROOT/src/canvas.c" "$ROOT/src/tools.c" "$ROOT/src/history.c" \
+    "$ROOT/src/view.c" -o "$ROOT/build/uitest"
+"$ROOT/build/uitest"

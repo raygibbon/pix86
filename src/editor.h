@@ -3,6 +3,7 @@
 #include "canvas.h"
 #include "history.h"
 #include "view.h"
+#include "fileio.h"
 #define TOOL_PENCIL 0
 #define TOOL_ERASER 1
 #define TOOL_FILL 2
@@ -18,6 +19,9 @@ typedef struct Editor {
     Canvas canvas;
     unsigned char pixels[4096];
     History history;
+    unsigned char saved_pixels[4096];
+    unsigned saved_width, saved_height;
+    unsigned char saved_foreground, saved_background;
     View view;
     unsigned short *fill_queue;
     unsigned char foreground, background, stroke_colour;
@@ -31,4 +35,8 @@ int editor_init(Editor *editor, unsigned side, unsigned short *fill_queue);
 unsigned editor_mouse(Editor *editor, int x, int y, unsigned buttons);
 unsigned editor_key(Editor *editor, int key);
 void editor_finish(Editor *editor);
+void editor_mark_saved(Editor *editor);
+int editor_is_dirty(const Editor *editor);
+void editor_image(const Editor *editor, P86Image *image);
+int editor_load(Editor *editor, const P86Image *image);
 #endif

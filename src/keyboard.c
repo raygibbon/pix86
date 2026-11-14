@@ -8,8 +8,7 @@ int keyboard_poll(void)
         return -1;
     key = getch();
     if (key == 0 || key == 0xe0) {
-        (void)getch();
-        return -1;
+        return 256 + getch();
     }
     return key;
 }

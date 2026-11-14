@@ -14,6 +14,9 @@ Pix86 is an original pixel-art and frame-based animation editor, planned for DOS
 
 - [TDE source download](http://adoxa.altervista.org/tde/dl.php?f=source) can be consulted for DOS UI concepts (menus, dialogs, shortcuts, status lines, keyboard navigation).
 - Treat it as a functional and engineering reference; implement an original graphical user interface for Pix86. Do not copy TDE source or assets as part of this reference-only workflow.
+- The local M2.5 behaviour review is recorded in `docs/UI_DESIGN.md`. TDE and
+  LibreSprite remain reference-only: do not copy, port, translate or adapt their
+  code, structures, layouts or assets.
 - The public-domain description is not a substitute for reviewing the actual provenance and notices of any third-party material before intentional reuse.
 
 ## Non-negotiable clean-room policy
@@ -39,3 +42,13 @@ Pix86 is an original pixel-art and frame-based animation editor, planned for DOS
 ## Documentation
 
 Update the README and development notes when project scope changes. Document original architecture and decisions; cite reference software by name or URL without incorporating its implementation.
+
+## Interface and verification
+
+- Keep portable menu/key interpretation and filename editing separate from DOS
+  polling, VGA painting and file-format code. Do not add a widget framework.
+- Route overlays before editor input. Consume dismissal clicks and wait for
+  button release before resuming canvas strokes. Preserve cursor hide/repaint/show.
+- Run `scripts/test.sh`, `scripts/build.sh` and `scripts/dostest.sh`; execute
+  EDTEST, IOTEST and UITEST in DOSBox-X. IOTEST requires a disposable directory.
+- Keep menu/dialog source names DOS 8.3, buffers bounded and DGROUP below 64 KiB.

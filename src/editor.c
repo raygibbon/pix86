@@ -1,5 +1,6 @@
 #include <ctype.h>
 #include <stddef.h>
+#include <string.h>
 #include "editor.h"
 #include "tools.h"
 
@@ -27,6 +28,7 @@ int editor_init(Editor *editor, unsigned side, unsigned short *fill_queue)
     canvas_clear(&editor->canvas, editor->background);
     history_init(&editor->history, &editor->canvas);
     view_set(&editor->view, &editor->canvas, view_max_zoom(&editor->canvas));
+    editor_mark_saved(editor);
     return 1;
 }
 
@@ -157,4 +159,52 @@ unsigned editor_key(Editor *editor, int key)
         return EDIT_STATUS;
     }
     return 0;
+}
+
+void editor_mark_saved(Editor *editor)
+{
+    editor_finish(editor);
+    editor->saved_width = editor->canvas.width;
+    editor->saved_height = editor->canvas.height;
+    editor->saved_foreground = editor->foreground;
+    editor->saved_background = editor->background;
+    memcpy(editor->saved_pixels, editor->canvas.pixels,
+           editor->canvas.width * editor->canvas.height);
+}
+
+int editor_is_dirty(const Editor *editor)
+{
+    return editor->saved_width != editor->canvas.width ||
+           editor->saved_height != editor->canvas.height ||
+           editor->saved_foreground != editor->foreground ||
+           editor->saved_background != editor->background ||
+           memcmp(editor->saved_pixels, editor->canvas.pixels,
+                  editor->canvas.width * editor->canvas.height) != 0;
+}
+
+void editor_image(const Editor *editor, P86Image *image)
+{
+    image->width = editor->canvas.width;
+    image->height = editor->canvas.height;
+    image->foreground = editor->foreground;
+    image->background = editor->background;
+    memcpy(image->pixels, editor->pixels, image->width * image->height);
+}
+
+int editor_load(Editor *editor, const P86Image *image)
+{
+    if (image == NULL || image->width != image->height ||
+        (image->width != 16 && image->width != 32 && image->width != 64))
+        return 0;
+    editor_finish(editor);
+    canvas_init(&editor->canvas, image->width, image->height,
+                editor->pixels, sizeof(editor->pixels));
+    memcpy(editor->pixels, image->pixels, image->width * image->height);
+    editor->foreground = image->foreground;
+    editor->background = image->background;
+    editor->previous_buttons = 0;
+    history_init(&editor->history, &editor->canvas);
+    view_set(&editor->view, &editor->canvas, view_max_zoom(&editor->canvas));
+    editor_mark_saved(editor);
+    return 1;
 }

@@ -8,11 +8,6 @@ void render_ui(const Editor *editor)
     int tool, x, y;
     unsigned index;
     static const char *labels[4] = {"PEN", "ERS", "FIL", "PCK"};
-    video_rect(0, 0, 320, 16, 5);
-    sprintf(text, "PIX86 %ux%u  +/- ZOOM", editor->canvas.width,
-            editor->canvas.height);
-    video_text(4, 4, text, 15);
-    video_text(288, 4, "ESC", 15);
     video_rect(0, 16, 36, 176, 5);
     for (tool = 0; tool < 4; ++tool) {
         y = 24 + tool * 30;
@@ -81,15 +76,15 @@ void render_status(const Editor *editor, int mouse_x, int mouse_y, int has_mouse
     static const char *names[4] = {"PEN", "ERS", "FIL", "PCK"};
     video_rect(0, 192, 320, 8, 5);
     if (!has_mouse) {
-        video_text(0, 192, "NO MOUSE DRIVER - ESC TO EXIT", 15);
+        video_text(0, 192, "NO MOUSE - F10: MENU  ESC: EXIT", 15);
         return;
     }
     if (view_map(&editor->view, mouse_x, mouse_y, &x, &y))
         sprintf(coords, "%02d,%02d", x, y);
     else
         sprintf(coords, "--,--");
-    sprintf(text, "%s %s Z:%d G:%d FG:%03u U:%u R:%u", names[editor->tool], coords,
-            editor->view.zoom, editor->grid, (unsigned)editor->foreground,
+    sprintf(text, "%s %s %ux%u Z%d G%d U%u R%u", names[editor->tool], coords,
+            editor->canvas.width, editor->canvas.height, editor->view.zoom, editor->grid,
             editor->history.position,
             editor->history.count - editor->history.position - 1);
     video_text(0, 192, text, 15);

@@ -1,17 +1,19 @@
-# M2 architecture
+# M2.5 architecture
 
-Pix86 remains a 16-bit real-mode DOS application. M2 adds one indexed drawing
-canvas, four drawing tools, integer zoom, grid, palette selection and bounded
-undo/redo. Animation, file formats, saving/loading, layers, alternative graphics
-modes and additional platforms remain outside this milestone.
+Pix86 remains a 16-bit real-mode DOS application. M2.5 adds native project
+saving/loading, original filename/confirmation dialogs and exact saved-state
+tracking to M2's indexed canvas, tools, zoom and bounded undo. Animation, layers,
+non-native formats, alternative graphics modes and other platforms remain outside
+this milestone.
 
 ## Data and tools
 
 `canvas.c` owns the portable interface to caller-supplied pixel storage. A byte
 is a palette index, including 0 and 255. Get/set reject out-of-bounds coordinates;
 clear fills the canvas. The generic interface caps objects at 32767 bytes, while
-M2 restricts the session to a 16×16, 32×32 or 64×64 square (4096 bytes maximum).
-Size is selected at launch; there is no destructive runtime resize operation.
+The editor restricts a canvas to a 16×16, 32×32 or 64×64 square (4096 bytes maximum).
+Size is selected at launch, with New, or by opening a project. There is no
+resampling operation; New/Open reset history after user confirmation if dirty.
 
 `tools.c` contains independently callable pencil, eraser, fill and pick functions.
 Pencil connects sampled positions with an original integer error-accumulation
@@ -41,7 +43,8 @@ release, including the final release position. Fill and clear commit once.
 A no-op creates no history entry and preserves redo. A real edit after undo
 truncates redo; palette selection, picking, tools, grid and zoom do not edit art.
 Undo/redo copy pixel data only, leaving foreground/background and view unchanged.
-Canvas dimensions stay fixed, and history rejects a mismatched canvas.
+Canvas dimensions stay fixed between New/Open operations, which reset history;
+history rejects a mismatched canvas.
 
 `editor.c` owns application state and gesture handling, independently of DOS,
 mouse hardware or rendering. A stroke starts only on a new left press inside the
@@ -77,15 +80,80 @@ unchanged, with all indices exposed in M2 (some RGB entries intentionally repeat
 
 `mouse.c` owns INT 33h polling, null/IRET vector checks, driver reset, position
 and button reads. Mode 13h's 640-unit horizontal range is divided by two.
-`keyboard.c` owns nonblocking DOS console input and consumes extended-key pairs.
+`menu.c` owns portable keyboard/mouse menu state and bounded command descriptions;
+`menudraw.c` paints overlays. `keymap.c` interprets extended menu mnemonics.
+The editor remains unaware of these modules.
+`keyboard.c` owns nonblocking DOS console input and preserves extended-key
+pairs as 256 + BIOS scan code (F2=60, F3=61, Shift+F2=85). ASCII keys retain their
+existing values. Extended keys cannot accidentally enter filename strings.
 `cursor.c` saves/restores 64 bytes for the original pointer using only the video
 interface. `main.c` parses launch options, polls input, dispatches dirty render
-flags, and performs normal ESC cleanup. No interrupt handlers are installed.
+flags, dispatches file commands, and confirms dirty ESC before normal cleanup. No interrupt handlers are installed.
+
+## Native I/O and project state
+
+`fileio.c` defines a versioned binary format and bounds all dimensions/lengths
+before reading at most 4096 pixel bytes. It encodes little-endian integers
+explicitly; no C structs are serialized. [FILE_FORMAT.md](FILE_FORMAT.md) is the
+independent reader specification, including the implicit fixed palette and
+future-version boundaries. Version 1 has one image, no animation or palette RGB
+block. The low-level decoder writes caller-owned scratch; failed scratch contents
+are unspecified and are never applied to live art.
+
+The file adapter accepts bounded DOS 8.3 paths, supplies .P86, canonicalizes case,
+rejects device names and uses exclusive temporary creation. DOS uses the Watcom
+CRT's `_open`/`_fdopen`/`_stat`; the host test adapter uses POSIX equivalents. This
+single module is compiled with Watcom `-ze` for those declarations; the remaining
+application modules retain strict ANSI mode `-za`. There is no new library.
+
+A save checks every fwrite, fflush and fclose before touching an existing target.
+A completed same-directory TMP is installed by rename. Replacement first renames
+the old target to a free BAK, then installs the TMP, then removes BAK. On failed
+installation, it attempts to restore BAK; if rollback also fails it retains both
+old BAK and new TMP and reports their paths. Failure to remove an old backup after
+successful installation is a warning/success, not a failed save. Directories and
+inaccessible targets are rejected. This supports single-writer DOS, not concurrent
+writers or power-failure atomicity. Recovery details and filename limits are in
+the format document; stale recovery files are never automatically discarded.
+
+`project.c` ties file operations to an Editor using one shared P86Image scratch
+buffer and a bounded current filename. A failed load never applies scratch.
+A successful load replaces pixels/dimensions/FG/BG, resets history, recentres at
+maximum fitting zoom, and records the saved baseline. A save records a new
+baseline/current filename only after successful installation (including the
+retained-backup warning case). A failed write leaves both unchanged. New resets
+to an unnamed blank canvas. Saving commits any held stroke before capture.
+
+`editor.c` keeps a separate saved-pixel snapshot and saved dimensions/FG/BG.
+`editor_is_dirty` compares actual content, not history position or a hash. It
+therefore recognizes a return to saved art even when the original history entry
+has expired, and it cannot confuse another edit at the same history position
+with saved art. FG/BG are persisted selections, so changing them also marks the
+project dirty; view/tool choices do not. A new blank canvas is an untitled clean
+baseline until content/selections change.
+
+`dlginput.c` is portable filename editing state: selected prefill, bounded insertion,
+Backspace/Delete and Left/Right/Home/End. `dialog.c` draws centred VGA boxes and
+polls keyboard/mouse input without knowing file parsing. Tab/Shift+Tab select
+controls; fresh mouse presses activate buttons or place the text cursor. The
+34-character filename window follows the insertion cursor. Destructive prompts
+default to Cancel; Y explicitly approves. New offers the three canvas sizes.
+All modal exits repaint the entire workspace with the cursor hidden. Main routes
+menus before editor commands, consumes outside clicks and blocks held buttons
+until release. Menu overlays have no screen-sized backing buffer. See
+[UI_DESIGN.md](UI_DESIGN.md) for interaction details and reference provenance.
+
+F2 saves the current name (or prompts), Shift+F2 always prompts, F3 opens, and N
+starts a new canvas. Existing targets always require overwrite confirmation.
+New/Open/Exit require explicit discard confirmation when dirty. Cancel or failed
+Open preserves current artwork/name; users can cancel Exit, save, then exit.
+Success/failure and retained recovery paths are displayed and acknowledged.
 
 ## 16-bit memory budget
 
 The build retains `wcl -bt=dos -ms -0`: 16-bit DOS, small model, 8086 instructions,
-with a 4096-byte stack. No DPMI, extender, graphics framework or new dependency
+with a 4096-byte stack. Only the file adapter enables CRT extension declarations.
+No DPMI, extender, graphics framework or new dependency
 is used. All DOS-facing source and executable names fit 8.3.
 
 | Fixed application buffer | Bytes |
@@ -93,20 +161,24 @@ is used. All DOS-facing source and executable names fit 8.3.
 | Canvas, reserved for largest size | 4096 |
 | Five history slots | 20480 |
 | Fill queue, 4096 16-bit offsets | 8192 |
+| Exact saved-pixel baseline | 4096 |
+| Shared load/save scratch pixels | 4096 |
 | Cursor saved pixels | 64 |
-| Total pixel/history/work buffers | 32832 |
+| Total pixel/history/work buffers | 41024 |
 
 The Editor object adds small metadata; the fill queue is a separate static
 object to keep individual near objects below 32767 bytes. Smaller canvases
 retain the same fixed reservation. Large objects are static, never automatic;
-there is no application heap allocation and no full-screen shadow buffer.
+there is no explicit application heap allocation and no full-screen shadow
+buffer. Standard stdio may allocate bounded runtime buffering internally.
 The link map, including runtime code/data and the 4096-byte stack, reports about
-54 KiB; DGROUP remains below 64 KiB. Exact measured values are in TESTING.md.
+80 KiB in total; code and DGROUP each remain below 64 KiB. DGROUP is about
+48 KiB, leaving room within the near segment for runtime file buffering. Exact measured values are in TESTING.md.
 The executable file is smaller because DOS zero-initializes BSS. Loader/PSP,
 environment and runtime bookkeeping are additional to the linked footprint.
 
-Launch from a DOS text mode (0..3 or 7) on VGA hardware/emulation. ESC saves no
-artwork, resets an initialized mouse driver and restores the prior BIOS mode,
+Launch from a DOS text mode (0..3 or 7) on VGA hardware/emulation. Confirmed ESC
+resets an initialized mouse driver and restores the prior BIOS mode,
 active page, text cursor position and shape. Restoration clears prior screen
 contents; custom fonts/palettes and previous text contents are not preserved.
 Abrupt process termination/emulator closure is outside normal cleanup.
@@ -132,5 +204,11 @@ Abrupt process termination/emulator closure is outside normal cleanup.
   and launch options. The emulator is a test tool, not a shipped dependency.
 
 GrafX2 and Autodesk Animator/Animator Pro remain functional references only.
-Neither their source nor their assets were consulted or incorporated for M1 or M2.
+Neither their source nor their assets were consulted or incorporated. LibreSprite
+and TDE also remain workflow/UI references only. A limited local TDE source
+distribution review identified user-facing behaviours; no implementation or assets
+were copied, translated or adapted. Exact reference files and the independent
+Pix86 design are recorded in UI_DESIGN.md. Zine's util.c was inspected for DOS filename/case
+and standard file-handling conventions. No implementation was reused; Pix86's
+checked-write/replacement strategy and format are original.
 The workspace, pointer, swatches and module implementations are original.
