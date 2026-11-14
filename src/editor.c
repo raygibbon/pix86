@@ -1,4 +1,4 @@
-#include <ctype.h>
+#include "command.h"
 #include <stddef.h>
 #include <string.h>
 #include "editor.h"
@@ -117,9 +117,7 @@ unsigned editor_mouse(Editor *editor, int x, int y, unsigned buttons)
 unsigned editor_key(Editor *editor, int key)
 {
     int zoom, tool;
-    if (key < 0 || key > 255)
-        return 0;
-    key = tolower((unsigned char)key);
+    key = keyboard_command(key);
     tool = -1;
     if (key == 'p') tool = TOOL_PENCIL;
     if (key == 'e') tool = TOOL_ERASER;
@@ -141,15 +139,15 @@ unsigned editor_key(Editor *editor, int key)
         history_commit(&editor->history, &editor->canvas);
         return EDIT_CANVAS | EDIT_STATUS;
     }
-    if (key == 'u' || key == 26 || key == 'r' || key == 25) {
+    if (key == CMD_UNDO || key == CMD_REDO) {
         editor_finish(editor);
-        if (key == 'u' || key == 26)
+        if (key == CMD_UNDO)
             history_undo(&editor->history, &editor->canvas);
         else
             history_redo(&editor->history, &editor->canvas);
         return EDIT_CANVAS | EDIT_STATUS;
     }
-    if (key == '+' || key == '=' || key == '-') {
+    if (key == CMD_ZOOM_IN || key == CMD_ZOOM_OUT) {
         editor_finish(editor);
         zoom = editor->view.zoom + (key == '-' ? -1 : 1);
         if (view_set(&editor->view, &editor->canvas, zoom))

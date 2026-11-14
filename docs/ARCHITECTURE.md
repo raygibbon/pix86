@@ -57,7 +57,8 @@ Right-click canvas picks colour; right-click palette configures the background.
 ## View, rendering and platform boundaries
 
 `view.c` calculates integer zoom, centred origins and mouse-to-canvas coordinates.
-The drawing area is x=24..245, y=14..189. All zooms from 1 to the largest fitting
+Shared `layout.h` defines the drawing area x=24..245, y=14..189, compact
+tool hit boxes, palette and menu/status boundaries. All zooms from 1 to the largest fitting
 integer are accepted: maximum 11, 5 or 2 for the three sizes respectively.
 Mapping uses half-open bounds; the last displayed pixel belongs to the last
 canvas cell. Long subtraction protects negative/outside screen coordinates.
@@ -67,9 +68,9 @@ Grid pixels map to their containing cell. Palette hit testing maps the right
 `render.c` draws toolbar, palette, foreground/background swatches, software canvas
 and status through the video interface. Grid lines are view-only at zoom >=2,
 and can be disabled. Pencil/eraser redraw only the affected bounding rectangle;
-fill, history and view changes redraw the canvas. Zoom redraw clears the old
-canvas area. The cursor is hidden before changing any screen pixels and shown
-afterwards, so its saved pixels cannot overwrite an edit.
+fill, history and view changes redraw the canvas. Zoom restores only the area outside the new art rectangle, then paints final
+pixels/grid directly. Cursor protection hides the pointer only for an intersecting
+repaint; unchanged pointer positions perform no VGA reads or writes.
 
 `video.c` exclusively owns VGA memory, BIOS video calls and DAC I/O. It checks
 Mode 13h entry, clips drawing, and uses unsigned offsets up to 63999 for VGA.
@@ -95,6 +96,30 @@ See UI_DESIGN.md for layout/queued-modifier limitations and factual references.
 `cursor.c` saves/restores 64 bytes for the original pointer using only the video
 interface. `main.c` parses launch options, polls input, dispatches dirty render
 flags, dispatches file commands, and confirms dirty ESC before normal cleanup. No interrupt handlers are installed.
+
+## UI state, layout and invalidation
+
+`ui.c` owns the live Menu and held-button suppression state; it has no document,
+file or video dependency. Dialog focus/input state is local to each synchronous
+modal invocation. `main.c` executes routed file/help/editor commands.
+`dlggeom.c` computes bounded content-sized dialog rectangles; `dlginput.c` edits
+text without painting. `uipaint.c` shares thin borders and flat highlighted
+buttons; menu rows and filename fields use opaque font cells with local clipping.
+
+`screen.c` caches the previous visible menu, tool/colours, status string and
+bounded basename (80 bytes with 16-bit ints). It compares state and emits only
+changed rows, controls and status character runs. `region.c` subtracts the new
+menu bounds from the old bounds into at most four disjoint exposed rectangles.
+`render_restore` clips model repainting to each rectangle; no saved-screen
+allocation, damage queue or framebuffer is needed. Actual document flags still
+select full-canvas updates for history/zoom/fill and bounded stroke updates for
+pencil/eraser. There is one full-screen clear, at startup.
+
+The bottom status row uses 53 complete six-pixel cells. It shows a 12-character
+DOS basename, dirty marker, dimensions, coordinates, tool, FG/BG and zoom;
+paths remain fully available in the filename field and project model. The
+workspace is unchanged at 222x176. A future timeline can reserve layout space
+without changing canvas/file storage; no timeline is implemented here.
 
 ## Native I/O and project state
 
@@ -143,11 +168,12 @@ Backspace/Delete and Left/Right/Home/End. `dialog.c` draws centred VGA boxes and
 polls keyboard/mouse input without knowing file parsing. Tab/Shift+Tab select
 controls; fresh mouse presses activate buttons or place the text cursor.
 Idle polling moves/restores the software cursor without repainting the box. The
-39-character filename window follows the insertion cursor. Destructive prompts
+32-character filename window follows the insertion cursor. Destructive prompts
 default to Cancel; Y explicitly approves. New offers the three canvas sizes.
-All modal exits repaint the entire workspace with the cursor hidden. Main routes
-menus before editor commands, consumes outside clicks and blocks held buttons
-until release. Menu overlays have no screen-sized backing buffer. See
+Each modal exit restores only its box from the editor model through a VGA clip.
+`ui.c` routes overlays before commands, consumes outside clicks and blocks held
+buttons until release. `keymap.c` maps shortcut aliases to the logical constants
+in `command.h`; editor operations and menu descriptions share those commands. Menu overlays have no screen-sized backing buffer. See
 [UI_DESIGN.md](UI_DESIGN.md) for interaction details and reference provenance.
 
 F2 saves the current name (or prompts), Shift+F2 always prompts, F3 opens, and N
@@ -180,7 +206,7 @@ retain the same fixed reservation. Large objects are static, never automatic;
 there is no explicit application heap allocation and no full-screen shadow
 buffer. Standard stdio may allocate bounded runtime buffering internally.
 The link map, including runtime code/data and the 4096-byte stack, reports about
-81 KiB in total; code and DGROUP each remain below 64 KiB. DGROUP is about
+86 KiB in total; code and DGROUP each remain below 64 KiB. DGROUP is about
 48 KiB, leaving room within the near segment for runtime file buffering. Exact measured values are in TESTING.md.
 The executable file is smaller because DOS zero-initializes BSS. Loader/PSP,
 environment and runtime bookkeeping are additional to the linked footprint.

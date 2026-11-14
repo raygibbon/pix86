@@ -1,3 +1,5 @@
+#include <ctype.h>
+#include "command.h"
 #include "keyboard.h"
 /* Portable key interpretation; DOS BIOS-word acquisition stays in keyboard.c. */
 int keyboard_menu(int key)
@@ -27,4 +29,20 @@ int keyboard_decode(unsigned word, unsigned shifts)
         return KEY_MENU;
     if (ascii == 0 || ascii == 0xe0) return 256 + (int)scan;
     return (int)ascii;
+}
+
+int keyboard_command(int key)
+{
+    if(key>=0 && key<=255) key=tolower((unsigned char)key);
+    if(key=='u') return CMD_UNDO;
+    if(key=='r') return CMD_REDO;
+    if(key=='=') return CMD_ZOOM_IN;
+    switch(key) {
+    case CMD_NEW: case CMD_OPEN: case CMD_SAVE: case CMD_SAVE_AS:
+    case CMD_EXIT: case CMD_UNDO: case CMD_REDO: case CMD_CLEAR:
+    case CMD_GRID: case CMD_ZOOM_IN: case CMD_ZOOM_OUT:
+    case CMD_PENCIL: case CMD_ERASER: case CMD_FILL: case CMD_PICK:
+    case CMD_HELP: case CMD_ABOUT: return key;
+    default: return CMD_NONE;
+    }
 }

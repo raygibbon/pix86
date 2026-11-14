@@ -55,6 +55,15 @@ int main(void)
     video_text(0,INT_MAX,"A",1); video_text(INT_MIN,0,"A",1);
     video_text(0,-8,"A",1); video_text(320,0,"A",1);
     video_text(0,0,NULL,1); assert(before==writes);
+    assert(font_width("Save As")==7*FONT_WIDTH && font_width(NULL)==0);
+    memset(screen,99,sizeof(screen));
+    video_text_box(3,4,7,5,"ABCD",173,2);
+    for(y=0;y<200;++y) for(x=0;x<320;++x) {
+        if(x>=3 && x<10 && y>=4 && y<9) assert(screen[y*320+x]==2 || screen[y*320+x]==173);
+        else assert(screen[y*320+x]==99);
+    }
+    video_text_bg(20,20,"  ",1,2);
+    for(y=20;y<28;++y) for(x=20;x<32;++x) assert(screen[y*320+x]==2);
     memset(screen,0,sizeof(screen)); video_text(0,0,"?",173); memcpy(reference,screen,sizeof(screen));
     memset(screen,0,sizeof(screen)); text[0]=(char)255; video_text(0,0,text,173);
     assert(!memcmp(screen,reference,sizeof(screen)));

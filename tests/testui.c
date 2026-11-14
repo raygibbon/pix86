@@ -12,7 +12,7 @@
 
 typedef struct Event { int key, x, y; unsigned buttons; } Event;
 static Event events[128];
-static int count, current, visible;
+static int count, current, visible, cursor_x, cursor_y;
 static unsigned draws, poll_draws;
 static Editor editor;
 static unsigned short queue[4096];
@@ -39,16 +39,31 @@ void mouse_poll(MouseState *mouse)
 }
 void delay(unsigned ms) { (void)ms; }
 void cursor_hide(void) { visible = 0; }
-void cursor_show(int x, int y) { (void)x; (void)y; visible = 1; }
+void cursor_show(int x, int y) { cursor_x=x; cursor_y=y; visible=1; }
+static int overlaps(int x,int y,int w,int h)
+{ return visible && x<cursor_x+8 && x+w>cursor_x && y<cursor_y+8 && y+h>cursor_y; }
+void cursor_protect(int x,int y,int w,int h) { if(overlaps(x,y,w,h)) cursor_hide(); }
+void render_restore(const Editor *e,const Rect *r) { (void)e; cursor_protect(r->x,r->y,r->w,r->h); }
 void video_rect(int x, int y, int w, int h, unsigned char colour)
 {
-    assert(!visible && x >= 0 && y >= 0 && x+w <= 320 && y+h <= 200);
+    assert(!overlaps(x,y,w,h) && x >= 0 && y >= 0 && x+w <= 320 && y+h <= 200);
     (void)colour; ++draws;
 }
 void video_text(int x, int y, const char *text, unsigned char colour)
 {
-    assert(!visible && x >= 0 && y >= 0 && x+(int)strlen(text)*FONT_WIDTH <= 320 && y+8 <= 200);
+    assert(!overlaps(x,y,(int)strlen(text)*FONT_WIDTH,FONT_HEIGHT) && x >= 0 && y >= 0 && x+(int)strlen(text)*FONT_WIDTH <= 320 && y+8 <= 200);
     (void)colour; ++draws;
+}
+void video_text_bg(int x,int y,const char *text,unsigned char ink,unsigned char paper)
+{ (void)paper; video_text(x,y,text,ink); }
+void video_text_box(int x,int y,int width,int height,const char *text,unsigned char ink,unsigned char paper)
+{ assert(font_width(text)<=width && height>=FONT_HEIGHT); video_text_bg(x,y,text,ink,paper); }
+static void add_button(int kind,const char *title,const char *body,int accept)
+{
+    DialogLayout l;
+    Rect r;
+    dialog_layout(&l,kind,title,body); r=accept?l.accept:l.cancel;
+    add(-1,r.x+4,r.y+2,1);
 }
 static void menus(void)
 {
@@ -149,11 +164,14 @@ static void dialogs(void)
 {
     char path[FILE_PATH_MAX];
     FileReport report;
+    DialogLayout file,newlayout;
     unsigned i;
+    dialog_layout(&file,DIALOG_FILE,"Save",DIALOG_FILE_HINT);
+    dialog_layout(&newlayout,DIALOG_NEW,"New canvas",DIALOG_NEW_CHOICES);
     dialog_mouse(1);
     start(); add('A',0,0,0); add(KEY_LEFT,0,0,0); add('B',0,0,0); add(13,0,0,0);
     assert(dialog_filename("Save", "OLD.P86", path) && !strcmp(path,"BA"));
-    start(); add(-1,DIALOG_TEXT_X+FONT_WIDTH,86,1); add('X',0,0,0); add(13,0,0,0);
+    start(); add(-1,file.field.x+FONT_WIDTH,file.field.y+2,1); add('X',0,0,0); add(13,0,0,0);
     assert(dialog_filename("Save", "ABC", path) && !strcmp(path,"AXBC"));
     start(); add(-1,0,0,0); add(-1,0,0,0); add(27,0,0,0);
     assert(!dialog_filename("Open", "", path));
@@ -161,22 +179,22 @@ static void dialogs(void)
     assert(!dialog_filename("Open", "OLD.P86", path) && !strcmp(path,"UNCHANGED"));
     start(); for (i=0;i<79;++i) add('X',0,0,0); add(KEY_HOME,0,0,0); add(KEY_END,0,0,0); add(13,0,0,0);
     assert(dialog_filename("Save", "", path) && strlen(path)==79);
-    start(); add(9,0,0,0); add(9,0,0,0); add(-1,DIALOG_ACCEPT_X+4,DIALOG_BUTTON_Y+2,1);
+    start(); add(9,0,0,0); add(9,0,0,0); add_button(DIALOG_FILE,"Save",DIALOG_FILE_HINT,1);
     assert(dialog_filename("Save", "FILE.P86", path)); /* OK from Cancel focus */
-    start(); add(-1,DIALOG_CANCEL_X+4,DIALOG_BUTTON_Y+2,1); assert(!dialog_filename("Save", "FILE", path));
+    start(); add_button(DIALOG_FILE,"Save",DIALOG_FILE_HINT,0); assert(!dialog_filename("Save", "FILE", path));
     start(); add(13,0,0,0); assert(!dialog_confirm("Unsaved", "Discard?"));
     start(); add(9,0,0,0); add(13,0,0,0); assert(dialog_confirm("Overwrite", "FILE.P86"));
     start(); add('y',0,0,0); assert(dialog_confirm("Unsaved", "Discard?"));
     start(); add(27,0,0,0); assert(!dialog_confirm("Unsaved", "Discard?"));
-    start(); add(-1,DIALOG_ACCEPT_X+4,DIALOG_BUTTON_Y+2,1); assert(dialog_confirm("Overwrite", "FILE.P86"));
-    start(); add(-1,DIALOG_CANCEL_X+4,DIALOG_BUTTON_Y+2,1); assert(!dialog_confirm("Unsaved", "Discard?"));
+    start(); add_button(DIALOG_CONFIRM,"Overwrite","FILE.P86",1); assert(dialog_confirm("Overwrite", "FILE.P86"));
+    start(); add_button(DIALOG_CONFIRM,"Unsaved","Discard?",0); assert(!dialog_confirm("Unsaved", "Discard?"));
     start(); add(KEY_RIGHT,0,0,0); add(13,0,0,0); assert(dialog_new_size(16)==32);
-    start(); add(-1,DIALOG_TEXT_X+150,70,1); add(-1,DIALOG_TEXT_X+150,70,0); add(-1,DIALOG_ACCEPT_X+4,DIALOG_BUTTON_Y+2,1); assert(dialog_new_size(16)==64);
+    start(); add(-1,newlayout.body.x+17*FONT_WIDTH,newlayout.body.y+2,1); add(-1,newlayout.body.x+17*FONT_WIDTH,newlayout.body.y+2,0); add_button(DIALOG_NEW,"New canvas",DIALOG_NEW_CHOICES,1); assert(dialog_new_size(16)==64);
     start(); add(27,0,0,0); assert(!dialog_new_size(32));
     memset(&report,0,sizeof(report));
     memset(report.backup,'B',FILE_PATH_MAX-1); memset(report.temporary,'T',FILE_PATH_MAX-1);
-    start(); add(-1,DIALOG_ACCEPT_X+4,DIALOG_BUTTON_Y+2,1); dialog_message("Recovery", "Retain backup and temporary", &report);
-    assert(!visible && draws);
+    start(); add(13,0,0,0); dialog_message("Recovery", "Retain backup and temporary", &report);
+    assert(draws);
 }
 int main(void)
 {

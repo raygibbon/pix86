@@ -101,29 +101,36 @@ static const unsigned char glyphs[95][8] = {
     {0x00, 0x00, 0x09, 0x16, 0x00, 0x00, 0x00, 0x00}, /* 126 */
 };
 
-void video_text(int x, int y, const char *text, unsigned char colour)
+static void text_draw(int x, int y, long right, long bottom, const char *text,
+                      unsigned char ink, unsigned char paper, int opaque)
 {
     long pen, px, py;
-    int row, col;
+    int row, col, bit;
     unsigned code;
-    unsigned char bits;
-    if (text == 0 || y >= VIDEO_HEIGHT || y <= -FONT_HEIGHT) return;
-    pen = x;
-    while (*text && pen < VIDEO_WIDTH) {
-        code = (unsigned char)*text++;
-        if (code < 32 || code > 126) code = '?';
-        if (pen > -FONT_WIDTH) {
-            for (row = 0; row < FONT_HEIGHT; ++row) {
-                py = (long)y + row;
-                if (py < 0 || py >= VIDEO_HEIGHT) continue;
-                bits = glyphs[code - 32][row];
-                for (col = 0; col < 5; ++col) {
-                    px = pen + col;
-                    if (px >= 0 && px < VIDEO_WIDTH && (bits & (16U >> col)))
-                        video_pixel((int)px, (int)py, colour);
-                }
+    if(!text || y >= VIDEO_HEIGHT || y <= -FONT_HEIGHT || right <= x || bottom <= y) return;
+    pen=x;
+    while(*text && pen < VIDEO_WIDTH && pen < right) {
+        code=(unsigned char)*text++;
+        if(code<32 || code>126) code='?';
+        if(pen > -FONT_WIDTH) for(row=0; row<FONT_HEIGHT; ++row) {
+            py=(long)y+row;
+            if(py<0 || py>=VIDEO_HEIGHT || py>=bottom) continue;
+            for(col=0; col<FONT_WIDTH; ++col) {
+                px=pen+col;
+                bit=col<5 && (glyphs[code-32][row] & (16U>>col));
+                if(px>=0 && px<VIDEO_WIDTH && px<right && (bit || opaque))
+                    video_pixel((int)px,(int)py,bit?ink:paper);
             }
         }
-        pen += FONT_WIDTH;
+        pen+=FONT_WIDTH;
     }
+}
+void video_text(int x,int y,const char *text,unsigned char colour)
+{ text_draw(x,y,VIDEO_WIDTH,VIDEO_HEIGHT,text,colour,0,0); }
+void video_text_bg(int x,int y,const char *text,unsigned char ink,unsigned char paper)
+{ text_draw(x,y,VIDEO_WIDTH,VIDEO_HEIGHT,text,ink,paper,1); }
+void video_text_box(int x,int y,int width,int height,const char *text,
+                    unsigned char ink,unsigned char paper)
+{
+    if(width>0 && height>0) text_draw(x,y,(long)x+width,(long)y+height,text,ink,paper,1);
 }

@@ -48,13 +48,18 @@ Update the README and development notes when project scope changes. Document ori
 - Keep portable menu/key interpretation and filename editing separate from DOS
   polling, VGA painting and file-format code. Do not add a widget framework.
 - Route overlays before editor input. Consume dismissal clicks and wait for
-  button release before resuming canvas strokes. Preserve cursor hide/repaint/show.
+  button release before resuming canvas strokes. Protect the cursor only when repaint bounds intersect it.
 - Run `scripts/test.sh`, `scripts/build.sh` and `scripts/dostest.sh`; execute
   EDTEST, IOTEST, UITEST and KBDTEST in DOSBox-X. IOTEST requires a disposable directory.
 - Keep menu/dialog source names DOS 8.3, buffers bounded and DGROUP below 64 KiB.
 
 - Interface text uses the original `font.c` 6x8 glyphs, never a copied or scaled
-  reference font. Share font metrics and hit geometry when changing controls.
+  reference font. Share font metrics and hit geometry in `layout.h` when changing controls.
 - Keep Ctrl+\ menu activation in BIOS decoding/keymap, including scan codes;
   preserve plain and AltGr path separators. Record tested layouts and limits.
 - UI theme indices must not change the fixed artwork DAC palette.
+
+- Keep shortcut aliases in keymap.c and route overlays through ui.c before
+  application commands. Keep logical commands independent from file formats.
+- No ordinary menu/modal full-screen clears or polling-driven paints. Preserve
+  testpaint's idle-write, exact restoration and intercepted-Escape regressions.

@@ -3,7 +3,7 @@
 A lightweight, DOS-native pixel-art and frame-by-frame animation editor for game creators.
 
 **Status:** M2.5 pixel editor with compact 6x8 text, keyboard/mouse menus, file dialogs
-and native .P86 saving/loading, targeting
+dirty-region rendering and native .P86 saving/loading, targeting
 16-bit real-mode DOS.
 
 Draw on a 16×16, 32×32 or 64×64 indexed canvas with pencil, eraser, four-connected
@@ -13,6 +13,13 @@ software memory. Save and reopen native `.P86` projects, including canvas size
 and foreground/background selections. Animation and layers are not implemented.
 
 ![Compact Pix86 workspace in DOSBox-X at 2x display size](docs/UI.PNG)
+
+[File menu](docs/FILEMENU.PNG) · [Filename dialog](docs/DIALOG.PNG) ·
+[Confirmation](docs/CONFIRM.PNG) · [Before/after design notes](docs/REFACTOR.md)
+
+Menus repaint only changed rows; dialogs remain unchanged while idle and restore
+only the covered editor region when closed. The cursor is saved/restored only
+when it moves or a repaint intersects it. No full-screen shadow buffer is used.
 
 ## Build on Linux
 
@@ -90,10 +97,10 @@ and swatch. These selections do not alter existing pixels. Palette RGB editing
 is outside M2. The narrow toolbar and 64x96 palette leave a 222x176 drawing
 region. Text uses an original crisp 6x8 bitmap font; UI colours use existing
 palette entries so saved artwork retains its colours. The single compact status
-line shows dimensions, coordinates, tool, FG/BG, zoom,
-grid, modified state and history; `X--Y--`
-means the pointer is outside the canvas. `G` shows grid state; `U` and `R` show
-available history counts. Grid lines belong to the view, never the artwork.
+line shows filename, modified state, dimensions, coordinates, tool, FG/BG and
+zoom; `X--Y--`
+means the pointer is outside the canvas. Grid lines belong to the view, never
+the artwork. Tool rows are 10 pixels high, and menu rows are 9 pixels high.
 
 The canvas is centred, initially at the largest fitting zoom: 11× for 16×16,
 5× for 32×32 and 2× for 64×64. Zoom 1× is available for every size. Drawing pauses

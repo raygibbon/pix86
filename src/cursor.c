@@ -18,6 +18,7 @@ void cursor_hide(void)
 void cursor_show(int x, int y)
 {
     int xx, yy;
+    if (visible && x == cursor_x && y == cursor_y) return;
     cursor_hide();
     cursor_x = x;
     cursor_y = y;
@@ -30,4 +31,11 @@ void cursor_show(int x, int y)
             video_pixel(x + xx, y + yy,
                         (xx == 0 || xx == yy / 2 + 1 || yy == 6) ? 0 : 15);
     visible = 1;
+}
+
+void cursor_protect(int x,int y,int width,int height)
+{
+    if(visible && width>0 && height>0 && (long)x+width>cursor_x &&
+       x<(long)cursor_x+8 && (long)y+height>cursor_y && y<(long)cursor_y+8)
+        cursor_hide();
 }
