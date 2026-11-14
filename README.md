@@ -15,7 +15,10 @@ and foreground/background selections. Animation and layers are not implemented.
 ![Compact Pix86 workspace in DOSBox-X at 2x display size](docs/UI.PNG)
 
 [File menu](docs/FILEMENU.PNG) · [Filename dialog](docs/DIALOG.PNG) ·
-[Confirmation](docs/CONFIRM.PNG) · [Before/after design notes](docs/REFACTOR.md)
+[Confirmation](docs/CONFIRM.PNG) · [Before/after refinement](docs/REFINE.md)
+
+[All 256 colours](docs/PALETTE.PNG) · [Grid](docs/GRID.PNG) ·
+[Font at native resolution](docs/FONT.PNG)
 
 Menus repaint only changed rows; dialogs remain unchanged while idle and restore
 only the covered editor region when closed. The cursor is saved/restored only
@@ -79,7 +82,9 @@ only `PIX86.EXE` to DOS; no runtime DLL or data assets are needed.
 | Left-click palette | Select foreground (FG) |
 | Right-click palette | Configure eraser/clear background (BG) |
 | + / = and - | Increase/decrease integer zoom within workspace limits |
-| G | Toggle pixel grid (visible at zoom 2 and above) |
+| G | Toggle subtle pixel grid (initially off, visible at zoom 2 and above) |
+| A / B | All 256 colours, foreground / background |
+| [ / ] | Previous / next working foreground colour |
 | U / Ctrl+Z | Undo |
 | R / Ctrl+Y | Redo |
 | C | Clear to BG, undoable |
@@ -91,16 +96,21 @@ only `PIX86.EXE` to DOS; no runtime DLL or data assets are needed.
 | N | New canvas; select 16×16, 32×32 or 64×64 |
 | ESC | Exit; confirm before discarding unsaved changes |
 
-All 256 indices appear in the right-hand 16×16 palette. The selected foreground
-has a bright outline, numeric label and swatch; background has a separate label
-and swatch. These selections do not alter existing pixels. Palette RGB editing
-is outside M2. The narrow toolbar and 64x96 palette leave a 222x176 drawing
-region. Text uses an original crisp 6x8 bitmap font; UI colours use existing
+Sixteen large working swatches stay visible in the sidebar. A/B opens the
+full 256-colour picker for foreground/background; arrows and Enter choose an
+index, Tab switches the target, and Escape cancels. Left/right click selects
+FG/BG in either palette. [ and ] cycle working foreground colours. New indices
+are remembered in eight recent slots, alongside eight stable defaults. These
+selections never remap existing pixels or edit the artwork DAC palette.
+
+The grouped tool/colour sidebar leaves a 274x176 drawing region. Text uses an original crisp 6x8 bitmap font; UI colours use existing
 palette entries so saved artwork retains its colours. The single compact status
 line shows filename, modified state, dimensions, coordinates, tool, FG/BG and
-zoom; `X--Y--`
-means the pointer is outside the canvas. Grid lines belong to the view, never
+zoom; `X--Y--` means the pointer is outside the canvas. Grid lines belong to the view, never
 the artwork. Tool rows are 10 pixels high, and menu rows are 9 pixels high.
+Grid starts off;
+G shows a subtle shaded dot grid at integer pixel boundaries. Help → Font sample
+displays all supported characters.
 
 The canvas is centred, initially at the largest fitting zoom: 11× for 16×16,
 5× for 32×32 and 2× for 64×64. Zoom 1× is available for every size. Drawing pauses

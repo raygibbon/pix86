@@ -11,7 +11,7 @@ mkdir -p "$ROOT/build" "$ROOT/mnt"
 cd "$ROOT/build"
 wcl -bt=dos -ms -0 -za -wx -w4 -os -k4096 -I"$ROOT/src" \
     "$ROOT/tests/testedit.c" "$ROOT/src/canvas.c" "$ROOT/src/tools.c" \
-    "$ROOT/src/history.c" "$ROOT/src/view.c" "$ROOT/src/editor.c" "$ROOT/src/keymap.c" \
+    "$ROOT/src/history.c" "$ROOT/src/view.c" "$ROOT/src/workpal.c" "$ROOT/src/editor.c" "$ROOT/src/keymap.c" \
     -fe="$ROOT/mnt/EDTEST.EXE"
 # File adapter uses exclusive-create/stat/fdopen CRT extensions. Fault wrappers
 # are linked only into this separate test executable, never PIX86.EXE.
@@ -22,14 +22,14 @@ wcc -bt=dos -ms -0 -ze -wx -w4 -os -I"$ROOT/src" \
 wcl -bt=dos -ms -0 -ze -wx -w4 -os -k4096 -DIO_FAULTS -I"$ROOT/src" \
     "$ROOT/tests/testfile.c" faultio.o "$ROOT/src/project.c" \
     "$ROOT/src/editor.c" "$ROOT/src/keymap.c" "$ROOT/src/canvas.c" "$ROOT/src/tools.c" \
-    "$ROOT/src/history.c" "$ROOT/src/view.c" "$ROOT/src/dlginput.c" \
+    "$ROOT/src/history.c" "$ROOT/src/view.c" "$ROOT/src/workpal.c" "$ROOT/src/dlginput.c" \
     -fe="$ROOT/mnt/IOTEST.EXE"
 # Scripted UI events use real 16-bit arithmetic; hardware is replaced by mocks.
 wcl -bt=dos -ms -0 -za -wx -w4 -os -k4096 -I"$ROOT/tests/stubs" -I"$ROOT/src" \
     "$ROOT/tests/testui.c" "$ROOT/src/textsize.c" "$ROOT/src/dlggeom.c" "$ROOT/src/menu.c" "$ROOT/src/menudraw.c" "$ROOT/src/uipaint.c" \
     "$ROOT/src/keymap.c" "$ROOT/src/dialog.c" "$ROOT/src/dlginput.c" \
     "$ROOT/src/editor.c"  "$ROOT/src/canvas.c" "$ROOT/src/tools.c" \
-    "$ROOT/src/history.c" "$ROOT/src/view.c" -fe="$ROOT/mnt/UITEST.EXE"
+    "$ROOT/src/history.c" "$ROOT/src/view.c" "$ROOT/src/workpal.c" -fe="$ROOT/mnt/UITEST.EXE"
 wcl -bt=dos -ms -0 -za -wx -w4 -os -k4096 -I"$ROOT/src" \
     "$ROOT/tests/testkeys.c" "$ROOT/src/keyboard.c" "$ROOT/src/keymap.c" \
     -fe="$ROOT/mnt/KBDTEST.EXE"

@@ -4,6 +4,7 @@
 #include "video.h"
 #include "font.h"
 #include "theme.h"
+#include "workpal.h"
 static void status(Screen *s,const Editor *e,const Menu *m,const MouseState *mouse,int has_mouse)
 {
     char text[UI_STATUS_CHARS+1],part[UI_STATUS_CHARS+1];
@@ -32,6 +33,9 @@ void screen_filename(Screen *s,const char *path)
 }
 void screen_init(Screen *s,const Editor *e,const MouseState *mouse,int has_mouse)
 {
+    int i;
+    workpal_remember(e->foreground); workpal_remember(e->background);
+    for(i=0;i<16;++i) s->working[i]=workpal_colour(i);
     menu_init(&s->menu); s->tool=e->tool; s->foreground=e->foreground; s->background=e->background;
     s->status[0]=s->filename[0]='\0';
     cursor_hide(); video_unclip(); video_clear(UI_DESK);
@@ -42,12 +46,14 @@ void screen_update(Screen *s,const Editor *e,const Menu *m,unsigned flags,const 
 {
     Rect old,next,parts[4];
     int n,i;
+    if(s->foreground!=e->foreground) workpal_remember(e->foreground);
+    if(s->background!=e->background) workpal_remember(e->background);
     menu_bounds(&s->menu,&old); menu_bounds(m,&next);
     if(s->menu.active && (!m->active || m->heading!=s->menu.heading)) {
         n=rect_subtract(&old,&next,parts);
         for(i=0;i<n;++i) render_restore(e,&parts[i]);
     }
-    if(flags&EDIT_UI) render_ui_change(e,s->tool,s->foreground,s->background);
+    if(flags&EDIT_UI) render_ui_change(e,s->tool,s->foreground,s->background,s->working);
     if(flags&EDIT_CANVAS) {
         cursor_protect(DRAW_X-1,DRAW_Y-1,DRAW_WIDTH+2,DRAW_HEIGHT+2); render_canvas(e);
     } else if(flags&EDIT_STROKE) {
@@ -57,6 +63,7 @@ void screen_update(Screen *s,const Editor *e,const Menu *m,unsigned flags,const 
     }
     menu_draw_change(m,&s->menu);
     status(s,e,m,mouse,has_mouse);
+    for(i=0;i<16;++i) s->working[i]=workpal_colour(i);
     s->menu=*m; s->tool=e->tool; s->foreground=e->foreground; s->background=e->background;
     if(has_mouse) cursor_show(mouse->x,mouse->y);
 }

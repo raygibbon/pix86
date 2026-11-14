@@ -63,3 +63,7 @@ Update the README and development notes when project scope changes. Document ori
   application commands. Keep logical commands independent from file formats.
 - No ordinary menu/modal full-screen clears or polling-driven paints. Preserve
   testpaint's idle-write, exact restoration and intercepted-Escape regressions.
+- Working-palette slots contain VGA indices, never colour remapping rules. Keep
+  all 256 indices accessible through the popup and preserve left/right FG/BG.
+- Grid styling is view-only. Verify dark/light artwork and native 320x200 font
+  readability when changing glyphs, palette geometry or the grid painter.

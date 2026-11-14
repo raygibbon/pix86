@@ -9,6 +9,7 @@ typedef struct Screen {
     unsigned char foreground,background;
     char status[UI_STATUS_CHARS+1];
     char filename[13];
+    unsigned char working[16];
 } Screen;
 void screen_filename(Screen *screen,const char *path);
 void screen_init(Screen *screen, const Editor *editor, const MouseState *mouse, int has_mouse);

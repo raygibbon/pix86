@@ -9,6 +9,7 @@
 #include "cursor.h"
 #include "editor.h"
 #include "font.h"
+#include "workpal.h"
 
 typedef struct Event { int key, x, y; unsigned buttons; } Event;
 static Event events[128];
@@ -196,9 +197,31 @@ static void dialogs(void)
     start(); add(13,0,0,0); dialog_message("Recovery", "Retain backup and temporary", &report);
     assert(draws);
 }
+static void palettes(void)
+{
+    unsigned i;
+    unsigned char colour;
+    int background;
+    dialog_mouse(1);
+    for(i=0;i<256;++i) {
+        start(); colour=15; background=0;
+        add(-1,0,0,0);
+        add(-1,FULLPAL_X+(int)(i%16)*FULLPAL_CELL_W+3,
+               FULLPAL_Y+(int)(i/16)*FULLPAL_CELL_H+3,i&1?2:1);
+        assert(dialog_palette(&colour,&background) && colour==i && background==(int)(i&1));
+    }
+    start();colour=0;background=0;
+    add(KEY_LEFT,0,0,0);add(KEY_UP,0,0,0);add(9,0,0,0);add(13,0,0,0);
+    assert(dialog_palette(&colour,&background) && colour==239 && background);
+    start();add(KEY_HOME,0,0,0);add(KEY_END,0,0,0);add(KEY_RIGHT,0,0,0);add(13,0,0,0);
+    assert(dialog_palette(&colour,&background) && colour==0);
+    start();add(27,0,0,0);assert(!dialog_palette(&colour,&background));
+    start();add(-1,0,0,1);assert(!dialog_palette(&colour,&background));
+    start();add(13,0,0,0);dialog_font();
+}
 int main(void)
 {
-    keys(); menus(); inputs(); dialogs();
+    keys(); menus(); inputs(); dialogs(); palettes();
     puts("PASS: menus, keyboard/mouse dialogs, cursor editing and drawing handoff.");
     return 0;
 }

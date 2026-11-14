@@ -39,7 +39,8 @@ by text. Control-local clipping bounds filename/title text. `font.h`
 defines the shared 6x8 metrics. Rendering tests exercise the actual bitmap path.
 
 `theme.h` names UI indices from the existing fixed palette: deep blue work area,
-cyan menu/status bar, light grey dropdowns/dialogs, dark ink, green selection and
+neutral menu/status bar, grouped dark sidebar, light grey dropdowns/dialogs,
+dark ink, deep blue selection and
 muted disabled text. The theme deliberately does not reprogram DAC entries: all
 256 artwork indices retain their RGB values and existing `.P86` files render
 identically. These original choices reflect conventional DOS colour
@@ -47,16 +48,25 @@ relationships, without reproducing a reference palette or screen.
 
 ## Workspace
 
-The menu occupies y=0..8. The drawing region is x=24..245, y=14..189:
-222x176 pixels, versus the previous 176x168 (about 32% larger). A narrow strip at
-left holds four 20x10 text controls, with one-pixel gaps. Render and hit testing
-share geometry in `layout.h`; the editor only receives a tool index.
+The menu occupies y=0..8. The drawing region is x=44..317, y=14..189:
+274x176 pixels (about 23% larger than the previous 222x176). The 42-pixel left
+strip groups Tools, Colour, current FG/BG, sixteen working swatches and All.
+Four 38x10 rows carry P/E/F/I shortcut labels and a full-row selection highlight.
+Render and hit testing share layout.h. No right-hand panel remains.
 
-The right palette occupies x=254..317, y=24..119: all 256 indices in a 16x16
-array of 4x6 cells. Left/right click chooses FG/BG. Compact labels and swatches
-beneath it identify both selections. The palette no longer consumes most of
-the screen height. Canvas dimensions remain 16, 32 or 64 pixels square; integer
-zoom maxima are 11, 5 and 2. Grid lines remain a view overlay.
+Working swatches use 19x8 cells with 17x6 interiors. Eight stable defaults and
+eight recent indices provide quick access; left/right selects FG/BG. A/B and
+All open the full 16x16 popup, whose 10x7 cells expose all indices 0..255.
+Arrows wrap, Home/End select 0/255, Tab changes FG/BG, Enter accepts, and Escape
+or an outside click cancels. Mouse left/right immediately chooses FG/BG. [ and ]
+cycle working foreground colours. File Open and eyedropper selections also
+enter the recent strip, without changing any pixel index or saved file format.
+
+Canvas sizes and maximum integer zooms remain 16/32/64 and 11/5/2. Grid starts
+off, and G toggles shaded dots at exact displayed cell edges at zoom >=2.
+Black/white pixels use adjacent grey indices; colour-cube pixels use a nearby
+shade. Dots reduce coverage compared with solid mesh lines. Rendering never
+changes artwork. A future timeline can reserve view space without storage changes.
 
 The single eight-pixel status line at y=192 shows the bounded DOS basename, modified marker, dimensions,
 X/Y, tool, FG/BG indices and zoom. Without a mouse it retains document information
@@ -133,6 +143,20 @@ remains independent from UI code.
 
 The additional source review, responsibility boundaries, supplied screencast
 analysis and before/after measurements are recorded in [REFACTOR.md](REFACTOR.md).
-The original font predates this refactor; its glyph data is unchanged. Layout,
+The original font predates this refactor; a later refinement updates selected
+glyphs while retaining its format and metrics. Layout,
 opaque text and dirty painting make the interface denser and steadier without
 scaling or importing any reference glyphs.
+
+## Font and working-palette refinement
+
+Eighteen original glyphs were redrawn to open counters, simplify heavy diagonals
+and use single-pixel punctuation. The cell advance, baseline and 760-byte font
+size remain unchanged. The original zero is narrower than O; lowercase remains
+distinct. Help → Font sample shows all 95 printable characters and filename
+ambiguities. [REFINE.md](REFINE.md) records the reference comparison and captures.
+
+The all-colour popup shares existing modal polling, input ownership and covered
+rectangle restoration. It paints once, then repaints only changed cells/value
+text. Both pointer buttons and dismissal are consumed before drawing resumes.
+The working palette is UI state, not a new artwork palette or remapping table.

@@ -9,6 +9,9 @@
 #include "font.h"
 #include "theme.h"
 #include "uipaint.h"
+#include "workpal.h"
+#include "layout.h"
+#include <stdio.h>
 static int has_mouse;
 static unsigned previous_buttons;
 static const Editor *underneath;
@@ -49,6 +52,7 @@ static int event(MouseState *m)
         pressed=m->buttons & ~previous_buttons; previous_buttons=m->buttons;
         if(key>=0) return key;
         if(pressed&MOUSE_LEFT) return -2;
+        if(pressed&MOUSE_RIGHT) return -3;
     }
 }
 static void field(const DialogLayout *l,const DialogInput *input,unsigned *offset,int focused)
@@ -168,4 +172,76 @@ void dialog_message(const char *title,const char *message,const FileReport *repo
     dialog_layout(&l,DIALOG_MESSAGE,title,body);
     begin(&l,title,body,"Enter/Esc OK",&m); ui_button(&l.accept,"OK",1);
     for(;;) { key=event(&m); if(key>=0 || (key==-2 && hit(&l.accept,&m))) { (void)finish(&l,0); return; } }
+}
+
+static void full_cell(int index,int selected)
+{
+    Rect r;
+    int inset;
+    r.x=FULLPAL_X+index%16*FULLPAL_CELL_W;
+    r.y=FULLPAL_Y+index/16*FULLPAL_CELL_H;
+    r.w=FULLPAL_CELL_W; r.h=FULLPAL_CELL_H;
+    protect(&r); inset=selected?2:1;
+    ui_border(&r,selected?UI_WHITE:UI_INK);
+    if(selected) { ++r.x; ++r.y; r.w-=2; r.h-=2; ui_border(&r,UI_INK); }
+    video_rect(FULLPAL_X+index%16*FULLPAL_CELL_W+inset,
+               FULLPAL_Y+index/16*FULLPAL_CELL_H+inset,
+               FULLPAL_CELL_W-2*inset,FULLPAL_CELL_H-2*inset,(unsigned char)index);
+}
+static void full_value(int index,int background)
+{
+    char text[26];
+    sprintf(text,"%s %03d  Tab changes FG/BG",background?"BG":"FG",index);
+    cursor_protect(74,158,172,FONT_HEIGHT);
+    video_text_bg(74,158,text,UI_INK,UI_PAPER);
+}
+int dialog_palette(unsigned char *colour,int *background)
+{
+    DialogLayout l;
+    MouseState m;
+    int i,key,selected,previous,target,oldtarget;
+    unsigned char index;
+    l.box.x=66; l.box.y=18; l.box.w=188; l.box.h=164;
+    protect(&l.box); ui_border(&l.box,UI_INK);
+    video_rect(67,19,186,162,UI_PAPER);
+    video_text_bg(74,22,"All 256 colours",UI_INK,UI_PAPER);
+    video_text_bg(74,32,"Left:FG  Right:BG",UI_INK,UI_PAPER);
+    selected=*colour; target=*background;
+    for(i=0;i<256;++i) full_cell(i,i==selected);
+    full_value(selected,target);
+    video_text_bg(74,170,"Arrows Enter:OK Esc:cancel",UI_INK,UI_PAPER);
+    mouse_poll(&m); previous_buttons=m.buttons;
+    for(;;) {
+        key=event(&m); previous=selected; oldtarget=target;
+        if(key==27) return finish(&l,0);
+        if(key==-2 || key==-3) {
+            if(workpal_full_hit(m.x,m.y,&index)) {
+                *colour=index; *background=key==-3;
+                return finish(&l,1);
+            }
+            if(!hit(&l.box,&m)) return finish(&l,0);
+        }
+        if(key==13) { *colour=(unsigned char)selected; *background=target; return finish(&l,1); }
+        if(key==9 || key==KEY_SHIFT_TAB) target=!target;
+        if(key==KEY_LEFT) selected=(selected+255)&255;
+        if(key==KEY_RIGHT) selected=(selected+1)&255;
+        if(key==KEY_UP) selected=(selected+240)&255;
+        if(key==KEY_DOWN) selected=(selected+16)&255;
+        if(key==KEY_HOME) selected=0;
+        if(key==KEY_END) selected=255;
+        if(selected!=previous) { full_cell(previous,0); full_cell(selected,1); }
+        if(selected!=previous || target!=oldtarget) full_value(selected,target);
+    }
+}
+void dialog_font(void)
+{
+    char body[240];
+    int code,n;
+    n=0;
+    for(code=32;code<=126;++code) {
+        body[n++]=(char)code;
+        if((code-31)%32==0) body[n++]='\n';
+    }
+    strcpy(body+n,"\nABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz\n0O 1Il ! : ; . , ' ` \\ /\nPLAYER01.P86  mixed_Case-09\nTools File Edit View Options");
+    dialog_message("Original 6x8 font",body,NULL);
 }

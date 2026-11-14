@@ -7,6 +7,7 @@
 #include "history.h"
 #include "view.h"
 #include "editor.h"
+#include "workpal.h"
 
 static Editor editor;
 static unsigned short queue[4096];
@@ -73,15 +74,20 @@ static void test_view(void)
         assert(!view_set(&editor.view, &editor.canvas, 0));
         assert(!view_set(&editor.view, &editor.canvas, view_max_zoom(&editor.canvas) + 1));
     }
-    for (index = 0; index < 256; ++index) {
-        assert(palette_hit(PALETTE_X + (int)(index % 16) * PALETTE_CELL_W,
-                          PALETTE_Y + (int)(index / 16) * PALETTE_CELL_H, &colour));
-        assert(colour == index);
+    for (index = 0; index < 16; ++index) {
+        assert(palette_hit(PALETTE_X + (int)(index % PALETTE_COLS) * PALETTE_CELL_W,
+                          PALETTE_Y + (int)(index / PALETTE_COLS) * PALETTE_CELL_H, &colour));
+        assert(colour == workpal_colour((int)index));
+    }
+    for(index=0;index<256;++index) {
+        assert(workpal_full_hit(FULLPAL_X+(int)(index%16)*FULLPAL_CELL_W,
+                               FULLPAL_Y+(int)(index/16)*FULLPAL_CELL_H,&colour));
+        assert(colour==index);
     }
     assert(!palette_hit(PALETTE_X - 1, PALETTE_Y, &colour));
     assert(!palette_hit(PALETTE_X, PALETTE_Y - 1, &colour));
     assert(!palette_hit(320, PALETTE_Y, &colour));
-    assert(!palette_hit(PALETTE_X, PALETTE_Y + 16 * PALETTE_CELL_H, &colour));
+    assert(!palette_hit(PALETTE_X, PALETTE_Y + PALETTE_ROWS * PALETTE_CELL_H, &colour));
 }
 
 static void test_lines(void)
@@ -258,21 +264,26 @@ static void test_interactions(void)
     assert(pixel(&editor.canvas, 8, 8) == 15);
     memcpy(before, editor.canvas.pixels, 256);
     for (i = 0; i < 256; ++i) {
-        editor_mouse(&editor, PALETTE_X + (int)(i % 16) * PALETTE_CELL_W,
-                     PALETTE_Y + (int)(i / 16) * PALETTE_CELL_H, EDIT_LEFT);
+        int slot;
+        workpal_remember((unsigned char)i);
+        for(slot=0;slot<16 && workpal_colour(slot)!=i;++slot) { }
+        assert(slot<16);
+        editor_mouse(&editor, PALETTE_X + slot%PALETTE_COLS * PALETTE_CELL_W,
+                     PALETTE_Y + slot/PALETTE_COLS * PALETTE_CELL_H, EDIT_LEFT);
         editor_mouse(&editor, PALETTE_X, PALETTE_Y, 0);
         assert(editor.foreground == i);
     }
-    editor_mouse(&editor, PALETTE_X + 15 * PALETTE_CELL_W,
-                 PALETTE_Y + 15 * PALETTE_CELL_H, EDIT_RIGHT);
+    editor_mouse(&editor, PALETTE_X + 15%PALETTE_COLS * PALETTE_CELL_W,
+                 PALETTE_Y + 15/PALETTE_COLS * PALETTE_CELL_H, EDIT_RIGHT);
     editor_mouse(&editor, PALETTE_X, PALETTE_Y, 0);
     assert(editor.background == 255);
     editor_key(&editor, '-');
     editor_key(&editor, '+');
-    editor_key(&editor, 'g');
     assert(!editor.grid);
     editor_key(&editor, 'g');
     assert(editor.grid);
+    editor_key(&editor, 'g');
+    assert(!editor.grid);
     assert(memcmp(before, editor.canvas.pixels, 256) == 0);
     editor_key(&editor, 'c');
     for (i = 0; i < 256; ++i) assert(editor.canvas.pixels[i] == 255);

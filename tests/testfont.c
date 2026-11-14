@@ -47,6 +47,25 @@ int main(void)
     before=0;
     for (y=0;y<8;++y) if (memcmp(upper+y*6,screen+y*320,6)) ++before;
     assert(before); /* real lowercase, not uppercase substitution */
+    /* Every lowercase letter differs from its uppercase, and filename
+       ambiguities remain distinguishable at the native cell resolution. */
+    for(code='A';code<='Z';++code) {
+        memset(screen,0,sizeof(screen)); text[0]=(char)code; video_text(0,0,text,173);
+        for(y=0;y<8;++y) memcpy(upper+y*6,screen+y*320,6);
+        memset(screen,0,sizeof(screen)); text[0]=(char)(code+32); video_text(0,0,text,173);
+        before=0;
+        for(y=0;y<8;++y) if(memcmp(upper+y*6,screen+y*320,6)) ++before;
+        assert(before);
+    }
+    {
+        const char *pairs="0O1I1lIl.,:;";
+        for(code=0;pairs[code];code+=2) {
+            memset(screen,0,sizeof(screen)); text[0]=pairs[code]; video_text(0,0,text,173);
+            memcpy(reference,screen,sizeof(screen));
+            memset(screen,0,sizeof(screen)); text[0]=pairs[code+1]; video_text(0,0,text,173);
+            assert(memcmp(reference,screen,sizeof(screen)));
+        }
+    }
     memset(screen,0,sizeof(screen)); video_text(10,10,"Abg 09!\\",173);
     memcpy(reference,screen,sizeof(screen));
     clipping(-3,-2); clipping(300,196); clipping(-40,80); clipping(0,0);

@@ -21,7 +21,7 @@ int editor_init(Editor *editor, unsigned side, unsigned short *fill_queue)
     editor->background = 0;
     editor->foreground = 15;
     editor->tool = TOOL_PENCIL;
-    editor->grid = 1;
+    editor->grid = 0;
     editor->dragging = editor->segment_valid = 0;
     editor->previous_buttons = 0;
     editor->fill_queue = fill_queue;

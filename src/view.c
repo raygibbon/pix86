@@ -1,5 +1,6 @@
 #include <stddef.h>
 #include "view.h"
+#include "workpal.h"
 
 int view_max_zoom(const Canvas *canvas)
 {
@@ -44,12 +45,12 @@ int palette_hit(int screen_x, int screen_y, unsigned char *index)
 {
     int x, y;
     if (index == NULL || screen_x < PALETTE_X || screen_y < PALETTE_Y ||
-        screen_x >= PALETTE_X + 16 * PALETTE_CELL_W ||
-        screen_y >= PALETTE_Y + 16 * PALETTE_CELL_H)
+        screen_x >= PALETTE_X + PALETTE_COLS * PALETTE_CELL_W ||
+        screen_y >= PALETTE_Y + PALETTE_ROWS * PALETTE_CELL_H)
         return 0;
     x = (screen_x - PALETTE_X) / PALETTE_CELL_W;
     y = (screen_y - PALETTE_Y) / PALETTE_CELL_H;
-    *index = (unsigned char)(y * 16 + x);
+    *index = workpal_colour(y * PALETTE_COLS + x);
     return 1;
 }
 

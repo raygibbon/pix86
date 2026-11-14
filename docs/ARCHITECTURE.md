@@ -57,16 +57,16 @@ Right-click canvas picks colour; right-click palette configures the background.
 ## View, rendering and platform boundaries
 
 `view.c` calculates integer zoom, centred origins and mouse-to-canvas coordinates.
-Shared `layout.h` defines the drawing area x=24..245, y=14..189, compact
+Shared `layout.h` defines the drawing area x=44..317, y=14..189, compact
 tool hit boxes, palette and menu/status boundaries. All zooms from 1 to the largest fitting
 integer are accepted: maximum 11, 5 or 2 for the three sizes respectively.
 Mapping uses half-open bounds; the last displayed pixel belongs to the last
 canvas cell. Long subtraction protects negative/outside screen coordinates.
-Grid pixels map to their containing cell. Palette hit testing maps the right
-16×16 array to indices 0..255 without touching canvas data.
+Grid pixels map to their containing cell. Palette hit testing maps the sidebar
+working slots through workpal.c to exact VGA indices without touching canvas data.
 
 `render.c` draws toolbar, palette, foreground/background swatches, software canvas
-and status through the video interface. Grid lines are view-only at zoom >=2,
+and status through the video interface. Shaded grid dots are view-only at zoom >=2 (off initially),
 and can be disabled. Pencil/eraser redraw only the affected bounding rectangle;
 fill, history and view changes redraw the canvas. Zoom restores only the area outside the new art rectangle, then paints final
 pixels/grid directly. Cursor protection hides the pointer only for an intersecting
@@ -107,7 +107,7 @@ text without painting. `uipaint.c` shares thin borders and flat highlighted
 buttons; menu rows and filename fields use opaque font cells with local clipping.
 
 `screen.c` caches the previous visible menu, tool/colours, status string and
-bounded basename (80 bytes with 16-bit ints). It compares state and emits only
+bounded basename and working-palette snapshot (96 bytes with 16-bit ints). It compares state and emits only
 changed rows, controls and status character runs. `region.c` subtracts the new
 menu bounds from the old bounds into at most four disjoint exposed rectangles.
 `render_restore` clips model repainting to each rectangle; no saved-screen
@@ -118,8 +118,30 @@ pencil/eraser. There is one full-screen clear, at startup.
 The bottom status row uses 53 complete six-pixel cells. It shows a 12-character
 DOS basename, dirty marker, dimensions, coordinates, tool, FG/BG and zoom;
 paths remain fully available in the filename field and project model. The
-workspace is unchanged at 222x176. A future timeline can reserve layout space
+workspace is now 274x176. A future timeline can reserve layout space
 without changing canvas/file storage; no timeline is implemented here.
+
+## Working colour selection
+
+`workpal.c` owns sixteen UI shortcuts to unchanged VGA indices: eight fixed
+defaults and eight recent colours. `palette_hit` translates sidebar geometry to
+these indices; editor painting/picking and persisted FG/BG semantics are unchanged.
+`screen.c` remembers new FG/BG from picker, file load or eyedropper, compares the
+previous sixteen slots and repaints changed swatches/markers. It has no palette
+RGB editor. The module uses 16 bytes of writable data and a 16-byte default table.
+
+`dialog_palette` extends the existing modal path with a bounded 188x164 colour
+popup. It stores only selection/target and input state; arrow navigation paints
+the old/new cells, Tab changes the target and idle polls perform no painting.
+Acceptance returns a stored index and FG/BG target; the controller updates those
+selections and the existing dirty flags. Cancellation leaves them untouched.
+Both mouse buttons and outside dismissal are consumed. `dialog_font` uses the
+existing message renderer for an original printable-ASCII diagnostic screen.
+
+`render.c` shares one cell painter between full and stroke updates. Grid dots
+use nearby shades from the existing fixed DAC palette, never canvas mutations;
+single dots use the VGA pixel primitive rather than rectangle setup. video.c
+and its DAC programming have not changed in this refinement.
 
 ## Native I/O and project state
 
@@ -206,7 +228,7 @@ retain the same fixed reservation. Large objects are static, never automatic;
 there is no explicit application heap allocation and no full-screen shadow
 buffer. Standard stdio may allocate bounded runtime buffering internally.
 The link map, including runtime code/data and the 4096-byte stack, reports about
-86 KiB in total; code and DGROUP each remain below 64 KiB. DGROUP is about
+88 KiB in total; code and DGROUP each remain below 64 KiB. DGROUP is about
 48 KiB, leaving room within the near segment for runtime file buffering. Exact measured values are in TESTING.md.
 The executable file is smaller because DOS zero-initializes BSS. Loader/PSP,
 environment and runtime bookkeeping are additional to the linked footprint.
