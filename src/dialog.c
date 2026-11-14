@@ -192,8 +192,8 @@ static void full_value(int index,int background)
 {
     char text[26];
     sprintf(text,"%s %03d  Tab changes FG/BG",background?"BG":"FG",index);
-    cursor_protect(74,158,172,FONT_HEIGHT);
-    video_text_bg(74,158,text,UI_INK,UI_PAPER);
+    cursor_protect(FULLPAL_BOX_X+8,FULLPAL_VALUE_Y,FULLPAL_BOX_W-16,FONT_HEIGHT);
+    video_text_bg(FULLPAL_BOX_X+8,FULLPAL_VALUE_Y,text,UI_INK,UI_PAPER);
 }
 int dialog_palette(unsigned char *colour,int *background)
 {
@@ -201,15 +201,16 @@ int dialog_palette(unsigned char *colour,int *background)
     MouseState m;
     int i,key,selected,previous,target,oldtarget;
     unsigned char index;
-    l.box.x=66; l.box.y=18; l.box.w=188; l.box.h=164;
+    l.box.x=FULLPAL_BOX_X; l.box.y=FULLPAL_BOX_Y;
+    l.box.w=FULLPAL_BOX_W; l.box.h=FULLPAL_BOX_H;
     protect(&l.box); ui_border(&l.box,UI_INK);
-    video_rect(67,19,186,162,UI_PAPER);
-    video_text_bg(74,22,"All 256 colours",UI_INK,UI_PAPER);
-    video_text_bg(74,32,"Left:FG  Right:BG",UI_INK,UI_PAPER);
+    video_rect(l.box.x+1,l.box.y+1,l.box.w-2,l.box.h-2,UI_PAPER);
+    video_text_bg(l.box.x+8,l.box.y+4,"All 256 colours",UI_INK,UI_PAPER);
+    video_text_bg(l.box.x+8,l.box.y+14,"Left:FG  Right:BG",UI_INK,UI_PAPER);
     selected=*colour; target=*background;
     for(i=0;i<256;++i) full_cell(i,i==selected);
     full_value(selected,target);
-    video_text_bg(74,170,"Arrows Enter:OK Esc:cancel",UI_INK,UI_PAPER);
+    video_text_bg(l.box.x+8,FULLPAL_HINT_Y,"Arrows Enter:OK Esc:cancel",UI_INK,UI_PAPER);
     mouse_poll(&m); previous_buttons=m.buttons;
     for(;;) {
         key=event(&m); previous=selected; oldtarget=target;
@@ -243,5 +244,5 @@ void dialog_font(void)
         if((code-31)%32==0) body[n++]='\n';
     }
     strcpy(body+n,"\nABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz\n0O 1Il ! : ; . , ' ` \\ /\nPLAYER01.P86  mixed_Case-09\nTools File Edit View Options");
-    dialog_message("Original 6x8 font",body,NULL);
+    dialog_message(FONT_HEIGHT==8?"Original 6x8 font":"Original 8x16 font",body,NULL);
 }

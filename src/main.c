@@ -21,6 +21,16 @@ static P86Image scratch;
 static Project project;
 static Screen screen;
 static int mouse_available;
+static int video_abort(void)
+{
+    editor_finish(&editor);
+    cursor_hide();
+    mouse_shutdown();
+    video_shutdown();
+    puts("PIX86: video memory access failed; restored DOS text mode.");
+    return 1;
+}
+
 static void refresh_editor(unsigned flags)
 {
     MouseState mouse;
@@ -82,22 +92,24 @@ int main(int argc, char **argv)
 {
     MouseState mouse, previous;
     unsigned side, flags;
-    int has_mouse, disable_mouse, key, i, size_set;
+    int has_mouse, disable_mouse, request_hires, key, i, size_set;
     int command, consumed, was_active, modal;
     UiState ui;
     unsigned char colour;
     int background;
     side = 32;
-    size_set = disable_mouse = 0;
+    size_set = disable_mouse = request_hires = 0;
     for (i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "/NOMOUSE") == 0 && !disable_mouse)
             disable_mouse = 1;
+        else if (strcmp(argv[i], "/HIRES") == 0 && !request_hires)
+            request_hires = 1;
         else if (!size_set && (strcmp(argv[i], "16") == 0 ||
                  strcmp(argv[i], "32") == 0 || strcmp(argv[i], "64") == 0)) {
             side = (unsigned)(argv[i][0] - '0') * 10 + (unsigned)(argv[i][1] - '0');
             size_set = 1;
         } else {
-            puts("Usage: PIX86 [16|32|64] [/NOMOUSE]");
+            puts("Usage: PIX86 [16|32|64] [/NOMOUSE] [/HIRES]");
             return 1;
         }
     }
@@ -107,17 +119,23 @@ int main(int argc, char **argv)
     }
     project_init(&project, &editor, &scratch);
     ui_init(&ui);
-    if (!video_init()) {
+    if (!video_init(request_hires)) {
         puts("PIX86: VGA Mode 13h required; launch from DOS text mode.");
         return 1;
     }
+    layout_set(video_width(), video_height(), video_hires());
+    view_set(&editor.view, &editor.canvas, view_max_zoom(&editor.canvas));
     has_mouse = !disable_mouse && mouse_init();
     mouse_available=has_mouse;
     dialog_mouse(has_mouse);
     dialog_editor(&editor);
     mouse_poll(&mouse);
     screen_init(&screen,&editor,&mouse,has_mouse);
+    if(video_failed()) return video_abort();
     if(has_mouse) cursor_show(mouse.x,mouse.y);
+    if(request_hires && !video_hires())
+        dialog_message("High-resolution unavailable",
+                       "VBE 640x480x256 is unsupported.\nUsing VGA 320x200.",NULL);
     previous = mouse;
     for (;;) {
         key = keyboard_poll();
@@ -129,6 +147,7 @@ int main(int argc, char **argv)
         if (consumed) editor_finish(&editor);
         /* Restore an exposed menu before dispatching a modal command. */
         screen_update(&screen,&editor,&ui.menu,0,&mouse,has_mouse);
+        if(video_failed()) return video_abort();
         if (command == CMD_EXIT || command == CMD_SAVE || command == CMD_OPEN ||
             command == CMD_SAVE_AS || command == CMD_NEW) {
             if (file_command(command)) break;
@@ -166,6 +185,7 @@ int main(int argc, char **argv)
                    (mouse.x != previous.x || mouse.y != previous.y || mouse.buttons != previous.buttons))
             flags |= editor_mouse(&editor, mouse.x, mouse.y, mouse.buttons);
         screen_update(&screen,&editor,&ui.menu,flags,&mouse,has_mouse);
+        if(video_failed()) return video_abort();
         previous = mouse;
         delay(10);
     }

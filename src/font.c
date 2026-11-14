@@ -1,5 +1,6 @@
 #include "font.h"
 #include "video.h"
+#include <string.h>
 /* Original hand-drawn Pix86 5-column ink in a 6x8 cell. ASCII 32..126.
    No ROM font, reference font, scaling, antialiasing or generated font import.
    Refined open counters and single-pixel punctuation; unchanged 6x8 advance.
@@ -102,24 +103,182 @@ static const unsigned char glyphs[95][8] = {
     {0x00, 0x00, 0x09, 0x16, 0x00, 0x00, 0x00, 0x00}, /* 126 */
 };
 
+static int hires_bitmap_ready;
+static unsigned char hires_bitmap[95][16];
+
+/* Original single-pixel stroke paths in an 8x16 cell. Coordinates use
+   '0'..'7' horizontally and 'A'..'P' vertically; '.' lifts the pen. */
+static const char *const hires_paths[95] = {
+    "",                    /* 32 */
+    "3C3G.3J3K.3N3N",     /* 33 */
+    "1C2E.5C6E",          /* 34 */
+    "1F5F.0I6I.2C2N.5C5N", /* 35 */
+    "5C2C0E0G5G6J5N1N0L", /* 36 */
+    "0N6C.1D5M",          /* 37 */
+    "6N5J4H2F1F0G0I2K4L5N", /* 38 */
+    "3C3E",               /* 39 */
+    "5C3E2G1J1L2N",       /* 40 */
+    "1C3E4G5J5L4N",       /* 41 */
+    "1F5J.5F1J.2G4I.4G2I", /* 42 */
+    "3E3L.0H6H",          /* 43 */
+    "4L3M2N",             /* 44 */
+    "1I5I",               /* 45 */
+    "3M3N",               /* 46 */
+    "6C0N",               /* 47 */
+    "1C4C6E6L4N1N0L0E1C", /* 48 */
+    "2D3C3N2N.1N5N",      /* 49 */
+    "0D1C5C6D6F0N6N",     /* 50 */
+    "0C6C6F3H6J6L5N0N.3H", /* 51 */
+    "5N5C0I6I",           /* 52 */
+    "6C0C0G5G6I6L5N0N",   /* 53 */
+    "6C1C0E0L1N5N6L6I3I", /* 54 */
+    "0C6C2N",             /* 55 */
+    "3C1C0E0G1I1L3N5N6L5I5G3G", /* 56 */
+    "6L1L0J0G1C5C6E6N",  /* 57 */
+    "3F3G.3K3L",          /* 58 */
+    "3F3G.3K3L2M",        /* 59 */
+    "5E1I5M",             /* 60 */
+    "1G5G.1K5K",          /* 61 */
+    "1E5I1M",             /* 62 */
+    "1D2C5C6E6G3I3J.3M3N", /* 63 */
+    "5L5G4F2F1G0I0L1N4N6L6E4D2D1E", /* 64 */
+    "0N3C6N.1I5I",        /* 65 */
+    "0N0C4C6E6F4G0G.4G6I6L4N0N", /* 66 */
+    "6D4C1C0E0K1M4M6L",   /* 67 */
+    "0N0C4C6E7G6J4N0N",  /* 68 */
+    "6C0C0N6N.0G4G",      /* 69 */
+    "0N0C6C.0G5G",        /* 70 */
+    "6D4C1C0E0K1M4M6L6I3I", /* 71 */
+    "0C0N.6C6N.0G6G",    /* 72 */
+    "1C5C.3C3N.1N5N",     /* 73 */
+    "1C6C6L5N3N1M0K",     /* 74 */
+    "0C0N.6C0G6N",        /* 75 */
+    "0N0C3G6C6N",         /* 76 */
+    "0N0C2G3F4G6C6N",     /* 77 */
+    "1C4C6E6L4N1N0L0E1C", /* 78 */
+    "0N0C4C6E6G4G0G",     /* 79 */
+    "1C4C6E6L4N1N0L0E1C.4J7N", /* 80 */
+    "0N0C4C6E6G4G0G.3G6N", /* 81 */
+    "6C1C0E0G5G6J5N0N",   /* 82 */
+    "0C6C.3C3N",          /* 83 */
+    "0C0K1N5N6K6C",       /* 84 */
+    "0C3N6C",             /* 85 */
+    "0C1N3G5N6C",         /* 86 */
+    "0C6N.6C0N",          /* 87 */
+    "0C3G6C.3G3N",        /* 88 */
+    "0C6C0N6N",           /* 89 */
+    "1C5C.3C3N.1N5N",     /* 90 */
+    "4C2C2N4N",           /* 91 */
+    "0C6N",               /* 92 */
+    "2C4C4N2N",           /* 93 */
+    "1E3C5E",             /* 94 */
+    "0N6N",               /* 95 */
+    "3C4D",               /* 96 */
+    "5F4E1E0G0K1L4L5K5E", /* 97 */
+    "0C0N.0G1F4F6G6K4L1L0K", /* 98 */
+    "6F4E1E0G0K1L4L6K",  /* 99 */
+    "6C6N.6G5F2F0G0K2L5L6K", /* 100 */
+    "0G6G6F5E2E0G0K1L4L6K", /* 101 */
+    "4C3B1B0D0N.1F5F",   /* 102 */
+    "6G5F2F0G0K2L5L6K.6G6N4P1P0O", /* 103 */
+    "0C0N.0G1F4F6G6N",   /* 104 */
+    "3D3E.3G3N",          /* 105 */
+    "4D4E.4G4O2P0O",      /* 106 */
+    "0C0N.6F0J.2G6N",    /* 107 */
+    "3C3M2N1M",           /* 108 */
+    "0G0N.0G1F3G3N.3G4F6G6N", /* 109 */
+    "0G0N.0G1F4F6G6N",   /* 110 */
+    "1F4F6G6K4L1L0K0G1F", /* 111 */
+    "0G0P.0G1F4F6G6K4L1L0K", /* 112 */
+    "6G6P.6G5F2F0G0K2L5L6K", /* 113 */
+    "0G0N.0G1F3F",       /* 114 */
+    "6F1F0G1G5K6K5L0L",  /* 115 */
+    "3C3L4L.1F5F",        /* 116 */
+    "0G0K1L4L6K6G",       /* 117 */
+    "0G3L6G",             /* 118 */
+    "0G1L3J5L6G",         /* 119 */
+    "0G6L.6G0L",          /* 120 */
+    "0G0K1L4L6K6G.6K5O3P1O0K", /* 121 */
+    "0G6G0L6L",           /* 122 */
+    "5C3D3G4I3L3N5O",    /* 123 */
+    "3C3N",               /* 124 */
+    "1C3D3G2I3L3N1O",    /* 125 */
+    "0G2E4E6G",           /* 126 */
+};
+
+static void hires_plot(int code, int x, int y)
+{
+    if (x >= 0 && x < 8 && y >= 0 && y < 16)
+        hires_bitmap[code - 32][y] |= (unsigned char)(0x80U >> x);
+}
+
+static void hires_line(int code, int x0, int y0, int x1, int y1)
+{
+    int dx, sx, dy, sy, error, twice;
+    dx = x1 - x0;
+    if (dx < 0) dx = -dx;
+    sx = x0 < x1 ? 1 : -1;
+    dy = y1 - y0;
+    if (dy < 0) dy = -dy;
+    dy = -dy;
+    sy = y0 < y1 ? 1 : -1;
+    error = dx + dy;
+    for (;;) {
+        hires_plot(code, x0, y0);
+        if (x0 == x1 && y0 == y1) break;
+        twice = 2 * error;
+        if (twice >= dy) { error += dy; x0 += sx; }
+        if (twice <= dx) { error += dx; y0 += sy; }
+    }
+}
+
+static void hires_build_bitmap(void)
+{
+    int code, x, y, previous_x, previous_y, have_previous;
+    const char *path;
+    if (hires_bitmap_ready) return;
+    memset(hires_bitmap, 0, sizeof(hires_bitmap));
+    for (code = 32; code <= 126; ++code) {
+        path = hires_paths[code - 32];
+        have_previous = 0;
+        while (*path) {
+            if (*path == '.') {
+                have_previous = 0;
+                ++path;
+                continue;
+            }
+            x = *path++ - '0';
+            y = *path++ - 'A';
+            if (have_previous)
+                hires_line(code, previous_x, previous_y, x, y);
+            previous_x = x;
+            previous_y = y;
+            have_previous = 1;
+        }
+    }
+    hires_bitmap_ready = 1;
+}
+
 static void text_draw(int x, int y, long right, long bottom, const char *text,
                       unsigned char ink, unsigned char paper, int opaque)
 {
     long pen, px, py;
     int row, col, bit;
     unsigned code;
-    if(!text || y >= VIDEO_HEIGHT || y <= -FONT_HEIGHT || right <= x || bottom <= y) return;
+    if (font_hires_mode) hires_build_bitmap();
+    if(!text || y >= video_height() || y <= -FONT_HEIGHT || right <= x || bottom <= y) return;
     pen=x;
-    while(*text && pen < VIDEO_WIDTH && pen < right) {
+    while(*text && pen < video_width() && pen < right) {
         code=(unsigned char)*text++;
         if(code<32 || code>126) code='?';
         if(pen > -FONT_WIDTH) for(row=0; row<FONT_HEIGHT; ++row) {
             py=(long)y+row;
-            if(py<0 || py>=VIDEO_HEIGHT || py>=bottom) continue;
+            if(py<0 || py>=video_height() || py>=bottom) continue;
             for(col=0; col<FONT_WIDTH; ++col) {
                 px=pen+col;
-                bit=col<5 && (glyphs[code-32][row] & (16U>>col));
-                if(px>=0 && px<VIDEO_WIDTH && px<right && (bit || opaque))
+                bit=font_hires_mode ? (hires_bitmap[code-32][row] & (0x80U>>col)) != 0 :
+                    col<5 && (glyphs[code-32][row] & (16U>>col));
+                if(px>=0 && px<video_width() && px<right && (bit || opaque))
                     video_pixel((int)px,(int)py,bit?ink:paper);
             }
         }
@@ -127,9 +286,9 @@ static void text_draw(int x, int y, long right, long bottom, const char *text,
     }
 }
 void video_text(int x,int y,const char *text,unsigned char colour)
-{ text_draw(x,y,VIDEO_WIDTH,VIDEO_HEIGHT,text,colour,0,0); }
+{ text_draw(x,y,video_width(),video_height(),text,colour,0,0); }
 void video_text_bg(int x,int y,const char *text,unsigned char ink,unsigned char paper)
-{ text_draw(x,y,VIDEO_WIDTH,VIDEO_HEIGHT,text,ink,paper,1); }
+{ text_draw(x,y,video_width(),video_height(),text,ink,paper,1); }
 void video_text_box(int x,int y,int width,int height,const char *text,
                     unsigned char ink,unsigned char paper)
 {

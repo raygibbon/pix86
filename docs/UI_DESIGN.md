@@ -1,8 +1,9 @@
 # Pix86 compact DOS interface
 
-Pix86 stays in VGA Mode 13h (320x200, 256 colours) with a single-image document.
-This is an interface redesign; canvas pixels, history, file format and save
-replacement guarantees are unchanged. Animation remains planned.
+Pix86 defaults to VGA Mode 13h (320x200, 256 colours) with a single-image
+document. The `experiment/high-resolution-vga` branch also offers opt-in VBE
+640x480x256. Canvas pixels, history, file format and save replacement
+guarantees are unchanged. Animation remains planned.
 
 ## Reference review and original implementation
 
@@ -39,8 +40,8 @@ by text. Control-local clipping bounds filename/title text. `font.h`
 defines the shared 6x8 metrics. Rendering tests exercise the actual bitmap path.
 
 `theme.h` names UI indices from the existing fixed palette: deep blue work area,
-neutral menu/status bar, grouped dark sidebar, light grey dropdowns/dialogs,
-dark ink, deep blue selection and
+cyan menu/status bar, grouped dark sidebar, light grey dropdowns/dialogs,
+dark ink, green selection and
 muted disabled text. The theme deliberately does not reprogram DAC entries: all
 256 artwork indices retain their RGB values and existing `.P86` files render
 identically. These original choices reflect conventional DOS colour
@@ -160,3 +161,33 @@ The all-colour popup shares existing modal polling, input ownership and covered
 rectangle restoration. It paints once, then repaints only changed cells/value
 text. Both pointer buttons and dismissal are consumed before drawing resumes.
 The working palette is UI state, not a new artwork palette or remapping table.
+
+## Experimental high-resolution mode
+
+The `experiment/high-resolution-vga` branch retains Mode 13h as the default and
+adds `/HIRES` for VBE mode 101h (640x480x256). The backend verifies the VBE
+controller and mode information, uses the reported packed-pixel stride and
+banked 64 KiB window, and restores the text mode/page/cursor. Unsupported VBE
+falls back to Mode 13h with a diagnostic. No full-size framebuffer, double
+buffer or DOS extender is introduced. See [VIDEO_MODES.md](VIDEO_MODES.md) for
+the alternatives and benchmark results.
+
+Hires uses independently drawn 8x16 stroke glyphs rasterized to bitmaps; it
+does not enlarge the existing 6x8 font or use BIOS/reference glyphs. The
+printable-ASCII sample screen and the Mode 13h font remain available. At 640x480
+the screen accommodates 80 columns, a 552x440 drawing region, the same indexed
+palette and the same software canvas sizes.
+
+The original menu model now includes nonselectable separators, mnemonic
+accelerators and a remembered selection for each heading. Hires shows a cyan
+bar, grey dropdowns, green selected rows, muted disabled items and right-aligned
+shortcuts in 17-pixel rows. Ctrl+backslash, arrows, Enter, Escape, mouse routing
+and release-after-dismissal behavior remain shared with the default mode.
+Theme accents use existing DAC entries, so artwork colours do not change.
+
+The paired captures in [VIDEO_MODES.md](VIDEO_MODES.md) compare the same blank
+32x32 editor state in both modes. The Mode 13h image is displayed at 2x and the
+VBE image at native 1x DOSBox-X scaling. TDE's compact menus, dense typography,
+muted unavailable items and separate status area informed the functional
+requirements; Pix86's code, glyphs, geometry, colours and screen remain
+independently authored.

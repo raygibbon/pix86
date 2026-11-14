@@ -16,7 +16,7 @@ void dialog_layout(DialogLayout *l,int kind,const char *title,const char *body)
     const char *p;
     char part[DIALOG_COLUMNS+1];
     int cols,n,lines,width,height,y;
-    cols=kind==DIALOG_FILE?32:22;
+    cols=kind==DIALOG_FILE?(FONT_HEIGHT==8?32:40):(FONT_HEIGHT==8?22:30);
     n=font_width(title)/FONT_WIDTH; if(n>cols) cols=n;
     p=body;
     while(dialog_line(&p,part,DIALOG_COLUMNS)) {

@@ -7,7 +7,7 @@
 #include "workpal.h"
 static void status(Screen *s,const Editor *e,const Menu *m,const MouseState *mouse,int has_mouse)
 {
-    char text[UI_STATUS_CHARS+1],part[UI_STATUS_CHARS+1];
+    char text[UI_STATUS_MAX_CHARS+1],part[UI_STATUS_MAX_CHARS+1];
     unsigned i,start,n,oldlen,len;
     if(m->active) strcpy(text,"Arrows move  Enter choose  Esc/Ctrl+\\ close");
     else render_status_text(e,mouse->x,mouse->y,has_mouse,s->filename,text);

@@ -3,8 +3,9 @@
 Pix86 remains a 16-bit real-mode DOS application. M2.5 adds native project
 saving/loading, original filename/confirmation dialogs and exact saved-state
 tracking to M2's indexed canvas, tools, zoom and bounded undo. Animation, layers,
-non-native formats, alternative graphics modes and other platforms remain outside
-this milestone.
+non-native formats and other platforms remain outside this milestone. The
+`experiment/high-resolution-vga` branch adds an opt-in VBE display backend while
+retaining Mode 13h as the default and fallback.
 
 ## Data and tools
 
@@ -57,9 +58,10 @@ Right-click canvas picks colour; right-click palette configures the background.
 ## View, rendering and platform boundaries
 
 `view.c` calculates integer zoom, centred origins and mouse-to-canvas coordinates.
-Shared `layout.h` defines the drawing area x=44..317, y=14..189, compact
-tool hit boxes, palette and menu/status boundaries. All zooms from 1 to the largest fitting
-integer are accepted: maximum 11, 5 or 2 for the three sizes respectively.
+Shared `layout.h` defines runtime dimensions and font metrics, the drawing area,
+compact tool hit boxes, palette and menu/status boundaries. Mode 13h uses
+x=44..317, y=14..189; VBE 640x480 uses x=86..637, y=22..461. Zoom is an integer
+from 1 to the largest fitting scale for the active workspace and canvas size.
 Mapping uses half-open bounds; the last displayed pixel belongs to the last
 canvas cell. Long subtraction protects negative/outside screen coordinates.
 Grid pixels map to their containing cell. Palette hit testing maps the sidebar
@@ -72,18 +74,20 @@ fill, history and view changes redraw the canvas. Zoom restores only the area ou
 pixels/grid directly. Cursor protection hides the pointer only for an intersecting
 repaint; unchanged pointer positions perform no VGA reads or writes.
 
-`video.c` exclusively owns VGA memory, BIOS video calls and DAC I/O. It checks
-Mode 13h entry, clips drawing, and uses unsigned offsets up to 63999 for VGA.
-Rectangle endpoints use long arithmetic before clipping; rectangles write directly
-to VGA within this module to avoid a per-pixel function call. Text uses the
-original `font.c` renderer with a 6x8 advance and 760 bytes of hand-drawn
-ASCII glyphs. Shared `font.h` metrics drive control text and hit geometry. The
-renderer clips transparent ink on all edges with long coordinates. `theme.h`
-chooses UI colours from the existing palette without DAC changes. The original
-M1 DAC palette remains unchanged, with all indices exposed in M2 (some RGB entries intentionally repeat).
+`video.c` exclusively owns mode initialization/restoration, VGA/VBE access,
+clipping and DAC I/O. Mode 13h uses its 64,000-byte packed framebuffer. Optional
+VBE 101h validates 640x480x256 mode information and accesses packed pixels
+through the BIOS-selected 64 KiB window; it does not treat the 307,200-byte
+image as a linear pointer or allocate a shadow framebuffer. Rectangle endpoints
+use long arithmetic before clipping, and bank errors are surfaced to the main
+loop for safe restoration. Text uses original `font.c` renderers: the existing
+6x8 bitmap in Mode 13h and the independently authored 8x16 stroke font in
+hires. Shared `font.h`/`layout.h` metrics drive control text and hit geometry.
+`theme.h` chooses UI colours from the existing palette without DAC changes.
 
 `mouse.c` owns INT 33h polling, null/IRET vector checks, driver reset, position
-and button reads. Mode 13h's 640-unit horizontal range is divided by two.
+and button reads. The driver's 640-unit horizontal range is scaled to the active
+screen width; vertical bounds follow the active mode.
 `menu.c` owns portable keyboard/mouse menu state and bounded command descriptions;
 `menudraw.c` paints overlays. `keymap.c` interprets extended menu mnemonics.
 The editor remains unaware of these modules.
@@ -115,11 +119,13 @@ allocation, damage queue or framebuffer is needed. Actual document flags still
 select full-canvas updates for history/zoom/fill and bounded stroke updates for
 pencil/eraser. There is one full-screen clear, at startup.
 
-The bottom status row uses 53 complete six-pixel cells. It shows a 12-character
+The bottom status row uses complete font cells at runtime: 53 six-pixel cells
+in Mode 13h and 80 eight-pixel cells in hires. It shows a 12-character
 DOS basename, dirty marker, dimensions, coordinates, tool, FG/BG and zoom;
 paths remain fully available in the filename field and project model. The
-workspace is now 274x176. A future timeline can reserve layout space
-without changing canvas/file storage; no timeline is implemented here.
+Mode 13h workspace is 274x176; VBE 640x480 provides 552x440. A future timeline
+can reserve layout space without changing canvas/file storage; no timeline is
+implemented here.
 
 ## Working colour selection
 
@@ -130,8 +136,8 @@ these indices; editor painting/picking and persisted FG/BG semantics are unchang
 previous sixteen slots and repaints changed swatches/markers. It has no palette
 RGB editor. The module uses 16 bytes of writable data and a 16-byte default table.
 
-`dialog_palette` extends the existing modal path with a bounded 188x164 colour
-popup. It stores only selection/target and input state; arrow navigation paints
+`dialog_palette` extends the existing modal path with a bounded colour popup
+sized for the active font and display. It stores only selection/target and input state; arrow navigation paints
 the old/new cells, Tab changes the target and idle polls perform no painting.
 Acceptance returns a stored index and FG/BG target; the controller updates those
 selections and the existing dirty flags. Cancellation leaves them untouched.
@@ -238,6 +244,12 @@ resets an initialized mouse driver and restores the prior BIOS mode,
 active page, text cursor position and shape. Restoration clears prior screen
 contents; custom fonts/palettes and previous text contents are not preserved.
 Abrupt process termination/emulator closure is outside normal cleanup.
+
+The experimental `/HIRES` startup option requests VBE mode 101h, not a
+nonstandard BIOS 640x400 mode. VBE probing and bank selection remain in
+`video.c`; unsupported firmware falls back to Mode 13h with a diagnostic.
+`docs/VIDEO_MODES.md` records trade-offs, VBE memory organization, captures and
+DOSBox-X measurements. Mode 13h remains the recommended default.
 
 ## Provenance and engineering references
 

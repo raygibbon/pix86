@@ -9,12 +9,12 @@ mkdir -p "$ROOT/build"
 "${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror \
     -I"$ROOT/src" "$ROOT/tests/testedit.c" "$ROOT/src/canvas.c" \
     "$ROOT/src/tools.c" "$ROOT/src/history.c" "$ROOT/src/view.c" "$ROOT/src/workpal.c" \
-    "$ROOT/src/editor.c" "$ROOT/src/keymap.c" -o "$ROOT/build/edtest"
+    "$ROOT/src/editor.c" "$ROOT/src/keymap.c" "$ROOT/src/layout.c" -o "$ROOT/build/edtest"
 "$ROOT/build/edtest"
 "${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror \
     -I"$ROOT/src" "$ROOT/tests/render.c" "$ROOT/src/render.c" \
     "$ROOT/src/canvas.c" "$ROOT/src/tools.c" "$ROOT/src/history.c" \
-    "$ROOT/src/view.c" "$ROOT/src/workpal.c" "$ROOT/src/editor.c" "$ROOT/src/region.c" "$ROOT/src/keymap.c" -o "$ROOT/build/rentest"
+    "$ROOT/src/view.c" "$ROOT/src/workpal.c" "$ROOT/src/editor.c" "$ROOT/src/region.c" "$ROOT/src/keymap.c" "$ROOT/src/layout.c" -o "$ROOT/build/rentest"
 "$ROOT/build/rentest"
 mkdir -p "$ROOT/build/iotest"
 "${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror -I"$ROOT/src" \
@@ -25,23 +25,23 @@ mkdir -p "$ROOT/build/iotest"
     -I"$ROOT/src" "$ROOT/tests/testfile.c" "$ROOT/build/faultio.o" \
     "$ROOT/src/project.c" "$ROOT/src/editor.c" "$ROOT/src/canvas.c" \
     "$ROOT/src/tools.c" "$ROOT/src/history.c" "$ROOT/src/view.c" "$ROOT/src/workpal.c" \
-    "$ROOT/src/dlginput.c" "$ROOT/src/keymap.c" -o "$ROOT/build/filetest"
+    "$ROOT/src/dlginput.c" "$ROOT/src/keymap.c" "$ROOT/src/layout.c" -o "$ROOT/build/filetest"
 (cd "$ROOT/build/iotest" && "$ROOT/build/filetest")
 "${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror \
     -I"$ROOT/tests/stubs" -I"$ROOT/src" "$ROOT/tests/testui.c" \
     "$ROOT/src/textsize.c" "$ROOT/src/dlggeom.c" "$ROOT/src/menu.c" "$ROOT/src/menudraw.c" "$ROOT/src/uipaint.c" "$ROOT/src/keymap.c" \
     "$ROOT/src/dialog.c" "$ROOT/src/dlginput.c" "$ROOT/src/editor.c" \
     "$ROOT/src/canvas.c" "$ROOT/src/tools.c" "$ROOT/src/history.c" \
-    "$ROOT/src/view.c" "$ROOT/src/workpal.c" -o "$ROOT/build/uitest"
+    "$ROOT/src/view.c" "$ROOT/src/workpal.c" "$ROOT/src/layout.c" -o "$ROOT/build/uitest"
 "$ROOT/build/uitest"
 "${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror -I"$ROOT/src" \
-    "$ROOT/tests/testfont.c" "$ROOT/src/font.c" "$ROOT/src/textsize.c" -o "$ROOT/build/fonttest"
+    "$ROOT/tests/testfont.c" "$ROOT/src/font.c" "$ROOT/src/textsize.c" "$ROOT/src/layout.c" -o "$ROOT/build/fonttest"
 "$ROOT/build/fonttest"
 "${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror -Dmain=pix86_run \
     -I"$ROOT/tests/stubs" -I"$ROOT/src" -c "$ROOT/src/main.c" -o "$ROOT/build/apptest.o"
 "${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror \
     -I"$ROOT/tests/stubs" -I"$ROOT/src" "$ROOT/tests/testpaint.c" "$ROOT/build/apptest.o" "$ROOT/src/ui.c" \
-    "$ROOT/src/font.c" "$ROOT/src/textsize.c" "$ROOT/src/region.c" \
+    "$ROOT/src/font.c" "$ROOT/src/textsize.c" "$ROOT/src/layout.c" "$ROOT/src/region.c" \
     "$ROOT/src/render.c" "$ROOT/src/screen.c" "$ROOT/src/cursor.c" \
     "$ROOT/src/menu.c" "$ROOT/src/menudraw.c" "$ROOT/src/uipaint.c" "$ROOT/src/keymap.c" \
     "$ROOT/src/dialog.c" "$ROOT/src/dlggeom.c" "$ROOT/src/dlginput.c" \

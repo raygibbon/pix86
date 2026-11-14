@@ -81,7 +81,7 @@ static void menus(void)
     assert(menu_key(&menu, KEY_F10, &command) && menu.active);
     assert(menu_key(&menu, KEY_LEFT, &command) && menu.heading == 5);
     menu_key(&menu, KEY_RIGHT, &command); assert(menu.heading == 0);
-    menu_key(&menu, KEY_UP, &command); assert(menu.item == 4);
+    menu_key(&menu, KEY_UP, &command); assert(menu.item == 6);
     menu_key(&menu, KEY_DOWN, &command); assert(menu.item == 0);
     menu_key(&menu, KEY_DOWN, &command);
     menu_key(&menu, 13, &command); assert(command == KEY_F3 && !menu.active);
@@ -90,10 +90,19 @@ static void menus(void)
         assert(keyboard_menu(keys[h]) == h);
         menu_key(&menu, keys[h], &command); assert(menu.active && menu.heading == h);
         for (row = 0; row < menu_items(h); ++row) {
-            menu.item = row; menu_draw(&menu);
-            menu_key(&menu, 13, &command);
-            assert(command == menu_item(h, row)->command);
-            assert(menu.active == !command);
+            const MenuItem *item=menu_item(h,row);
+            if(!item->label[0]) {
+                int previous=(row+menu_items(h)-1)%menu_items(h);
+                menu.item=previous;
+                menu_key(&menu,KEY_DOWN,&command);
+                assert(menu.item!=row && menu_item(h,menu.item)->label[0]);
+                continue;
+            }
+            menu.item=row; menu_draw(&menu);
+            menu_key(&menu,item->accelerator,&command);
+            assert(command==item->command);
+            assert(menu.active==!command);
+            if(!item->command) menu_key(&menu,27,&command);
             menu_key(&menu, keys[h], &command);
         }
         menu_key(&menu, 27, &command); assert(!menu.active && !command);
@@ -105,14 +114,18 @@ static void menus(void)
     }
     assert(toolbar_hit(TOOL_X-1, TOOL_Y) == -1);
     assert(toolbar_hit(TOOL_X+TOOL_WIDTH, TOOL_Y) == -1);
+    menu.heading=3;
     menu_key(&menu, KEY_F10, &command);
-    menu_key(&menu, 'c', &command); assert(!command && menu.active);
+    menu_key(&menu, 'a', &command); assert(!command && menu.active);
     menu_key(&menu, KEY_F10, &command); assert(!menu.active);
     assert(menu_mouse(&menu, 5, 4, 1, &command) && menu.active);
     menu_mouse(&menu, 5, 4, 0, &command);
     assert(menu_mouse(&menu, 8, MENU_ROW_TOP+2*MENU_ROW_HEIGHT, 1, &command));
-    assert(command == KEY_F2 && !menu.active);
+    assert(!command && menu.active && menu_item(menu.heading,menu.item)->label[0]);
     menu_mouse(&menu, 8, MENU_ROW_TOP+2*MENU_ROW_HEIGHT, 0, &command);
+    assert(menu_mouse(&menu, 8, MENU_ROW_TOP+3*MENU_ROW_HEIGHT, 1, &command));
+    assert(command == CMD_SAVE && !menu.active);
+    menu_mouse(&menu, 8, MENU_ROW_TOP+3*MENU_ROW_HEIGHT, 0, &command);
     menu_key(&menu, KEY_F10, &command);
     assert(menu_mouse(&menu, 100, 180, 1, &command) && !menu.active && !command);
     /* The dismissal is consumed; holding into the drawing area cannot edit. */
@@ -219,9 +232,49 @@ static void palettes(void)
     start();add(-1,0,0,1);assert(!dialog_palette(&colour,&background));
     start();add(13,0,0,0);dialog_font();
 }
+static void hires_geometry(void)
+{
+    DialogLayout l;
+    Menu menu;
+    Rect bounds;
+    Canvas canvas;
+    View view;
+    unsigned char pixels[64*64],colour;
+    int kind,heading,x,y;
+    layout_set(640,480,1);
+    assert(UI_WIDTH==640 && UI_HEIGHT==480 && FONT_WIDTH==8 && FONT_HEIGHT==16);
+    assert(DRAW_X==86 && DRAW_WIDTH==552 && DRAW_Y+DRAW_HEIGHT<=UI_STATUS_Y);
+    assert(toolbar_hit(TOOL_X,TOOL_Y)==0);
+    assert(palette_hit(PALETTE_X,PALETTE_Y,&colour));
+    canvas.width=canvas.height=64;
+    canvas.pixels=pixels;
+    assert(view_max_zoom(&canvas)>0);
+    assert(view_set(&view,&canvas,view_max_zoom(&canvas)));
+    assert(view_map(&view,view.x+(int)view.width*view.zoom-1,
+                    view.y+(int)view.height*view.zoom-1,&x,&y));
+    assert(x==63 && y==63);
+    for(heading=0;heading<MENU_COUNT;++heading) {
+        menu_init(&menu);
+        menu.heading=heading;
+        menu.active=1;
+        menu_bounds(&menu,&bounds);
+        assert(bounds.x>=0 && bounds.x+bounds.w<=UI_WIDTH);
+        assert(bounds.y>=0 && bounds.y+bounds.h<=UI_HEIGHT);
+    }
+    for(kind=0;kind<4;++kind) {
+        dialog_layout(&l,kind,"High resolution test","Dialog geometry");
+        assert(l.box.x>=0 && l.box.y>=0);
+        assert(l.box.x+l.box.w<=UI_WIDTH && l.box.y+l.box.h<=UI_HEIGHT);
+    }
+    assert(FULLPAL_BOX_X>=0 && FULLPAL_BOX_Y>=0);
+    assert(FULLPAL_BOX_X+FULLPAL_BOX_W<=UI_WIDTH);
+    assert(FULLPAL_BOX_Y+FULLPAL_BOX_H<=UI_HEIGHT);
+    assert(FULLPAL_HINT_Y+FONT_HEIGHT<=FULLPAL_BOX_Y+FULLPAL_BOX_H-4);
+    layout_set(320,200,0);
+}
 int main(void)
 {
-    keys(); menus(); inputs(); dialogs(); palettes();
+    keys(); menus(); inputs(); dialogs(); palettes(); hires_geometry();
     puts("PASS: menus, keyboard/mouse dialogs, cursor editing and drawing handoff.");
     return 0;
 }

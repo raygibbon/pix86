@@ -28,9 +28,24 @@ static void row(const Menu *menu,int i)
     paper=i==menu->item?UI_SELECT:UI_PAPER;
     ink=!item->command?UI_DIM:i==menu->item?UI_WHITE:UI_INK;
     cursor_protect(x+1,y,w-2,MENU_ROW_HEIGHT);
+    if(!item->label[0]) {
+        video_rect(x+1,y,w-2,MENU_ROW_HEIGHT,paper);
+        video_rect(x+4,y+FONT_HEIGHT/2,w-8,1,UI_DIM);
+        return;
+    }
     end=x+4+font_width(item->label); right=x+w-4-font_width(item->shortcut);
     video_rect(x+1,y,3,FONT_HEIGHT,paper);
     video_text_bg(x+4,y,item->label,ink,paper);
+    if(item->accelerator) {
+        const char *p;
+        int index;
+        for(p=item->label,index=0;*p;++p,++index) {
+            int letter=*p;
+            if(letter>='a' && letter<='z') letter-=('a'-'A');
+            if(letter==item->accelerator) break;
+        }
+        if(*p) video_rect(x+4+index*FONT_WIDTH,y+FONT_HEIGHT-1,FONT_WIDTH-1,1,ink);
+    }
     video_rect(end,y,right-end,FONT_HEIGHT,paper);
     video_text_bg(right,y,item->shortcut,ink,paper);
     video_rect(x+w-4,y,3,FONT_HEIGHT,paper);

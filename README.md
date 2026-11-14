@@ -2,9 +2,10 @@
 
 A lightweight, DOS-native pixel-art and frame-by-frame animation editor for game creators.
 
-**Status:** M2.5 pixel editor with compact 6x8 text, keyboard/mouse menus, file dialogs
-dirty-region rendering and native .P86 saving/loading, targeting
-16-bit real-mode DOS.
+**Status:** M2.5 pixel editor with compact 6x8 text, keyboard/mouse menus, file
+dialogs, dirty-region rendering and native .P86 saving/loading. The
+`experiment/high-resolution-vga` branch adds an opt-in VBE 640x480 experiment;
+the default remains 320x200 Mode 13h.
 
 Draw on a 16×16, 32×32 or 64×64 indexed canvas with pencil, eraser, four-connected
 fill and eyedropper tools. Integer zoom, an optional grid, all 256 palette indices
@@ -19,6 +20,10 @@ and foreground/background selections. Animation and layers are not implemented.
 
 [All 256 colours](docs/PALETTE.PNG) · [Grid](docs/GRID.PNG) ·
 [Font at native resolution](docs/FONT.PNG)
+
+Compare the same default editor state in [Mode 13h](docs/MODE13.PNG) and
+[VBE 640x480](docs/VBE101.PNG). The VBE trade-offs, hardware requirements,
+font and DOSBox-X timings are documented in [VIDEO_MODES.md](docs/VIDEO_MODES.md).
 
 Menus repaint only changed rows; dialogs remain unchanged while idle and restore
 only the covered editor region when closed. The cursor is saved/restored only
@@ -67,7 +72,9 @@ PIX86 32 /NOMOUSE
 ```
 
 Choose another size with New or by opening a project. `/NOMOUSE` skips driver
-initialization for diagnosis.
+initialization for diagnosis. On the experimental branch, `PIX86 /HIRES` requests
+VBE mode 101h (640x480x256); if unsupported it reports the limitation and uses
+Mode 13h. Plain `PIX86` never requests VBE.
 Exit restores the prior text mode/page/cursor, clearing the prior screen. Copy
 only `PIX86.EXE` to DOS; no runtime DLL or data assets are needed.
 
@@ -103,12 +110,14 @@ FG/BG in either palette. [ and ] cycle working foreground colours. New indices
 are remembered in eight recent slots, alongside eight stable defaults. These
 selections never remap existing pixels or edit the artwork DAC palette.
 
-The grouped tool/colour sidebar leaves a 274x176 drawing region. Text uses an original crisp 6x8 bitmap font; UI colours use existing
-palette entries so saved artwork retains its colours. The single compact status
-line shows filename, modified state, dimensions, coordinates, tool, FG/BG and
-zoom; `X--Y--` means the pointer is outside the canvas. Grid lines belong to the view, never
-the artwork. Tool rows are 10 pixels high, and menu rows are 9 pixels high.
-Grid starts off;
+In the default mode, the grouped tool/colour sidebar leaves a 274x176 drawing
+region and text uses the original crisp 6x8 bitmap font. `/HIRES` uses an
+original 8x16 font and a 552x440 drawing region at 640x480. UI colours use
+existing palette entries so saved artwork retains its colours. The single
+status line shows filename, modified state, dimensions, coordinates, tool,
+FG/BG and zoom; `X--Y--` means the pointer is outside the canvas. Grid lines
+belong to the view, never the artwork. Default tool rows are 10 pixels high and
+menu rows 9 pixels; hires menu rows are 17 pixels. Grid starts off;
 G shows a subtle shaded dot grid at integer pixel boundaries. Help → Font sample
 displays all supported characters.
 
@@ -168,12 +177,16 @@ held buttons after closing a menu/dialog before drawing. See
 ```sh
 ./scripts/test.sh                     # strict C89 host suites; requires cc
 python3 tests/mzcheck.py mnt/PIX86.EXE  # executable container check
-./scripts/dostest.sh                  # build EDTEST.EXE, IOTEST.EXE UITEST.EXE and KBDTEST.EXE for DOS
+./scripts/dostest.sh                  # build DOS regression, video and benchmark executables
 ./scripts/doscheck.sh                 # build interactive restoration harness
 ```
 
 Run `EDTEST > EDTEST.TXT` in DOSBox-X to exercise tools, coordinates, history and
-gestures with Watcom's 16-bit integers. The larger mock-framebuffer suites are
+gestures with Watcom's 16-bit integers. `VIDTEST` checks Mode 13h and VBE pixel
+access, bank boundaries and restoration. `BENCH` and `BENCH /HIRES` measure
+renderer/UI operations at the same emulator setting. See
+[VIDEO_MODES.md](docs/VIDEO_MODES.md) for mode selection and current results.
+The larger mock-framebuffer suites are
 host-only. Run `IOTEST > RESULT.TXT` in a separate scratch directory to test native
 file roundtrips, malformed files, dirty tracking, dialogs and injected write,
 flush, close, rename and rollback failures. It creates/removes test fixtures;

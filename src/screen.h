@@ -7,7 +7,7 @@ typedef struct Screen {
     Menu menu;
     int tool;
     unsigned char foreground,background;
-    char status[UI_STATUS_CHARS+1];
+    char status[UI_STATUS_MAX_CHARS+1];
     char filename[13];
     unsigned char working[16];
 } Screen;

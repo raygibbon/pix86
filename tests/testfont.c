@@ -4,12 +4,16 @@
 #include <string.h>
 #include "video.h"
 #include "font.h"
-static unsigned char screen[64000], reference[64000];
+static unsigned char screen[VIDEO_MAX_WIDTH*VIDEO_MAX_HEIGHT];
+static unsigned char reference[VIDEO_MAX_WIDTH*VIDEO_MAX_HEIGHT];
 static unsigned writes;
+static int test_width=320,test_height=200;
+int video_width(void) { return test_width; }
+int video_height(void) { return test_height; }
 void video_pixel(int x, int y, unsigned char colour)
 {
-    assert(x >= 0 && x < 320 && y >= 0 && y < 200);
-    screen[y*320+x] = colour;
+    assert(x >= 0 && x < test_width && y >= 0 && y < test_height);
+    screen[y*test_width+x] = colour;
     ++writes;
 }
 static void clipping(int dx, int dy)
@@ -26,10 +30,10 @@ static void clipping(int dx, int dy)
 }
 int main(void)
 {
-    int code, x, y;
+    int code, x, y, different;
     unsigned before;
     char text[2];
-    unsigned char upper[48];
+    unsigned char upper[128];
     text[1] = '\0';
     for (code = 32; code < 127; ++code) {
         memset(screen, 0, sizeof(screen)); writes = 0;
@@ -87,5 +91,35 @@ int main(void)
     memset(screen,0,sizeof(screen)); text[0]=(char)255; video_text(0,0,text,173);
     assert(!memcmp(screen,reference,sizeof(screen)));
     puts("PASS: original 6x8 glyphs, lowercase, spacing, clipping and extreme coordinates.");
+    font_set_mode(1);
+    test_width=640; test_height=480;
+    assert(FONT_WIDTH==8 && FONT_HEIGHT==16 && font_width("Save As")==56);
+    memset(screen,0,sizeof(screen)); writes=0;
+    video_text(400,350,"A",173);
+    assert(writes>0);
+    memset(screen,99,sizeof(screen)); writes=0;
+    video_text_bg(400,350,"A",173,2);
+    assert(writes==128);
+    for(y=350;y<366;++y) for(x=400;x<408;++x)
+        assert(screen[y*640+x]==2 || screen[y*640+x]==173);
+    assert(screen[349*640+400]==99 && screen[350*640+399]==99);
+    for (code=32;code<127;++code) {
+        memset(screen,0,sizeof(screen)); writes=0; text[0]=(char)code;
+        video_text(0,0,text,173);
+        assert(code==32 ? writes==0 : writes>0);
+        for(y=0;y<16;++y) for(x=8;x<640;++x) assert(screen[y*640+x]==0);
+        for(y=16;y<480;++y) for(x=0;x<640;++x) assert(screen[y*640+x]==0);
+    }
+    memset(screen,0,sizeof(screen)); video_text(0,0,"A",173);
+    for(y=0;y<16;++y) memcpy(upper+y*8,screen+y*640,8);
+    memset(screen,0,sizeof(screen)); video_text(0,0,"a",173);
+    different=0;
+    for(y=0;y<16;++y) if(memcmp(upper+y*8,screen+y*640,8)) ++different;
+    assert(different);
+    memset(screen,0,sizeof(screen)); video_text(0,0,"0O1Il!.,:",173);
+    for(y=0;y<16;++y) for(x=0;x<9*8;++x)
+        if(screen[y*640+x]) assert(screen[y*640+x]==173);
+    font_set_mode(0);
+    puts("PASS: original 8x16 stroke font renders all printable ASCII and distinct lowercase.");
     return 0;
 }

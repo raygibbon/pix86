@@ -138,7 +138,7 @@ void render_status_text(const Editor *editor, int mouse_x, int mouse_y, int has_
 
 void render_status(const Editor *editor,int x,int y,int has_mouse)
 {
-    char text[54];
+    char text[UI_STATUS_MAX_CHARS+1];
     render_status_text(editor,x,y,has_mouse,"",text);
     video_rect(0,UI_STATUS_Y,UI_WIDTH,FONT_HEIGHT,UI_BAR); video_text(0,UI_STATUS_Y,text,UI_INK);
 }

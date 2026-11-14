@@ -49,7 +49,11 @@ void video_rect(int x,int y,int w,int h,unsigned char colour)
     for(yy=y;yy<y+h;++yy) for(xx=x;xx<x+w;++xx) video_pixel(xx,yy,colour);
 }
 void video_clear(unsigned char colour) { video_rect(0,0,320,200,colour); }
-int video_init(void) { assert(!mode); mode=1; ++initializations; return 1; }
+int video_init(int request_hires) { assert(!mode && !request_hires); mode=1; ++initializations; return 1; }
+int video_hires(void) { return 0; }
+int video_failed(void) { return 0; }
+int video_width(void) { return 320; }
+int video_height(void) { return 200; }
 void video_shutdown(void) { assert(mode && current==count-1); mode=0; ++shutdowns; }
 void delay(unsigned ms) { (void)ms; }
 int mouse_init(void) { return 1; }
@@ -138,7 +142,19 @@ static void menus(void)
             menu_key(&m,KEY_DOWN,&command);
             screen_update(&s,&editor,&m,0,&mouse,0);
             watching=0; assert(!outside);
-            assert(writes-before==(olditem==m.item?0UL:2UL*(unsigned)(watch.w)*MENU_ROW_HEIGHT));
+            {
+                unsigned long expected=olditem==m.item?0UL:
+                    2UL*(unsigned)(watch.w)*MENU_ROW_HEIGHT;
+                if(olditem!=m.item) {
+                    const MenuItem *old=menu_item(m.heading,olditem);
+                    const MenuItem *next=menu_item(m.heading,m.item);
+                    if(!old->label[0]) expected+=(unsigned)(watch.w-6);
+                    else if(old->accelerator) expected+=FONT_WIDTH-1;
+                    if(!next->label[0]) expected+=(unsigned)(watch.w-6);
+                    else if(next->accelerator) expected+=FONT_WIDTH-1;
+                }
+                assert(writes-before==expected);
+            }
         }
         for(i=0;i<MENU_COUNT;++i) {
             menu_key(&m,KEY_RIGHT,&command); screen_update(&s,&editor,&m,0,&mouse,0);
@@ -231,7 +247,7 @@ static void palette_overlay(void)
 static void routing_status(void)
 {
     UiState ui; MouseState mouse;
-    Screen s; Menu m; char text[UI_STATUS_CHARS+1];
+    Screen s; Menu m; char text[UI_STATUS_MAX_CHARS+1];
     int command;
     start(); clean_baseline(&s,&m,&mouse); ui_init(&ui);
     assert(keyboard_command('U')==CMD_UNDO && keyboard_command('r')==CMD_REDO);
@@ -256,7 +272,7 @@ static void routing_status(void)
     screen_filename(&s,"C:\\ART\\LONGNAME.P86");
     assert(!strcmp(s.filename,"LONGNAME.P86"));
     render_status_text(&editor,editor.view.x,editor.view.y,1,s.filename,text);
-    assert(strlen(text)<=UI_STATUS_CHARS && !strncmp(text,"LONGNAME.P86",12));
+    assert(strlen(text)<=(size_t)UI_STATUS_CHARS && !strncmp(text,"LONGNAME.P86",12));
     assert(strstr(text,"16x16") && strstr(text,"X00Y00") && strstr(text,"Pen"));
     assert(strstr(text,"F015") && strstr(text,"B000") && strstr(text,"Z11"));
     screen_update(&s,&editor,&m,EDIT_STATUS,&mouse,0);
