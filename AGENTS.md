@@ -10,6 +10,12 @@ Pix86 is an original pixel-art and frame-based animation editor, planned for DOS
 - Treat Zine as an engineering reference rather than a Pix86 dependency. Prefer original Pix86 implementations. Any deliberate reuse of Zine code must be separately assessed for relevance and licensing and explicitly documented.
 - Do not bring over Zine's Watt-32 networking, bundled third-party code, or unrelated site-generator functionality.
 
+## TDE user-interface reference
+
+- [TDE source download](http://adoxa.altervista.org/tde/dl.php?f=source) can be consulted for DOS UI concepts (menus, dialogs, shortcuts, status lines, keyboard navigation).
+- Treat it as a functional and engineering reference; implement an original graphical user interface for Pix86. Do not copy TDE source or assets as part of this reference-only workflow.
+- The public-domain description is not a substitute for reviewing the actual provenance and notices of any third-party material before intentional reuse.
+
 ## Non-negotiable clean-room policy
 
 - GrafX2 and Autodesk Animator / Animator Pro are **reference-only** projects.
