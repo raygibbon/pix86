@@ -1,63 +1,115 @@
-# M1 architecture
+# M2 architecture
 
-M1 is a native 16-bit real-mode DOS foundation. There is one 128x128 indexed
-canvas and an original, static editor workspace. Painting, animation operations,
-file formats, palette editing and additional platforms are outside M1. The frame
-label reserves a place for animation context; it is not an animation document.
+Pix86 remains a 16-bit real-mode DOS application. M2 adds one indexed drawing
+canvas, four drawing tools, integer zoom, grid, palette selection and bounded
+undo/redo. Animation, file formats, saving/loading, layers, alternative graphics
+modes and additional platforms remain outside this milestone.
 
-## Modules
+## Data and tools
 
-- `canvas.c`: portable ANSI C, dimensions and caller-owned byte storage. No DOS
-  headers, video addresses or palette RGB values. Initialization rejects zero
-  dimensions, insufficient storage and objects larger than 32767 bytes. The
-  caller must keep the initialized dimensions and storage valid.
-- `video.c`: all VGA memory access, video BIOS calls and DAC port I/O. Enters
-  320x200 Mode 13h, checks the BIOS mode, and clips pixel/rectangle operations.
-  Screen offsets use unsigned 16-bit arithmetic (maximum 63999). Rectangle
-  endpoints use long arithmetic before clipping. Text uses the machine BIOS's
-  8x8 font pointer; there is no bundled font or font dependency.
-- `mouse.c`: INT 33h polling only. Checks for a null vector and an IRET stub
-  before driver reset. Reset detects availability and leaves the driver cursor
-  hidden. Sets a 0..639 horizontal virtual range and divides X by two for
-  Mode 13h pixels; vertical range is 0..199. Left/right bits are exposed as
-  portable state. Shutdown resets an initialized driver before text restoration.
-- `keyboard.c`: nonblocking DOS console polling, consumes extended-key pairs.
-- `cursor.c`: portable saved-pixel cursor using only the video interface. Saves
-  64 bytes for an original 8x8 pointer. Hide before modifying the status bar or
-  moving the pointer, then show after drawing; video clipping handles edges.
-- `main.c`: owns the canvas allocation, draws the workspace and controls the
-  polling loop. Redraws only the status bar and cursor on input changes. ESC
-  hides the cursor, resets the mouse, restores video and frees storage.
+`canvas.c` owns the portable interface to caller-supplied pixel storage. A byte
+is a palette index, including 0 and 255. Get/set reject out-of-bounds coordinates;
+clear fills the canvas. The generic interface caps objects at 32767 bytes, while
+M2 restricts the session to a 16×16, 32×32 or 64×64 square (4096 bytes maximum).
+Size is selected at launch; there is no destructive runtime resize operation.
 
-The toolbar and palette swatches are placeholders. Mouse coordinates describe
-screen pixels; the canvas occupies x=112..239, y=32..159. The bottom bar shows
-left/right button states. `/NOMOUSE` is an explicit diagnostic option, also useful
-for running with a problematic driver; automatic detection remains the default.
+`tools.c` contains independently callable pencil, eraser, fill and pick functions.
+Pencil connects sampled positions with an original integer error-accumulation
+line implementation, inclusive of both endpoints; eraser uses the same path
+with the configured background. Endpoints must be inside the M2 canvas, bounding
+coordinate differences to 63 and intermediate line errors well within signed
+16-bit range. No floating-point arithmetic is used.
 
-## Real-mode memory and cleanup
+Fill visits four-connected matching indices using a caller-owned queue of 4096
+unsigned-short pixel offsets. It marks a pixel before enqueuing it, so each pixel
+enters the queue at most once. There is no recursion or growing allocation.
+Same-colour fills return immediately. Boundary checks prevent horizontal row
+wrapping and diagonally touching regions do not connect. Pick reads the software
+canvas, including positions covered by grid lines or the visible cursor.
 
-Open Watcom `wcl -bt=dos -ms -0` selects the 16-bit DOS target, small model and
-8086 code generation. Near code/data each stay within a 64 KiB segment. Only the
-VGA and BIOS pointers and interrupt-vector inspection need far pointers.
-No extender, DPMI, graphics framework or external library is linked beyond the
-Watcom DOS C runtime. Source files and DOS executables use 8.3-compatible names;
-Linux-only documentation filenames need not be copied into DOS.
+## History and action boundaries
 
-The canvas uses 16384 heap bytes. There is no 64000-byte shadow screen and no
-per-widget buffer. The cursor uses 64 static bytes; the status buffer is 41 stack
-bytes. The linker reserves a 4096-byte stack. The initial build's map reports
-17968 bytes of linked code/data/stack, excluding the canvas heap, PSP/environment
-and runtime heap bookkeeping. This is a footprint observation, not a claim about
-the minimum DOS memory required. Allocation failure occurs before changing video.
-The small model deliberately limits future canvas growth; M2 must reassess memory
-rather than silently growing near objects past segment limits.
+`history.c` stores five fixed 4096-byte slots: one base state and at most four
+undoable actions. Metadata records canvas dimensions, byte count, current
+position and state count. Only the active canvas bytes are compared/copied.
+On a fifth edit, the oldest state expires; storage never grows. Full snapshots
+are deliberately bounded and simple at these small canvas sizes, rather than
+introducing variable-sized change logs. Each history object is below 32 KiB.
 
-Launch from a DOS text mode (0..3 or 7) on VGA hardware or VGA emulation.
-The previous BIOS mode, active page, text cursor position and shape are saved.
-Mode restoration clears the old text contents; it does not restore the prior
-screen contents or custom fonts/palette. Normal ESC and failed mode entry restore
-video. Abrupt process termination and emulator closure are outside this cleanup
-contract. There are no installed interrupt handlers.
+Pencil/eraser samples mutate the live canvas during a drag, then commit once on
+release, including the final release position. Fill and clear commit once.
+A no-op creates no history entry and preserves redo. A real edit after undo
+truncates redo; palette selection, picking, tools, grid and zoom do not edit art.
+Undo/redo copy pixel data only, leaving foreground/background and view unchanged.
+Canvas dimensions stay fixed, and history rejects a mismatched canvas.
+
+`editor.c` owns application state and gesture handling, independently of DOS,
+mouse hardware or rendering. A stroke starts only on a new left press inside the
+canvas. Moving outside pauses it and breaks interpolation; re-entry starts a new
+segment in the same action. A press starting on the toolbar/palette cannot become
+a canvas stroke. Tools and foreground/background are captured for a held stroke;
+keyboard actions finish it and require release before another can start.
+Right-click canvas picks colour; right-click palette configures the background.
+
+## View, rendering and platform boundaries
+
+`view.c` calculates integer zoom, centred origins and mouse-to-canvas coordinates.
+The drawing area is x=40..215, y=20..187. All zooms from 1 to the largest fitting
+integer are accepted: maximum 10, 5 or 2 for the three sizes respectively.
+Mapping uses half-open bounds; the last displayed pixel belongs to the last
+canvas cell. Long subtraction protects negative/outside screen coordinates.
+Grid pixels map to their containing cell. Palette hit testing maps the right
+16×16 array to indices 0..255 without touching canvas data.
+
+`render.c` draws toolbar, palette, foreground/background swatches, software canvas
+and status through the video interface. Grid lines are view-only at zoom >=2,
+and can be disabled. Pencil/eraser redraw only the affected bounding rectangle;
+fill, history and view changes redraw the canvas. Zoom redraw clears the old
+canvas area. The cursor is hidden before changing any screen pixels and shown
+afterwards, so its saved pixels cannot overwrite an edit.
+
+`video.c` exclusively owns VGA memory, BIOS video calls and DAC I/O. It checks
+Mode 13h entry, clips drawing, and uses unsigned offsets up to 63999 for VGA.
+Rectangle endpoints use long arithmetic before clipping; rectangles write directly
+to VGA within this module to avoid a per-pixel function call. Text uses the
+machine's BIOS 8×8 font; no font is bundled. The original M1 DAC palette remains
+unchanged, with all indices exposed in M2 (some RGB entries intentionally repeat).
+
+`mouse.c` owns INT 33h polling, null/IRET vector checks, driver reset, position
+and button reads. Mode 13h's 640-unit horizontal range is divided by two.
+`keyboard.c` owns nonblocking DOS console input and consumes extended-key pairs.
+`cursor.c` saves/restores 64 bytes for the original pointer using only the video
+interface. `main.c` parses launch options, polls input, dispatches dirty render
+flags, and performs normal ESC cleanup. No interrupt handlers are installed.
+
+## 16-bit memory budget
+
+The build retains `wcl -bt=dos -ms -0`: 16-bit DOS, small model, 8086 instructions,
+with a 4096-byte stack. No DPMI, extender, graphics framework or new dependency
+is used. All DOS-facing source and executable names fit 8.3.
+
+| Fixed application buffer | Bytes |
+| --- | ---: |
+| Canvas, reserved for largest size | 4096 |
+| Five history slots | 20480 |
+| Fill queue, 4096 16-bit offsets | 8192 |
+| Cursor saved pixels | 64 |
+| Total pixel/history/work buffers | 32832 |
+
+The Editor object adds small metadata; the fill queue is a separate static
+object to keep individual near objects below 32767 bytes. Smaller canvases
+retain the same fixed reservation. Large objects are static, never automatic;
+there is no application heap allocation and no full-screen shadow buffer.
+The link map, including runtime code/data and the 4096-byte stack, reports about
+54 KiB; DGROUP remains below 64 KiB. Exact measured values are in TESTING.md.
+The executable file is smaller because DOS zero-initializes BSS. Loader/PSP,
+environment and runtime bookkeeping are additional to the linked footprint.
+
+Launch from a DOS text mode (0..3 or 7) on VGA hardware/emulation. ESC saves no
+artwork, resets an initialized mouse driver and restores the prior BIOS mode,
+active page, text cursor position and shape. Restoration clears prior screen
+contents; custom fonts/palettes and previous text contents are not preserved.
+Abrupt process termination/emulator closure is outside normal cleanup.
 
 ## Provenance and engineering references
 
@@ -80,5 +132,5 @@ contract. There are no installed interrupt handlers.
   and launch options. The emulator is a test tool, not a shipped dependency.
 
 GrafX2 and Autodesk Animator/Animator Pro remain functional references only.
-Neither their source nor their assets were consulted or incorporated for M1.
+Neither their source nor their assets were consulted or incorporated for M1 or M2.
 The workspace, pointer, swatches and module implementations are original.

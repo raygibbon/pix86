@@ -29,7 +29,7 @@ int video_init(void)
     int86(0x10, &r, &r);
     previous_mode = r.h.al & 0x7f;
     previous_page = r.h.bh;
-    /* Only enter from text modes; returning to graphics is outside M1. */
+    /* Only enter from text modes; returning to graphics is unsupported. */
     if (previous_mode > 3 && previous_mode != 7)
         return 0;
     r.h.ah = 3;
@@ -101,6 +101,7 @@ void video_rect(int x, int y, int width, int height, unsigned char colour)
 {
     long right, bottom;
     int xx, yy;
+    unsigned offset;
     if (width <= 0 || height <= 0)
         return;
     right = (long)x + width;
@@ -109,9 +110,11 @@ void video_rect(int x, int y, int width, int height, unsigned char colour)
     if (bottom > VIDEO_HEIGHT) bottom = VIDEO_HEIGHT;
     if (x < 0) x = 0;
     if (y < 0) y = 0;
-    for (yy = y; yy < bottom; ++yy)
+    for (yy = y; yy < bottom; ++yy) {
+        offset = (unsigned)yy * VIDEO_WIDTH;
         for (xx = x; xx < right; ++xx)
-            video_pixel(xx, yy, colour);
+            vga[offset + (unsigned)xx] = colour;
+    }
 }
 
 void video_clear(unsigned char colour)
