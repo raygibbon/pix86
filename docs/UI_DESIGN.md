@@ -33,7 +33,9 @@ leaving a blank spacing column. Lowercase has distinct shapes and descenders;
 there is no antialiasing, scaling, ROM-font lookup or conversion from another
 font. Unsupported bytes use the original question-mark glyph. The renderer
 clips transparent ink at all four edges using long coordinate intermediates;
-it never changes pixels outside the screen or outside a glyph's ink. `font.h`
+transparent text never changes pixels outside the screen or a glyph's ink.
+Opaque text writes final ink/paper per cell, avoiding a background wipe followed
+by text. Control-local clipping bounds filename/title text. `font.h`
 defines the shared 6x8 metrics. Rendering tests exercise the actual bitmap path.
 
 `theme.h` names UI indices from the existing fixed palette: deep blue work area,
@@ -45,10 +47,10 @@ relationships, without reproducing a reference palette or screen.
 
 ## Workspace
 
-The menu occupies y=0..9. The drawing region is x=24..245, y=14..189:
+The menu occupies y=0..8. The drawing region is x=24..245, y=14..189:
 222x176 pixels, versus the previous 176x168 (about 32% larger). A narrow strip at
-left holds four 20x12 text controls, with two-pixel gaps. Render and hit testing
-share geometry in `view.h`; the editor only receives a tool index.
+left holds four 20x10 text controls, with one-pixel gaps. Render and hit testing
+share geometry in `layout.h`; the editor only receives a tool index.
 
 The right palette occupies x=254..317, y=24..119: all 256 indices in a 16x16
 array of 4x6 cells. Left/right click chooses FG/BG. Compact labels and swatches
@@ -56,9 +58,9 @@ beneath it identify both selections. The palette no longer consumes most of
 the screen height. Canvas dimensions remain 16, 32 or 64 pixels square; integer
 zoom maxima are 11, 5 and 2. Grid lines remain a view overlay.
 
-The single eight-pixel status line at y=192 shows modified marker, dimensions,
-X/Y, tool, FG/BG indices, zoom, grid and undo/redo counts. Without a mouse it
-retains document information and shows `No mouse`. Menus temporarily replace it
+The single eight-pixel status line at y=192 shows the bounded DOS basename, modified marker, dimensions,
+X/Y, tool, FG/BG indices and zoom. Without a mouse it retains document information
+and uses X--Y--. Menus temporarily replace it
 with navigation guidance. View changes do not mark the project modified.
 
 ## Menus and keyboard
@@ -71,13 +73,13 @@ Left/Right wraps headings, Up/Down wraps rows, Enter executes and Escape closes.
 Drawing shortcuts are consumed while a menu is open and retain their bindings
 when closed. Frame operations remain disabled placeholders.
 
-Dropdowns use a one-pixel border and ten-pixel rows, left-aligned command names
+Dropdowns use a one-pixel border and nine-pixel rows, left-aligned command names
 and right-aligned shortcut labels. Disabled commands stay visible in muted ink
 and cannot execute. Fresh mouse presses activate headings/items. An outside
 left click closes the menu and is consumed; release before drawing again.
-Dropdowns disappear before commands open dialogs. Opening/moving within a menu
-repaints only the overlay/status; switching headings
-or closing restores the covered workspace. No screen-sized backing buffer or
+Dropdowns disappear before commands open dialogs. Opening a menu paints its bounds and changed headings/status; moving the
+selection paints the old/new rows only. Switching headings or closing restores
+only exposed rectangles from the editor model. No screen-sized backing buffer or
 widget framework is used.
 
 `keyboard.c` polls BIOS INT 16h through Watcom's `_bios_keybrd`, retaining AH's
@@ -106,9 +108,10 @@ source-code dependencies. Actual tested layouts/results are in TESTING.md.
 
 ## Dialogs and input ownership
 
-Centred 260x104 windows have thin dark borders, a compact title and 6x8 text.
-Controls are flat text choices, 60x10 pixels, with a contrasting selected row.
-Filename fields show 39 characters, scroll to the insertion cursor, and are
+Content-sized centred windows (a filename prompt is 200x66; a short confirmation
+is 140–146x52) have thin dark borders, a compact title and 6x8 text.
+Controls are flat text choices, 44x10 pixels, with a contrasting selected row.
+Filename fields show 32 characters, scroll to the insertion cursor, and are
 highlighted when focused. Typing replaces the selected prefill; cursor movement
 ends selection. Left/Right/Home/End, Backspace/Delete, Tab/Shift+Tab, Enter and
 Escape retain their behaviours. Click inside the field to place the cursor.
@@ -120,8 +123,16 @@ operation. Enter activates the highlighted control. Error messages retain room
 for both recovery paths, with forty characters per wrapped line. No file browser
 is introduced.
 
-All overlay painting hides the software cursor. Dialog polling consumes fresh
+Overlay painting protects the cursor only when their regions overlap. Dialog polling consumes fresh
 presses, including between consecutive prompts; dismissal blocks held buttons
 until release before returning to the editor. Cancelled or failed Open retains
 pixels, dimensions, filename, history and saved baseline. File-format handling
 remains independent from UI code.
+
+## Refactor review
+
+The additional source review, responsibility boundaries, supplied screencast
+analysis and before/after measurements are recorded in [REFACTOR.md](REFACTOR.md).
+The original font predates this refactor; its glyph data is unchanged. Layout,
+opaque text and dirty painting make the interface denser and steadier without
+scaling or importing any reference glyphs.

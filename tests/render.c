@@ -9,13 +9,17 @@
 static Editor editor;
 static unsigned short queue[4096];
 static unsigned char screen[64000];
+static int clip_x,clip_y,clip_r=320,clip_b=200;
+void video_clip(int x,int y,int w,int h) { clip_x=x;clip_y=y;clip_r=x+w;clip_b=y+h; }
+void video_unclip(void) { clip_x=clip_y=0;clip_r=320;clip_b=200; }
+void cursor_protect(int x,int y,int w,int h) { (void)x;(void)y;(void)w;(void)h; }
 
 void video_rect(int x, int y, int w, int h, unsigned char colour)
 {
     int xx, yy;
     for (yy = y; yy < y + h; ++yy)
         for (xx = x; xx < x + w; ++xx)
-            if (xx >= 0 && yy >= 0 && xx < 320 && yy < 200)
+            if (xx >= clip_x && yy >= clip_y && xx < clip_r && yy < clip_b)
                 screen[yy * 320 + xx] = colour;
 }
 
@@ -25,6 +29,8 @@ void video_text(int x, int y, const char *text, unsigned char colour)
     assert(strlen(text) <= 53);
 }
 
+void video_text_bg(int x,int y,const char *text,unsigned char ink,unsigned char paper)
+{ (void)paper; video_text(x,y,text,ink); }
 static void test_render(unsigned side)
 {
     unsigned x, y, index;

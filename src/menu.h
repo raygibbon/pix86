@@ -1,12 +1,13 @@
 #ifndef PIX86_MENU_H
 #define PIX86_MENU_H
+#include "layout.h"
+#include "command.h"
+#include "region.h"
 #define MENU_COUNT 6
-#define MENU_BAR_HEIGHT 10
-#define MENU_ROW_HEIGHT 10
-#define MENU_ROW_TOP 12
-#define MENU_DROP_WIDTH 148
-#define CMD_HELP 600
-#define CMD_ABOUT 601
+#define MENU_BAR_HEIGHT UI_MENU_HEIGHT
+#define MENU_ROW_HEIGHT (FONT_HEIGHT + 1)
+#define MENU_ROW_TOP (MENU_BAR_HEIGHT + 1)
+
 typedef struct Menu { int active, heading, item; unsigned buttons; } Menu;
 typedef struct MenuItem { const char *label, *shortcut; int command; } MenuItem;
 void menu_init(Menu *menu);
@@ -19,5 +20,9 @@ int menu_width(int heading);
 int menu_items(int heading);
 const char *menu_title(int heading);
 const MenuItem *menu_item(int heading, int item);
+int menu_drop_width(int heading);
+void menu_bounds(const Menu *menu, Rect *bounds);
+void menu_draw_bar(const Menu *menu);
+void menu_draw_change(const Menu *menu, const Menu *previous);
 void menu_draw(const Menu *menu);
 #endif

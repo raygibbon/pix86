@@ -8,6 +8,20 @@ static unsigned char previous_page;
 static unsigned short previous_cursor;
 static unsigned short previous_shape;
 static int active;
+static int clip_x, clip_y, clip_right = VIDEO_WIDTH, clip_bottom = VIDEO_HEIGHT;
+void video_unclip(void)
+{
+    clip_x=clip_y=0; clip_right=VIDEO_WIDTH; clip_bottom=VIDEO_HEIGHT;
+}
+void video_clip(int x, int y, int width, int height)
+{
+    long right, bottom;
+    right=(long)x+width; bottom=(long)y+height;
+    clip_x=x<0?0:x; clip_y=y<0?0:y;
+    clip_right=(int)(right>VIDEO_WIDTH?VIDEO_WIDTH:right<0?0:right);
+    clip_bottom=(int)(bottom>VIDEO_HEIGHT?VIDEO_HEIGHT:bottom<0?0:bottom);
+    if(width<=0 || height<=0) clip_right=clip_bottom=0;
+}
 static unsigned char __far *vga = (unsigned char __far *)0xa0000000UL;
 
 static void set_mode(unsigned char mode)
@@ -80,7 +94,7 @@ void video_shutdown(void)
 
 void video_pixel(int x, int y, unsigned char colour)
 {
-    if (x >= 0 && x < VIDEO_WIDTH && y >= 0 && y < VIDEO_HEIGHT)
+    if (x >= clip_x && x < clip_right && y >= clip_y && y < clip_bottom)
         vga[(unsigned)y * VIDEO_WIDTH + (unsigned)x] = colour;
 }
 
@@ -100,10 +114,10 @@ void video_rect(int x, int y, int width, int height, unsigned char colour)
         return;
     right = (long)x + width;
     bottom = (long)y + height;
-    if (right > VIDEO_WIDTH) right = VIDEO_WIDTH;
-    if (bottom > VIDEO_HEIGHT) bottom = VIDEO_HEIGHT;
-    if (x < 0) x = 0;
-    if (y < 0) y = 0;
+    if (right > clip_right) right = clip_right;
+    if (bottom > clip_bottom) bottom = clip_bottom;
+    if (x < clip_x) x = clip_x;
+    if (y < clip_y) y = clip_y;
     for (yy = y; yy < bottom; ++yy) {
         offset = (unsigned)yy * VIDEO_WIDTH;
         for (xx = x; xx < right; ++xx)

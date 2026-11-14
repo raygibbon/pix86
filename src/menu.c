@@ -1,20 +1,45 @@
 #include "menu.h"
 #include "keyboard.h"
 static const char *titles[MENU_COUNT] = {"File", "Edit", "View", "Frame", "Options", "Help"};
-static const int starts[MENU_COUNT] = {0, 36, 72, 108, 150, 204};
 static const int counts[MENU_COUNT] = {5, 3, 3, 3, 1, 2};
 static const MenuItem items[MENU_COUNT][5] = {
-    {{"New", "N", 'n'}, {"Open", "F3", KEY_F3}, {"Save", "F2", KEY_F2},
-     {"Save As", "Shift-F2", KEY_SAVE_AS}, {"Exit", "Esc", 27}},
-    {{"Undo", "Ctrl-Z", 26}, {"Redo", "Ctrl-Y", 25}, {"Clear", "C", 'c'}},
-    {{"Zoom in", "+", '+'}, {"Zoom out", "-", '-'}, {"Grid", "G", 'g'}},
+    {{"New", "N", CMD_NEW}, {"Open", "F3", CMD_OPEN}, {"Save", "F2", CMD_SAVE},
+     {"Save As", "Shift-F2", CMD_SAVE_AS}, {"Exit", "Esc", CMD_EXIT}},
+    {{"Undo", "Ctrl-Z", CMD_UNDO}, {"Redo", "Ctrl-Y", CMD_REDO}, {"Clear", "C", CMD_CLEAR}},
+    {{"Zoom in", "+", CMD_ZOOM_IN}, {"Zoom out", "-", CMD_ZOOM_OUT}, {"Grid", "G", CMD_GRID}},
     {{"Add frame", "", 0}, {"Duplicate", "", 0}, {"Playback", "", 0}},
-    {{"Grid", "G", 'g'}},
+    {{"Grid", "G", CMD_GRID}},
     {{"Controls", "", CMD_HELP}, {"About", "", CMD_ABOUT}}
 };
-int menu_heading_left(int heading) { return starts[heading]; }
-int menu_left(int heading) { return starts[heading] > 172 ? 172 : starts[heading]; }
-int menu_width(int heading) { return (heading + 1 < MENU_COUNT ? starts[heading+1] : 240) - starts[heading]; }
+int menu_width(int heading) { return font_width(titles[heading])+8; }
+int menu_heading_left(int heading)
+{
+    int x,i; x=0;
+    for(i=0;i<heading;++i) x+=menu_width(i);
+    return x;
+}
+int menu_drop_width(int heading)
+{
+    int i,names,shortcuts,w;
+    names=shortcuts=0;
+    for(i=0;i<counts[heading];++i) {
+        w=font_width(items[heading][i].label); if(w>names) names=w;
+        w=font_width(items[heading][i].shortcut); if(w>shortcuts) shortcuts=w;
+    }
+    w=names+shortcuts+8+(shortcuts?FONT_WIDTH:0);
+    return w<menu_width(heading)?menu_width(heading):w;
+}
+int menu_left(int heading)
+{
+    int x,w; x=menu_heading_left(heading); w=menu_drop_width(heading);
+    return x+w>UI_WIDTH?UI_WIDTH-w:x;
+}
+void menu_bounds(const Menu *menu,Rect *r)
+{
+    r->x=menu_left(menu->heading); r->y=MENU_BAR_HEIGHT;
+    r->w=menu->active?menu_drop_width(menu->heading):0;
+    r->h=menu->active?counts[menu->heading]*MENU_ROW_HEIGHT+2:0;
+}
 int menu_items(int heading) { return counts[heading]; }
 const char *menu_title(int heading) { return titles[heading]; }
 const MenuItem *menu_item(int heading, int item) { return &items[heading][item]; }
@@ -64,13 +89,13 @@ int menu_mouse(Menu *menu, int x, int y, unsigned buttons, int *command)
     if (!(pressed & 1)) return consumed;
     if (y >= 0 && y < MENU_BAR_HEIGHT) {
         for (i = 0; i < MENU_COUNT; ++i)
-            if (x >= starts[i] && x < starts[i] + menu_width(i)) {
+            if (x >= menu_heading_left(i) && x < menu_heading_left(i) + menu_width(i)) {
                 open_menu(menu, i); return 1;
             }
     }
     if (!menu->active) return 0;
     row = (y - MENU_ROW_TOP) / MENU_ROW_HEIGHT;
-    if (x >= menu_left(menu->heading) && x < menu_left(menu->heading) + MENU_DROP_WIDTH &&
+    if (x >= menu_left(menu->heading) && x < menu_left(menu->heading) + menu_drop_width(menu->heading) &&
         y >= MENU_ROW_TOP && row < counts[menu->heading]) {
         menu->item = row; activate(menu, command);
     } else menu->active = 0;
