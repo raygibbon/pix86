@@ -6,7 +6,9 @@ extern int layout_screen_height;
 void layout_set(int width, int height, int hires);
 #define UI_WIDTH layout_screen_width
 #define UI_HEIGHT layout_screen_height
-#define UI_MENU_HEIGHT (FONT_HEIGHT + 1)
+/* Sidebar only; all remaining width belongs to drawing. Future timeline
+   reservations can change these view bounds without changing stored artwork. */
+#define UI_MENU_HEIGHT (UI_FONT_HEIGHT + 1)
 #define UI_STATUS_Y (UI_HEIGHT - FONT_HEIGHT)
 #define UI_LEFT_WIDTH (FONT_HEIGHT == 8 ? 42 : 84)
 #define UI_RIGHT_X UI_WIDTH
@@ -36,16 +38,16 @@ void layout_set(int width, int height, int hires);
 #define SWATCH_HEIGHT (FONT_HEIGHT + 2)
 #define SWATCH_X (UI_LEFT_WIDTH - SWATCH_WIDTH - 2)
 #define PALETTE_MORE_Y (PALETTE_Y + PALETTE_ROWS * PALETTE_CELL_H + 2)
-#define FULLPAL_CELL_W (FONT_WIDTH + 4)
-#define FULLPAL_CELL_H (FONT_HEIGHT - 1)
+#define FULLPAL_CELL_W (UI_FONT_WIDTH + 4)
+#define FULLPAL_CELL_H (UI_FONT_HEIGHT + 1)
 #define FULLPAL_BOX_W (16 * FULLPAL_CELL_W + 28)
-#define FULLPAL_BOX_H (16 * FULLPAL_CELL_H + (FONT_HEIGHT == 8 ? 52 : 72))
+#define FULLPAL_BOX_H (16 * FULLPAL_CELL_H + (UI_FONT_HEIGHT == 6 ? 52 : 88))
 #define FULLPAL_BOX_X ((UI_WIDTH - FULLPAL_BOX_W) / 2)
 #define FULLPAL_BOX_Y ((UI_HEIGHT - FULLPAL_BOX_H) / 2)
 #define FULLPAL_X (FULLPAL_BOX_X + 14)
-#define FULLPAL_Y (FULLPAL_BOX_Y + 24)
+#define FULLPAL_Y (FULLPAL_BOX_Y + 4 + 2 * (UI_FONT_HEIGHT + 2))
 #define FULLPAL_VALUE_Y (FULLPAL_Y + 16 * FULLPAL_CELL_H + 4)
-#define FULLPAL_HINT_Y (FULLPAL_BOX_Y + FULLPAL_BOX_H - FONT_HEIGHT - 4)
+#define FULLPAL_HINT_Y (FULLPAL_BOX_Y + FULLPAL_BOX_H - UI_FONT_HEIGHT - 4)
 #define UI_STATUS_CHARS (UI_WIDTH / FONT_WIDTH)
 #define UI_STATUS_MAX_CHARS (640 / 6)
 #endif

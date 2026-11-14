@@ -22,4 +22,9 @@ void video_text(int x, int y, const char *text, unsigned char colour);
 void video_text_bg(int x, int y, const char *text, unsigned char ink, unsigned char paper);
 void video_text_box(int x, int y, int width, int height, const char *text,
                     unsigned char ink, unsigned char paper);
+/* Independently drawn narrow 4x6 face, shared by menus and dialogs. */
+void video_ui_text(int x,int y,const char *text,unsigned char colour);
+void video_ui_text_bg(int x,int y,const char *text,unsigned char ink,unsigned char paper);
+void video_ui_text_box(int x,int y,int width,int height,const char *text,
+                       unsigned char ink,unsigned char paper);
 #endif

@@ -59,6 +59,14 @@ void video_text_bg(int x,int y,const char *text,unsigned char ink,unsigned char 
 { (void)paper; video_text(x,y,text,ink); }
 void video_text_box(int x,int y,int width,int height,const char *text,unsigned char ink,unsigned char paper)
 { assert(font_width(text)<=width && height>=FONT_HEIGHT); video_text_bg(x,y,text,ink,paper); }
+void video_ui_text_bg(int x,int y,const char *text,unsigned char ink,unsigned char paper)
+{
+    assert(!overlaps(x,y,font_ui_width(text),UI_FONT_HEIGHT) && x>=0 && y>=0 &&
+           x+font_ui_width(text)<=320 && y+UI_FONT_HEIGHT<=200);
+    (void)ink;(void)paper;++draws;
+}
+void video_ui_text_box(int x,int y,int w,int h,const char *text,unsigned char ink,unsigned char paper)
+{ assert(font_ui_width(text)<=w && h>=UI_FONT_HEIGHT); video_ui_text_bg(x,y,text,ink,paper); }
 static void add_button(int kind,const char *title,const char *body,int accept)
 {
     DialogLayout l;
@@ -185,7 +193,7 @@ static void dialogs(void)
     dialog_mouse(1);
     start(); add('A',0,0,0); add(KEY_LEFT,0,0,0); add('B',0,0,0); add(13,0,0,0);
     assert(dialog_filename("Save", "OLD.P86", path) && !strcmp(path,"BA"));
-    start(); add(-1,file.field.x+FONT_WIDTH,file.field.y+2,1); add('X',0,0,0); add(13,0,0,0);
+    start(); add(-1,file.field.x+UI_FONT_WIDTH,file.field.y+2,1); add('X',0,0,0); add(13,0,0,0);
     assert(dialog_filename("Save", "ABC", path) && !strcmp(path,"AXBC"));
     start(); add(-1,0,0,0); add(-1,0,0,0); add(27,0,0,0);
     assert(!dialog_filename("Open", "", path));
@@ -203,12 +211,42 @@ static void dialogs(void)
     start(); add_button(DIALOG_CONFIRM,"Overwrite","FILE.P86",1); assert(dialog_confirm("Overwrite", "FILE.P86"));
     start(); add_button(DIALOG_CONFIRM,"Unsaved","Discard?",0); assert(!dialog_confirm("Unsaved", "Discard?"));
     start(); add(KEY_RIGHT,0,0,0); add(13,0,0,0); assert(dialog_new_size(16)==32);
-    start(); add(-1,newlayout.body.x+17*FONT_WIDTH,newlayout.body.y+2,1); add(-1,newlayout.body.x+17*FONT_WIDTH,newlayout.body.y+2,0); add_button(DIALOG_NEW,"New canvas",DIALOG_NEW_CHOICES,1); assert(dialog_new_size(16)==64);
+    start(); add(-1,newlayout.body.x+17*UI_FONT_WIDTH,newlayout.body.y+2,1); add(-1,newlayout.body.x+17*UI_FONT_WIDTH,newlayout.body.y+2,0); add_button(DIALOG_NEW,"New canvas",DIALOG_NEW_CHOICES,1); assert(dialog_new_size(16)==64);
     start(); add(27,0,0,0); assert(!dialog_new_size(32));
     memset(&report,0,sizeof(report));
     memset(report.backup,'B',FILE_PATH_MAX-1); memset(report.temporary,'T',FILE_PATH_MAX-1);
     start(); add(13,0,0,0); dialog_message("Recovery", "Retain backup and temporary", &report);
     assert(draws);
+}
+static void accelerators(void)
+{
+    Menu menu; int command,h,i,key,old;
+    int keys[6]={KEY_ALT_F,KEY_ALT_E,KEY_ALT_V,KEY_ALT_R,KEY_ALT_O,KEY_ALT_H};
+    menu_init(&menu);
+    for(h=0;h<6;++h) for(i=0;i<menu_items(h);++i) {
+        if(menu_separator(h,i)) continue;
+        menu_key(&menu,keys[h],&command);old=menu.item;
+        key=menu_letter(h,i);if(i&1) key=key-'a'+'A';
+        assert(menu_key(&menu,key,&command));
+        assert(command==menu_item(h,i)->command);
+        if(command) {
+            assert(!menu.active && menu.item==i);
+            menu_key(&menu,keys[h],&command);assert(menu.item==i);
+        } else assert(menu.active && menu.item==old);
+    }
+    menu_init(&menu);menu_key(&menu,KEY_MENU,&command);
+    menu_key(&menu,KEY_UP,&command);assert(menu.item==6);
+    menu_key(&menu,KEY_UP,&command);assert(menu.item==4); /* skip rule */
+    menu_key(&menu,KEY_RIGHT,&command);menu_key(&menu,KEY_UP,&command);assert(menu.item==3);
+    menu_key(&menu,KEY_LEFT,&command);assert(menu.item==4); /* per-heading memory */
+    menu_key(&menu,27,&command);menu_key(&menu,KEY_MENU,&command);assert(menu.item==4);
+    menu_key(&menu,KEY_F10,&command);menu_key(&menu,KEY_F10,&command);assert(menu.item==4);
+    menu_mouse(&menu,10,menu_row_y(0,5)+1,1,&command);
+    assert(menu.active && menu.item==4 && !command); /* rule is not a command */
+    menu_mouse(&menu,10,menu_row_y(0,5)+1,0,&command);
+    menu_mouse(&menu,10,menu_row_y(0,1)+1,1,&command);
+    assert(!menu.active && command==CMD_OPEN);
+    menu_key(&menu,KEY_MENU,&command);assert(menu.item==1);
 }
 static void palettes(void)
 {
@@ -275,6 +313,7 @@ static void hires_geometry(void)
 int main(void)
 {
     keys(); menus(); inputs(); dialogs(); palettes(); hires_geometry();
+    accelerators();
     puts("PASS: menus, keyboard/mouse dialogs, cursor editing and drawing handoff.");
     return 0;
 }

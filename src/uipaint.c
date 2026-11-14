@@ -23,7 +23,7 @@ void ui_button(const Rect *r,const char *label,int selected)
     cursor_protect(r->x,r->y,r->w,r->h);
     video_rect(r->x,r->y,r->w,1,paper);
     video_rect(r->x,r->y+r->h-1,r->w,1,paper);
-    video_rect(r->x,r->y+1,4,FONT_HEIGHT,paper);
-    video_rect(r->x+r->w-4,r->y+1,4,FONT_HEIGHT,paper);
-    video_text_bg(r->x+4,r->y+1,text,ink,paper);
+    video_rect(r->x,r->y+1,4,UI_FONT_HEIGHT,paper);
+    video_rect(r->x+r->w-4,r->y+1,4,UI_FONT_HEIGHT,paper);
+    video_ui_text_bg(r->x+4,r->y+1,text,ink,paper);
 }

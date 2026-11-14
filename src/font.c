@@ -125,7 +125,7 @@ static const char *const hires_paths[95] = {
     "1I5I",               /* 45 */
     "3M3N",               /* 46 */
     "6C0N",               /* 47 */
-    "1C4C6E6L4N1N0L0E1C", /* 48 */
+    "1C4C6E6L4N1N0L0E1C.1N5C", /* 48 */
     "2D3C3N2N.1N5N",      /* 49 */
     "0D1C5C6D6F0N6N",     /* 50 */
     "0C6C6F3H6J6L5N0N.3H", /* 51 */
@@ -133,7 +133,7 @@ static const char *const hires_paths[95] = {
     "6C0C0G5G6I6L5N0N",   /* 53 */
     "6C1C0E0L1N5N6L6I3I", /* 54 */
     "0C6C2N",             /* 55 */
-    "3C1C0E0G1I1L3N5N6L5I5G3G", /* 56 */
+    "3C1C0E0G1I3J5I6G6E5C3C.3J1J0L0N1N3N5N6N6L5J3J", /* 56 */
     "6L1L0J0G1C5C6E6N",  /* 57 */
     "3F3G.3K3L",          /* 58 */
     "3F3G.3K3L2M",        /* 59 */
@@ -174,7 +174,7 @@ static const char *const hires_paths[95] = {
     "1E3C5E",             /* 94 */
     "0N6N",               /* 95 */
     "3C4D",               /* 96 */
-    "5F4E1E0G0K1L4L5K5E", /* 97 */
+    "5F4E1E0G0K1L4L5K5F", /* 97 */
     "0C0N.0G1F4F6G6K4L1L0K", /* 98 */
     "6F4E1E0G0K1L4L6K",  /* 99 */
     "6C6N.6G5F2F0G0K2L5L6K", /* 100 */
@@ -260,37 +260,80 @@ static void hires_build_bitmap(void)
 }
 
 static void text_draw(int x, int y, long right, long bottom, const char *text,
+                      const unsigned char *data,int advance,int inkbits,int height,
                       unsigned char ink, unsigned char paper, int opaque)
 {
     long pen, px, py;
     int row, col, bit;
     unsigned code;
-    if (font_hires_mode) hires_build_bitmap();
-    if(!text || y >= video_height() || y <= -FONT_HEIGHT || right <= x || bottom <= y) return;
+    if(!text || y >= video_height() || y <= -height || right <= x || bottom <= y) return;
     pen=x;
     while(*text && pen < video_width() && pen < right) {
         code=(unsigned char)*text++;
         if(code<32 || code>126) code='?';
-        if(pen > -FONT_WIDTH) for(row=0; row<FONT_HEIGHT; ++row) {
+        if(pen > -advance) for(row=0; row<height; ++row) {
             py=(long)y+row;
             if(py<0 || py>=video_height() || py>=bottom) continue;
-            for(col=0; col<FONT_WIDTH; ++col) {
+            for(col=0; col<advance; ++col) {
                 px=pen+col;
-                bit=font_hires_mode ? (hires_bitmap[code-32][row] & (0x80U>>col)) != 0 :
-                    col<5 && (glyphs[code-32][row] & (16U>>col));
+                bit=col<inkbits && (data[(code-32)*height+row] & ((1U<<(inkbits-1))>>col));
                 if(px>=0 && px<video_width() && px<right && (bit || opaque))
                     video_pixel((int)px,(int)py,bit?ink:paper);
             }
         }
-        pen+=FONT_WIDTH;
+        pen+=advance;
     }
 }
 void video_text(int x,int y,const char *text,unsigned char colour)
-{ text_draw(x,y,video_width(),video_height(),text,colour,0,0); }
+{
+    const unsigned char *data;
+    if(font_hires_mode) hires_build_bitmap();
+    data=font_hires_mode?&hires_bitmap[0][0]:&glyphs[0][0];
+    text_draw(x,y,video_width(),video_height(),text,data,FONT_WIDTH,
+              font_hires_mode?8:5,FONT_HEIGHT,colour,0,0);
+}
 void video_text_bg(int x,int y,const char *text,unsigned char ink,unsigned char paper)
-{ text_draw(x,y,video_width(),video_height(),text,ink,paper,1); }
+{
+    const unsigned char *data;
+    if(font_hires_mode) hires_build_bitmap();
+    data=font_hires_mode?&hires_bitmap[0][0]:&glyphs[0][0];
+    text_draw(x,y,video_width(),video_height(),text,data,FONT_WIDTH,
+              font_hires_mode?8:5,FONT_HEIGHT,ink,paper,1);
+}
 void video_text_box(int x,int y,int width,int height,const char *text,
                     unsigned char ink,unsigned char paper)
 {
-    if(width>0 && height>0) text_draw(x,y,(long)x+width,(long)y+height,text,ink,paper,1);
+    const unsigned char *data;
+    if(width<=0 || height<=0) return;
+    if(font_hires_mode) hires_build_bitmap();
+    data=font_hires_mode?&hires_bitmap[0][0]:&glyphs[0][0];
+    text_draw(x,y,(long)x+width,(long)y+height,text,data,FONT_WIDTH,
+              font_hires_mode?8:5,FONT_HEIGHT,ink,paper,1);
+}
+
+void video_ui_text(int x,int y,const char *text,unsigned char colour)
+{
+    const unsigned char *data;
+    if(font_hires_mode) hires_build_bitmap();
+    data=font_hires_mode?&hires_bitmap[0][0]:&font_ui_glyphs[0][0];
+    text_draw(x,y,video_width(),video_height(),text,data,UI_FONT_WIDTH,
+              font_hires_mode?8:3,UI_FONT_HEIGHT,colour,0,0);
+}
+void video_ui_text_bg(int x,int y,const char *text,unsigned char ink,unsigned char paper)
+{
+    const unsigned char *data;
+    if(font_hires_mode) hires_build_bitmap();
+    data=font_hires_mode?&hires_bitmap[0][0]:&font_ui_glyphs[0][0];
+    text_draw(x,y,video_width(),video_height(),text,data,UI_FONT_WIDTH,
+              font_hires_mode?8:3,UI_FONT_HEIGHT,ink,paper,1);
+}
+void video_ui_text_box(int x,int y,int width,int height,const char *text,
+                       unsigned char ink,unsigned char paper)
+{
+    const unsigned char *data;
+    if(width<=0 || height<=0) return;
+    if(font_hires_mode) hires_build_bitmap();
+    data=font_hires_mode?&hires_bitmap[0][0]:&font_ui_glyphs[0][0];
+    text_draw(x,y,(long)x+width,(long)y+height,text,data,UI_FONT_WIDTH,
+              font_hires_mode?8:3,UI_FONT_HEIGHT,ink,paper,1);
 }

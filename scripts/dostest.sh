@@ -34,9 +34,11 @@ wcl -bt=dos -ms -0 -za -wx -w4 -os -k4096 -I"$ROOT/src" \
     "$ROOT/tests/testkeys.c" "$ROOT/src/keyboard.c" "$ROOT/src/keymap.c" \
     -fe="$ROOT/mnt/KBDTEST.EXE"
 wcl -bt=dos -ms -0 -za -wx -w4 -os -k4096 -I"$ROOT/src" \
-    "$ROOT/tests/testvideo.c" "$ROOT/src/video.c" -fe="$ROOT/mnt/VIDTEST.EXE"
+    "$ROOT/tests/testvideo.c" "$ROOT/src/video.c" "$ROOT/src/videovga.c" "$ROOT/src/videovbe.c" \
+    -fe="$ROOT/mnt/VIDTEST.EXE"
 wcl -bt=dos -ms -0 -ze -wx -w4 -os -k4096 -I"$ROOT/src" \
-    "$ROOT/tests/bench.c" "$ROOT/src/video.c" "$ROOT/src/font.c" "$ROOT/src/textsize.c" \
+    "$ROOT/tests/bench.c" "$ROOT/src/video.c" "$ROOT/src/videovga.c" "$ROOT/src/videovbe.c" \
+    "$ROOT/src/font.c" "$ROOT/src/fontui.c" "$ROOT/src/textsize.c" \
     "$ROOT/src/layout.c" "$ROOT/src/menu.c" "$ROOT/src/menudraw.c" "$ROOT/src/uipaint.c" \
     "$ROOT/src/canvas.c" "$ROOT/src/cursor.c" "$ROOT/src/tools.c" "$ROOT/src/history.c" \
     "$ROOT/src/view.c" "$ROOT/src/workpal.c" "$ROOT/src/editor.c" "$ROOT/src/render.c" \

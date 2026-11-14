@@ -34,12 +34,12 @@ static void begin(const DialogLayout *l,const char *title,const char *body,const
     /* Paint only border strips black. No black-then-grey interior sweep. */
     ui_border(&l->box,UI_INK);
     video_rect(l->box.x+1,l->box.y+1,l->box.w-2,l->box.h-2,UI_PAPER);
-    video_text_box(l->body.x,l->box.y+3,l->body.w,FONT_HEIGHT,title,UI_INK,UI_PAPER);
+    video_ui_text_box(l->body.x,l->box.y+3,l->body.w,UI_FONT_HEIGHT,title,UI_INK,UI_PAPER);
     p=body; y=l->body.y;
     while(y<l->body.y+l->body.h && dialog_line(&p,part,(unsigned)l->columns)) {
-        video_text_bg(l->body.x,y,part,UI_INK,UI_PAPER); y+=FONT_HEIGHT;
+        video_ui_text_bg(l->body.x,y,part,UI_INK,UI_PAPER); y+=UI_FONT_HEIGHT;
     }
-    video_text_bg(l->body.x,l->hint_y,hint,UI_INK,UI_PAPER);
+    video_ui_text_bg(l->body.x,l->hint_y,hint,UI_INK,UI_PAPER);
     mouse_poll(m); previous_buttons=m->buttons;
 }
 /* Idle and pointer motion never return to a painter. */
@@ -68,10 +68,10 @@ static void field(const DialogLayout *l,const DialogInput *input,unsigned *offse
     ink=focused && input->replace?UI_WHITE:UI_INK;
     protect(&l->field);
     video_rect(l->field.x,l->field.y,l->field.w,1,paper);
-    video_text_box(l->field.x,l->field.y+1,l->field.w,FONT_HEIGHT,text,ink,paper);
+    video_ui_text_box(l->field.x,l->field.y+1,l->field.w,UI_FONT_HEIGHT,text,ink,paper);
     video_rect(l->field.x,l->field.y+l->field.h-1,l->field.w,1,paper);
-    if(focused) video_rect(l->field.x+(int)(input->cursor-*offset)*FONT_WIDTH,
-                          l->field.y+l->field.h-1,5,1,UI_INK);
+    if(focused) video_rect(l->field.x+(int)(input->cursor-*offset)*UI_FONT_WIDTH,
+                          l->field.y+l->field.h-1,UI_FONT_WIDTH-1,1,UI_INK);
 }
 static int focus_key(int key)
 { return key==9 || key==KEY_SHIFT_TAB || key==KEY_LEFT || key==KEY_RIGHT; }
@@ -89,7 +89,7 @@ int dialog_filename(const char *title,const char *initial,char *output)
             if(hit(&l.cancel,&m)) return finish(&l,0);
             if(hit(&l.accept,&m)) { key=13; focus=1; }
             else if(hit(&l.field,&m)) {
-                position=offset+(unsigned)(m.x-l.field.x)/FONT_WIDTH;
+                position=offset+(unsigned)(m.x-l.field.x)/UI_FONT_WIDTH;
                 input.cursor=position<input.length?position:input.length;
                 input.replace=0; focus=0;
             }
@@ -127,9 +127,9 @@ static void choices(const DialogLayout *l,int choice)
     int i,x;
     char text[9];
     for(i=0;i<3;++i) {
-        x=l->body.x+i*8*FONT_WIDTH;
+        x=l->body.x+i*8*UI_FONT_WIDTH;
         protect(&l->body); memcpy(text,DIALOG_NEW_CHOICES+i*8,7); text[7]='\0';
-        video_text_bg(x,l->body.y,text,i==choice?UI_WHITE:UI_INK,i==choice?UI_SELECT:UI_PAPER);
+        video_ui_text_bg(x,l->body.y,text,i==choice?UI_WHITE:UI_INK,i==choice?UI_SELECT:UI_PAPER);
     }
 }
 int dialog_new_size(unsigned current)
@@ -144,7 +144,7 @@ int dialog_new_size(unsigned current)
         if(key==-2) {
             if(hit(&l.cancel,&m)) return finish(&l,0);
             if(hit(&l.accept,&m)) return finish(&l,16<<choice);
-            if(hit(&l.body,&m) && m.x<l.body.x+24*FONT_WIDTH) { choice=(m.x-l.body.x)/(8*FONT_WIDTH); focus=0; }
+            if(hit(&l.body,&m) && m.x<l.body.x+24*UI_FONT_WIDTH) { choice=(m.x-l.body.x)/(8*UI_FONT_WIDTH); focus=0; }
         }
         if(key==27) return finish(&l,0);
         if(key==13) return finish(&l,focus?0:16<<choice);
@@ -192,8 +192,8 @@ static void full_value(int index,int background)
 {
     char text[26];
     sprintf(text,"%s %03d  Tab changes FG/BG",background?"BG":"FG",index);
-    cursor_protect(FULLPAL_BOX_X+8,FULLPAL_VALUE_Y,FULLPAL_BOX_W-16,FONT_HEIGHT);
-    video_text_bg(FULLPAL_BOX_X+8,FULLPAL_VALUE_Y,text,UI_INK,UI_PAPER);
+    cursor_protect(FULLPAL_BOX_X+8,FULLPAL_VALUE_Y,FULLPAL_BOX_W-16,UI_FONT_HEIGHT);
+    video_ui_text_bg(FULLPAL_BOX_X+8,FULLPAL_VALUE_Y,text,UI_INK,UI_PAPER);
 }
 int dialog_palette(unsigned char *colour,int *background)
 {
@@ -205,12 +205,14 @@ int dialog_palette(unsigned char *colour,int *background)
     l.box.w=FULLPAL_BOX_W; l.box.h=FULLPAL_BOX_H;
     protect(&l.box); ui_border(&l.box,UI_INK);
     video_rect(l.box.x+1,l.box.y+1,l.box.w-2,l.box.h-2,UI_PAPER);
-    video_text_bg(l.box.x+8,l.box.y+4,"All 256 colours",UI_INK,UI_PAPER);
-    video_text_bg(l.box.x+8,l.box.y+14,"Left:FG  Right:BG",UI_INK,UI_PAPER);
+    video_ui_text_bg(l.box.x+8,l.box.y+4,"All 256 colours",UI_INK,UI_PAPER);
+    video_ui_text_bg(l.box.x+8,l.box.y+UI_FONT_HEIGHT+6,
+                     "Left:FG  Right:BG",UI_INK,UI_PAPER);
     selected=*colour; target=*background;
     for(i=0;i<256;++i) full_cell(i,i==selected);
     full_value(selected,target);
-    video_text_bg(l.box.x+8,FULLPAL_HINT_Y,"Arrows Enter:OK Esc:cancel",UI_INK,UI_PAPER);
+    video_ui_text_bg(l.box.x+8,FULLPAL_HINT_Y,
+                     "Arrows Enter:OK Esc:cancel",UI_INK,UI_PAPER);
     mouse_poll(&m); previous_buttons=m.buttons;
     for(;;) {
         key=event(&m); previous=selected; oldtarget=target;
@@ -236,13 +238,64 @@ int dialog_palette(unsigned char *colour,int *background)
 }
 void dialog_font(void)
 {
-    char body[240];
-    int code,n;
-    n=0;
-    for(code=32;code<=126;++code) {
-        body[n++]=(char)code;
-        if((code-31)%32==0) body[n++]='\n';
+    DialogLayout layout;
+    MouseState mouse;
+    char line[DIALOG_COLUMNS + 1];
+    int columns, rows, width, height, y, code, count, key, advance;
+    layout.box.w = UI_WIDTH - 16;
+    advance = FONT_WIDTH > UI_FONT_WIDTH ? FONT_WIDTH : UI_FONT_WIDTH;
+    columns = (layout.box.w - 16) / advance;
+    if (columns > DIALOG_COLUMNS)
+        columns = DIALOG_COLUMNS;
+    rows = (95 + columns - 1) / columns;
+    height = 12 + FONT_HEIGHT + 2 + rows * (FONT_HEIGHT + 2) +
+             FONT_HEIGHT + 6 + UI_FONT_HEIGHT + 2 +
+             rows * (UI_FONT_HEIGHT + 2) + UI_FONT_HEIGHT + 6 +
+             UI_FONT_HEIGHT + 8;
+    layout.box.x = (UI_WIDTH - layout.box.w) / 2;
+    layout.box.y = (UI_HEIGHT - height) / 2;
+    layout.box.h = height;
+    layout.columns = columns;
+    width = layout.box.w;
+    protect(&layout.box);
+    ui_border(&layout.box, UI_INK);
+    video_rect(layout.box.x+1,layout.box.y+1,width-2,height-2,UI_PAPER);
+    y = layout.box.y + 6;
+    video_text_bg(layout.box.x+8,y,"Editor font",UI_INK,UI_PAPER);
+    y += FONT_HEIGHT + 2;
+    for (code = 32; code <= 126; ) {
+        count = 0;
+        while (count < columns && code <= 126)
+            line[count++] = (char)code++;
+        line[count] = '\0';
+        video_text_bg(layout.box.x+8,y,line,UI_INK,UI_PAPER);
+        y += FONT_HEIGHT + 2;
     }
-    strcpy(body+n,"\nABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz\n0O 1Il ! : ; . , ' ` \\ /\nPLAYER01.P86  mixed_Case-09\nTools File Edit View Options");
-    dialog_message(FONT_HEIGHT==8?"Original 6x8 font":"Original 8x16 font",body,NULL);
+    video_text_bg(layout.box.x+8,y,"0O 1Il !.,:; /\\ PLAYER01.P86",
+                  UI_INK,UI_PAPER);
+    y += FONT_HEIGHT + 6;
+    video_ui_text_bg(layout.box.x+8,y,"Menu/dialog font",UI_INK,UI_PAPER);
+    y += UI_FONT_HEIGHT + 2;
+    for (code = 32; code <= 126; ) {
+        count = 0;
+        while (count < columns && code <= 126)
+            line[count++] = (char)code++;
+        line[count] = '\0';
+        video_ui_text_bg(layout.box.x+8,y,line,UI_INK,UI_PAPER);
+        y += UI_FONT_HEIGHT + 2;
+    }
+    video_ui_text_bg(layout.box.x+8,y,"0O 1Il !.,:; /\\ PLAYER01.P86",
+                     UI_INK,UI_PAPER);
+    video_ui_text_bg(layout.box.x+8,
+                     layout.box.y+height-UI_FONT_HEIGHT-6,
+                     "Enter/Esc returns",UI_INK,UI_PAPER);
+    mouse_poll(&mouse);
+    previous_buttons=mouse.buttons;
+    for (;;) {
+        key=event(&mouse);
+        if (key>=0 || key==-2 || key==-3) {
+            (void)finish(&layout,0);
+            return;
+        }
+    }
 }

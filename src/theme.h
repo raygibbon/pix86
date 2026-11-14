@@ -5,7 +5,11 @@
 #define UI_DESK 52
 #define UI_PANEL 3
 #define UI_FRAME 4
-#define UI_BAR 226
+#define UI_BAR 11
+#define UI_MENU_BAR 184
+#define UI_MENU_SELECT 46
+#define UI_MENU_PAPER 11
+#define UI_MENU_ACTIVE 51
 #define UI_PAPER 13
 #define UI_INK 0
 #define UI_WHITE 15

@@ -2,10 +2,9 @@
 
 A lightweight, DOS-native pixel-art and frame-by-frame animation editor for game creators.
 
-**Status:** M2.5 pixel editor with compact 6x8 text, keyboard/mouse menus, file
-dialogs, dirty-region rendering and native .P86 saving/loading. The
-`experiment/high-resolution-vga` branch adds an opt-in VBE 640x480 experiment;
-the default remains 320x200 Mode 13h.
+**Status:** M2.5 pixel editor with original bitmap typography, keyboard/mouse
+menus, file dialogs, dirty-region rendering and native .P86 saving/loading.
+Classic Mode 13h (320x200) remains the default; VBE 640x480 is selectable.
 
 Draw on a 16×16, 32×32 or 64×64 indexed canvas with pencil, eraser, four-connected
 fill and eyedropper tools. Integer zoom, an optional grid, all 256 palette indices
@@ -16,15 +15,18 @@ and foreground/background selections. Animation and layers are not implemented.
 ![Compact Pix86 workspace in DOSBox-X at 2x display size](docs/UI.PNG)
 
 [File menu](docs/FILEMENU.PNG) · [Filename dialog](docs/DIALOG.PNG) ·
-[Confirmation](docs/CONFIRM.PNG) · [Before/after refinement](docs/REFINE.md)
+[Confirmation](docs/CONFIRM.PNG) · [Font/menu comparison and behaviour](docs/FONTMENU.md)
 
 [All 256 colours](docs/PALETTE.PNG) · [Grid](docs/GRID.PNG) ·
 [Font at native resolution](docs/FONT.PNG)
 
-Compare the same default editor state in [Mode 13h](docs/MODE13.PNG) and
-[VBE 640x480](docs/VBE101.PNG). The VBE trade-offs, hardware requirements,
-font and DOSBox-X timings are documented in [VIDEO_MODES.md](docs/VIDEO_MODES.md).
+Compare the same editor state in [Classic Mode 13h](docs/MODE13.PNG) and
+[Enhanced VBE 640x480](docs/VBE101.PNG). Hardware requirements and DOSBox-X
+measurements are documented in [VIDEO_MODES.md](docs/VIDEO_MODES.md).
 
+Menus have alphabetic prefixes, grouped separator rules and per-heading
+selection memory. Ctrl+\ opens File from the editor and closes an open menu;
+F10 reopens the last heading.
 Menus repaint only changed rows; dialogs remain unchanged while idle and restore
 only the covered editor region when closed. The cursor is saved/restored only
 when it moves or a repaint intersects it. No full-screen shadow buffer is used.
@@ -72,9 +74,17 @@ PIX86 32 /NOMOUSE
 ```
 
 Choose another size with New or by opening a project. `/NOMOUSE` skips driver
-initialization for diagnosis. On the experimental branch, `PIX86 /HIRES` requests
-VBE mode 101h (640x480x256); if unsupported it reports the limitation and uses
-Mode 13h. Plain `PIX86` never requests VBE.
+initialization for diagnosis. Select the display mode at startup:
+
+```text
+PIX86 /320
+PIX86 /640
+```
+
+Plain `PIX86` defaults to Classic Mode 13h. `/640` requests VBE mode 101h
+(640x480x256); `/HIRES` remains an alias. If VBE is unsupported, Pix86 reports
+the limitation and uses Mode 13h. Options → Display Mode explains how to restart
+in the other mode.
 Exit restores the prior text mode/page/cursor, clearing the prior screen. Copy
 only `PIX86.EXE` to DOS; no runtime DLL or data assets are needed.
 
@@ -97,6 +107,7 @@ only `PIX86.EXE` to DOS; no runtime DLL or data assets are needed.
 | C | Clear to BG, undoable |
 | Ctrl+\ (primary), F10 / Alt+F,E,V,R,O,H | Menu bar / File, Edit, View, Frame, Options, Help |
 | Arrows / Enter / Esc (menu open) | Navigate / execute / close menu |
+| A–E prefix letters (menu open) | Immediately execute the corresponding enabled row |
 | F2 | Save (asks for a name on an untitled canvas) |
 | Shift+F2 | Save As |
 | F3 | Open a .P86 project |
@@ -110,16 +121,16 @@ FG/BG in either palette. [ and ] cycle working foreground colours. New indices
 are remembered in eight recent slots, alongside eight stable defaults. These
 selections never remap existing pixels or edit the artwork DAC palette.
 
-In the default mode, the grouped tool/colour sidebar leaves a 274x176 drawing
-region and text uses the original crisp 6x8 bitmap font. `/HIRES` uses an
-original 8x16 font and a 552x440 drawing region at 640x480. UI colours use
-existing palette entries so saved artwork retains its colours. The single
-status line shows filename, modified state, dimensions, coordinates, tool,
-FG/BG and zoom; `X--Y--` means the pointer is outside the canvas. Grid lines
-belong to the view, never the artwork. Default tool rows are 10 pixels high and
-menu rows 9 pixels; hires menu rows are 17 pixels. Grid starts off;
-G shows a subtle shaded dot grid at integer pixel boundaries. Help → Font sample
-displays all supported characters.
+The grouped tool/colour sidebar leaves a 274x176 drawing region in Classic
+mode and a 552x440 region in Enhanced mode. Classic uses an original 6x8
+editor/status face and a separate 4x6 menu/dialog face; Enhanced uses the
+independently drawn 8x16 face. UI colours use existing palette entries so saved
+artwork retains its colours. The single status line shows filename, modified
+state, dimensions, coordinates, tool, FG/BG and zoom; `X--Y--` means the pointer
+is outside the canvas. Grid lines belong to the view, never the artwork.
+Classic menu rows are 9 pixels high and Enhanced menu rows are 17 pixels high.
+Grid starts off; G shows subtle shaded dots at integer pixel boundaries.
+`PIX86 /FONT` displays printable ASCII in the active display's font.
 
 The canvas is centred, initially at the largest fitting zoom: 11× for 16×16,
 5× for 32×32 and 2× for 64×64. Zoom 1× is available for every size. Drawing pauses
@@ -183,7 +194,7 @@ python3 tests/mzcheck.py mnt/PIX86.EXE  # executable container check
 
 Run `EDTEST > EDTEST.TXT` in DOSBox-X to exercise tools, coordinates, history and
 gestures with Watcom's 16-bit integers. `VIDTEST` checks Mode 13h and VBE pixel
-access, bank boundaries and restoration. `BENCH` and `BENCH /HIRES` measure
+access, bank boundaries and restoration. `BENCH` and `BENCH /640` measure
 renderer/UI operations at the same emulator setting. See
 [VIDEO_MODES.md](docs/VIDEO_MODES.md) for mode selection and current results.
 The larger mock-framebuffer suites are

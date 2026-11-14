@@ -129,6 +129,7 @@ static int benchmark(int hires)
 
 int main(int argc,char **argv)
 {
-    int hires=argc>1 && strcmp(argv[1],"/HIRES")==0;
+    int hires=argc>1 && (strcmp(argv[1],"/640")==0 ||
+                         strcmp(argv[1],"/HIRES")==0);
     return benchmark(hires);
 }

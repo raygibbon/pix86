@@ -17,7 +17,7 @@ static unsigned char pixels[64000],baseline[64000];
 static Rect clip={0,0,320,200},watch;
 static unsigned long writes,reads,outside;
 static unsigned clears,black_boxes,interior_fills;
-static int watching,mode,shutdowns,initializations;
+static int watching,mode,shutdowns,initializations,last_request_hires;
 static Rect dialog_box;
 typedef struct Event { int key,x,y; unsigned buttons; } Event;
 static Event events[256];
@@ -49,7 +49,12 @@ void video_rect(int x,int y,int w,int h,unsigned char colour)
     for(yy=y;yy<y+h;++yy) for(xx=x;xx<x+w;++xx) video_pixel(xx,yy,colour);
 }
 void video_clear(unsigned char colour) { video_rect(0,0,320,200,colour); }
-int video_init(int request_hires) { assert(!mode && !request_hires); mode=1; ++initializations; return 1; }
+int video_init(int request_hires)
+{
+    assert(!mode);
+    mode=1; ++initializations; last_request_hires=request_hires;
+    return 1;
+}
 int video_hires(void) { return 0; }
 int video_failed(void) { return 0; }
 int video_width(void) { return 320; }
@@ -92,6 +97,12 @@ static void clean_baseline(Screen *s,Menu *m,MouseState *mouse)
     screen_init(s,&editor,mouse,0);
     memcpy(baseline,pixels,sizeof(pixels)); clears=0;
 }
+static unsigned long menu_row_writes(int heading,int item,int width)
+{
+    if(menu_separator(heading,item))
+        return (unsigned long)width*MENU_SEPARATOR_HEIGHT+width-4;
+    return (unsigned long)width*(UI_FONT_HEIGHT+1);
+}
 static void geometry(void)
 {
     DialogLayout l;
@@ -102,7 +113,7 @@ static void geometry(void)
     for(kind=0;kind<4;++kind) {
         dialog_layout(&l,kind,"Example",kind==DIALOG_FILE?DIALOG_FILE_HINT:longtext);
         assert(l.box.x*2+l.box.w==320 && l.box.y*2+l.box.h==200);
-        assert(l.box.x>=0 && l.box.y>=0 && l.box.w<=248 && l.box.h<150);
+        assert(l.box.x>=0 && l.box.y>=0 && l.box.w<=312 && l.box.h<150);
         assert(l.accept.y+l.accept.h<l.box.y+l.box.h);
         assert(l.accept.x+l.accept.w<l.cancel.x && l.cancel.x+l.cancel.w<l.box.x+l.box.w);
         assert(l.body.x+l.body.w<l.box.x+l.box.w);
@@ -110,7 +121,7 @@ static void geometry(void)
     for(h=0;h<MENU_COUNT;++h) {
         for(row=0;row<menu_items(h);++row) {
             const MenuItem *item=menu_item(h,row);
-            assert(font_width(item->label)+font_width(item->shortcut)+8<=menu_drop_width(h));
+            assert(3*UI_FONT_WIDTH+font_ui_width(item->label)+font_ui_width(item->shortcut)+8<=menu_drop_width(h));
         }
         assert(menu_left(h)+menu_drop_width(h)<=320);
     }
@@ -144,15 +155,8 @@ static void menus(void)
             watching=0; assert(!outside);
             {
                 unsigned long expected=olditem==m.item?0UL:
-                    2UL*(unsigned)(watch.w)*MENU_ROW_HEIGHT;
-                if(olditem!=m.item) {
-                    const MenuItem *old=menu_item(m.heading,olditem);
-                    const MenuItem *next=menu_item(m.heading,m.item);
-                    if(!old->label[0]) expected+=(unsigned)(watch.w-6);
-                    else if(old->accelerator) expected+=FONT_WIDTH-1;
-                    if(!next->label[0]) expected+=(unsigned)(watch.w-6);
-                    else if(next->accelerator) expected+=FONT_WIDTH-1;
-                }
+                    menu_row_writes(m.heading,olditem,watch.w)+
+                    menu_row_writes(m.heading,m.item,watch.w);
                 assert(writes-before==expected);
             }
         }
@@ -289,9 +293,27 @@ static void run(int mouse)
     assert(pix86_run(mouse?2:3,argv)==0);
     assert(initializations==1 && shutdowns==1 && clears==1 && !mode);
 }
+static void display_mode_options(void)
+{
+    char *classic[3]={"PIX86","/320","/NOMOUSE"};
+    char *enhanced[3]={"PIX86","/640","/NOMOUSE"};
+    char *alias[3]={"PIX86","/HIRES","/NOMOUSE"};
+    start();add(27);initializations=shutdowns=0;
+    assert(!pix86_run(3,classic) && !last_request_hires);
+    assert(initializations==1 && shutdowns==1 && !mode);
+    start();add(13);add(27);initializations=shutdowns=0;
+    assert(!pix86_run(3,enhanced) && last_request_hires);
+    assert(initializations==1 && shutdowns==1 && !mode);
+    start();add(13);add(27);initializations=shutdowns=0;
+    assert(!pix86_run(3,alias) && last_request_hires);
+    assert(initializations==1 && shutdowns==1 && !mode);
+}
 static void application(void)
 {
     FILE *f;P86Image image;
+    char *font_args[4]={"PIX86","/FONT","/NOMOUSE",NULL};
+    start();add(13);add(27);initializations=shutdowns=0;
+    assert(!pix86_run(3,font_args) && initializations==1 && shutdowns==1 && clears==1);
     start();add(KEY_MENU);add(KEY_DOWN);add(27);add(KEY_F2);add(27);
     add('n');add(27);add(KEY_F3);add(27);add(KEY_MENU);add(KEY_RIGHT);add(13);add(27);
     run(0);
@@ -310,7 +332,8 @@ static void application(void)
 }
 int main(void)
 {
-    geometry(); menus(); dialogs(); palette_overlay(); routing_status(); application();
+    geometry(); menus(); dialogs(); palette_overlay(); routing_status();
+    display_mode_options(); application();
     puts("PASS: dirty rectangles, idle stability, exact overlay/cursor restoration, one startup clear and deliberate exits/file workflow.");
     return 0;
 }

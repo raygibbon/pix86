@@ -5,12 +5,13 @@
 #include "region.h"
 #define MENU_COUNT 6
 #define MENU_BAR_HEIGHT UI_MENU_HEIGHT
-#define MENU_ROW_HEIGHT (FONT_HEIGHT + 1)
+#define MENU_ROW_HEIGHT (UI_FONT_HEIGHT + 1)
+#define MENU_SEPARATOR_HEIGHT 3
 #define MENU_ROW_TOP (MENU_BAR_HEIGHT + 1)
 
 typedef struct Menu {
     int active, heading, item;
-    int item_memory[MENU_COUNT];
+    unsigned char item_memory[MENU_COUNT];
     unsigned buttons;
 } Menu;
 typedef struct MenuItem {
@@ -25,6 +26,10 @@ int menu_heading_left(int heading);
 int menu_left(int heading);
 int menu_width(int heading);
 int menu_items(int heading);
+int menu_separator(int heading,int item);
+int menu_letter(int heading,int item);
+int menu_row_y(int heading,int item);
+int menu_row_height(int heading,int item);
 const char *menu_title(int heading);
 const MenuItem *menu_item(int heading, int item);
 int menu_drop_width(int heading);

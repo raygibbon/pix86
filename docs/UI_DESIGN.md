@@ -1,9 +1,9 @@
 # Pix86 compact DOS interface
 
 Pix86 defaults to VGA Mode 13h (320x200, 256 colours) with a single-image
-document. The `experiment/high-resolution-vga` branch also offers opt-in VBE
-640x480x256. Canvas pixels, history, file format and save replacement
-guarantees are unchanged. Animation remains planned.
+document. Enhanced VBE 640x480x256 is selectable with `/640`; `/320` selects
+Classic explicitly and `/HIRES` remains an alias. Canvas pixels, history, file
+format and save replacement guarantees are unchanged. Animation remains planned.
 
 ## Reference review and original implementation
 
@@ -28,6 +28,11 @@ source/assets were not consulted or imported.
 
 ## Typography and colour
 
+Menus and dialogs now use the original 4x6 face in fontui.c. Editor labels and
+status keep the original 6x8 face described below. Both share one renderer, with
+explicit role metrics, opaque fills and control-local clipping. The native
+comparison and TDE behaviour review are in [FONTMENU.md](FONTMENU.md).
+
 `font.c` contains 95 original hand-drawn printable ASCII glyphs, each eight
 rows of five ink bits: 760 bytes of bitmap data. Every cell advances six pixels,
 leaving a blank spacing column. Lowercase has distinct shapes and descenders;
@@ -37,11 +42,11 @@ clips transparent ink at all four edges using long coordinate intermediates;
 transparent text never changes pixels outside the screen or a glyph's ink.
 Opaque text writes final ink/paper per cell, avoiding a background wipe followed
 by text. Control-local clipping bounds filename/title text. `font.h`
-defines the shared 6x8 metrics. Rendering tests exercise the actual bitmap path.
+defines the shared editor and menu/dialog metrics. Rendering tests exercise the actual bitmap path.
 
 `theme.h` names UI indices from the existing fixed palette: deep blue work area,
-cyan menu/status bar, grouped dark sidebar, light grey dropdowns/dialogs,
-dark ink, green selection and
+cyan menu bar, neutral status line, grouped dark sidebar, light grey
+dropdowns/dialogs, dark ink, bright green selection and
 muted disabled text. The theme deliberately does not reprogram DAC entries: all
 256 artwork indices retain their RGB values and existing `.P86` files render
 identically. These original choices reflect conventional DOS colour
@@ -78,13 +83,17 @@ with navigation guidance. View changes do not mark the project modified.
 
 The single menu row reads File, Edit, View, Frame, Options, Help, with a compact
 `Ctrl+\` reminder at right. Ctrl+\ opens File from the editor and closes any
-open menu on the next press. F10 and Alt+F/E/V/R/O/H remain alternatives. The R
+open menu on the next press. F10 reopens the last heading and Alt+F/E/V/R/O/H opens a specific heading. The R
 in Frame avoids colliding with File; headings underline their mnemonic.
-Left/Right wraps headings, Up/Down wraps rows, Enter executes and Escape closes.
+Left/Right wraps headings, restoring the last row in each. Up/Down wraps command
+rows and skips separators. Enter executes and Escape closes. Letter prefixes
+execute enabled commands immediately; unavailable prefixes do nothing. Row
+selection survives cancellation, command execution and reopening.
 Drawing shortcuts are consumed while a menu is open and retain their bindings
 when closed. Frame operations remain disabled placeholders.
 
-Dropdowns use a one-pixel border and nine-pixel rows, left-aligned command names
+Dropdowns use a one-pixel border, nine-pixel command rows and three-pixel
+separator rules, left-aligned command names
 and right-aligned shortcut labels. Disabled commands stay visible in muted ink
 and cannot execute. Fresh mouse presses activate headings/items. An outside
 left click closes the menu and is consumed; release before drawing again.
@@ -119,9 +128,9 @@ source-code dependencies. Actual tested layouts/results are in TESTING.md.
 
 ## Dialogs and input ownership
 
-Content-sized centred windows (a filename prompt is 200x66; a short confirmation
-is 140–146x52) have thin dark borders, a compact title and 6x8 text.
-Controls are flat text choices, 44x10 pixels, with a contrasting selected row.
+Content-sized centred windows (a filename prompt is 136x58; a short confirmation
+is 96–104x50) have thin dark borders, a compact title and 4x6 text.
+Controls are flat text choices, 32x8 pixels, with a contrasting selected row.
 Filename fields show 32 characters, scroll to the insertion cursor, and are
 highlighted when focused. Typing replaces the selected prefill; cursor movement
 ends selection. Left/Right/Home/End, Backspace/Delete, Tab/Shift+Tab, Enter and
@@ -131,7 +140,7 @@ Open, Save and Save As share this path; validation remains in the file adapter.
 New offers 16/32/64 sizes using arrows, number keys or mouse. Confirmation
 prompts initially select Cancel; Y/Yes approves, N/Escape/Cancel abandons the
 operation. Enter activates the highlighted control. Error messages retain room
-for both recovery paths, with forty characters per wrapped line. No file browser
+for both recovery paths, with 38 characters per wrapped line. No file browser
 is introduced.
 
 Overlay painting protects the cursor only when their regions overlap. Dialog polling consumes fresh
@@ -154,40 +163,39 @@ scaling or importing any reference glyphs.
 Eighteen original glyphs were redrawn to open counters, simplify heavy diagonals
 and use single-pixel punctuation. The cell advance, baseline and 760-byte font
 size remain unchanged. The original zero is narrower than O; lowercase remains
-distinct. Help → Font sample shows all 95 printable characters and filename
-ambiguities. [REFINE.md](REFINE.md) records the reference comparison and captures.
+distinct. `PIX86 /FONT` compares all 95 printable characters in both original faces,
+including filename ambiguities. [REFINE.md](REFINE.md) records the reference comparison and captures.
 
 The all-colour popup shares existing modal polling, input ownership and covered
 rectangle restoration. It paints once, then repaints only changed cells/value
 text. Both pointer buttons and dismissal are consumed before drawing resumes.
 The working palette is UI state, not a new artwork palette or remapping table.
 
-## Experimental high-resolution mode
+## Dual display modes
 
-The `experiment/high-resolution-vga` branch retains Mode 13h as the default and
-adds `/HIRES` for VBE mode 101h (640x480x256). The backend verifies the VBE
-controller and mode information, uses the reported packed-pixel stride and
-banked 64 KiB window, and restores the text mode/page/cursor. Unsupported VBE
-falls back to Mode 13h with a diagnostic. No full-size framebuffer, double
-buffer or DOS extender is introduced. See [VIDEO_MODES.md](VIDEO_MODES.md) for
-the alternatives and benchmark results.
+Classic retains 320x200 Mode 13h and the original 6x8 editor/status font with
+the compact 4x6 menu/dialog face. Enhanced requests VBE mode 101h
+(640x480x256), validates the reported mode and uses an independently drawn
+8x16 face. The 307,200-byte image is accessed through VBE's banked window; it
+is never treated as a linear pointer. VBE operations are isolated from the
+common video interface and VGA backend. Unsupported VBE falls back to Classic
+with a diagnostic. Neither mode allocates a screen-sized buffer or uses a DOS
+extender.
 
-Hires uses independently drawn 8x16 stroke glyphs rasterized to bitmaps; it
-does not enlarge the existing 6x8 font or use BIOS/reference glyphs. The
-printable-ASCII sample screen and the Mode 13h font remain available. At 640x480
-the screen accommodates 80 columns, a 552x440 drawing region, the same indexed
-palette and the same software canvas sizes.
-
-The original menu model now includes nonselectable separators, mnemonic
-accelerators and a remembered selection for each heading. Hires shows a cyan
-bar, grey dropdowns, green selected rows, muted disabled items and right-aligned
-shortcuts in 17-pixel rows. Ctrl+backslash, arrows, Enter, Escape, mouse routing
-and release-after-dismissal behavior remain shared with the default mode.
-Theme accents use existing DAC entries, so artwork colours do not change.
+The artwork canvas remains 16x16, 32x32 or 64x64 in software memory. The
+Enhanced layout supplies a 552x440 drawing region and retains the same indexed
+palette, integer zoom, tools, project files and history. Menus retain
+nonselectable separators, alphabetic accelerators, remembered rows and
+right-aligned shortcuts. Enhanced uses a cyan bar, grey dropdowns, green
+selected rows, muted disabled items and 17-pixel menu rows. Ctrl+backslash,
+arrows, Enter, Escape, mouse routing and release-after-dismissal behavior are
+shared with Classic. Display mode changes require restarting Pix86.
 
 The paired captures in [VIDEO_MODES.md](VIDEO_MODES.md) compare the same blank
-32x32 editor state in both modes. The Mode 13h image is displayed at 2x and the
-VBE image at native 1x DOSBox-X scaling. TDE's compact menus, dense typography,
+32x32 editor state in both modes. Mode 13h is displayed at integer 2x scaling
+and VBE at native 1x DOSBox-X scaling. TDE's compact menus, dense typography,
 muted unavailable items and separate status area informed the functional
 requirements; Pix86's code, glyphs, geometry, colours and screen remain
-independently authored.
+independently authored. `PIX86 /FONT` displays all printable ASCII in the
+active mode: Classic shows the editor and compact UI faces, while Enhanced
+shows its 8x16 face.

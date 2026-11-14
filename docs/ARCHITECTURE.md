@@ -4,8 +4,10 @@ Pix86 remains a 16-bit real-mode DOS application. M2.5 adds native project
 saving/loading, original filename/confirmation dialogs and exact saved-state
 tracking to M2's indexed canvas, tools, zoom and bounded undo. Animation, layers,
 non-native formats and other platforms remain outside this milestone. The
-`experiment/high-resolution-vga` branch adds an opt-in VBE display backend while
-retaining Mode 13h as the default and fallback.
+Two display modes share the same editor and artwork: Classic Mode 13h
+(320x200x256), the default, and Enhanced VBE 101h (640x480x256), selected with
+`/640`. `/320` explicitly selects Classic; `/HIRES` remains an alias. Unsupported
+VBE hardware falls back to Classic with a diagnostic.
 
 ## Data and tools
 
@@ -74,21 +76,22 @@ fill, history and view changes redraw the canvas. Zoom restores only the area ou
 pixels/grid directly. Cursor protection hides the pointer only for an intersecting
 repaint; unchanged pointer positions perform no VGA reads or writes.
 
-`video.c` exclusively owns mode initialization/restoration, VGA/VBE access,
-clipping and DAC I/O. Mode 13h uses its 64,000-byte packed framebuffer. Optional
-VBE 101h validates 640x480x256 mode information and accesses packed pixels
-through the BIOS-selected 64 KiB window; it does not treat the 307,200-byte
-image as a linear pointer or allocate a shadow framebuffer. Rectangle endpoints
-use long arithmetic before clipping, and bank errors are surfaced to the main
-loop for safe restoration. Text uses original `font.c` renderers: the existing
-6x8 bitmap in Mode 13h and the independently authored 8x16 stroke font in
-hires. Shared `font.h`/`layout.h` metrics drive control text and hit geometry.
+`video.c` owns the shared mode selection/restoration, clipping, palette setup
+and dispatch. `videovga.c` implements packed Mode 13h pixels; `videovbe.c`
+validates VBE 101h and accesses packed pixels through the BIOS-selected banked
+window. The 307,200-byte Enhanced image is not treated as a linear pointer and
+no screen-sized shadow buffer is allocated. Rectangle endpoints use long
+arithmetic before clipping; bank errors are surfaced to the main loop for safe
+restoration. Text uses original bitmap faces: Classic has 6x8 editor/status
+text and 4x6 menu/dialog text; Enhanced uses an independently authored 8x16
+face. Shared `font.h`/`layout.h` metrics drive rendering and hit geometry.
 `theme.h` chooses UI colours from the existing palette without DAC changes.
 
 `mouse.c` owns INT 33h polling, null/IRET vector checks, driver reset, position
-and button reads. The driver's 640-unit horizontal range is scaled to the active
-screen width; vertical bounds follow the active mode.
-`menu.c` owns portable keyboard/mouse menu state and bounded command descriptions;
+and button reads. Its horizontal range is scaled to the active screen width;
+vertical bounds follow the active mode.
+`menu.c` owns portable keyboard/mouse menu state, bounded command descriptions,
+separator/letter/row geometry and six bytes of per-heading selection memory;
 `menudraw.c` paints overlays. `keymap.c` interprets extended menu mnemonics.
 The editor remains unaware of these modules.
 `keyboard.c` polls BIOS keyboard words (AH scan, AL character) and current shift
@@ -111,7 +114,7 @@ text without painting. `uipaint.c` shares thin borders and flat highlighted
 buttons; menu rows and filename fields use opaque font cells with local clipping.
 
 `screen.c` caches the previous visible menu, tool/colours, status string and
-bounded basename and working-palette snapshot (96 bytes with 16-bit ints). It compares state and emits only
+bounded basename and working-palette snapshot (102 bytes with 16-bit ints). It compares state and emits only
 changed rows, controls and status character runs. `region.c` subtracts the new
 menu bounds from the old bounds into at most four disjoint exposed rectangles.
 `render_restore` clips model repainting to each rectangle; no saved-screen
@@ -120,7 +123,7 @@ select full-canvas updates for history/zoom/fill and bounded stroke updates for
 pencil/eraser. There is one full-screen clear, at startup.
 
 The bottom status row uses complete font cells at runtime: 53 six-pixel cells
-in Mode 13h and 80 eight-pixel cells in hires. It shows a 12-character
+in Classic and 80 eight-pixel cells in Enhanced. It shows a 12-character
 DOS basename, dirty marker, dimensions, coordinates, tool, FG/BG and zoom;
 paths remain fully available in the filename field and project model. The
 Mode 13h workspace is 274x176; VBE 640x480 provides 552x440. A future timeline
@@ -141,13 +144,13 @@ sized for the active font and display. It stores only selection/target and input
 the old/new cells, Tab changes the target and idle polls perform no painting.
 Acceptance returns a stored index and FG/BG target; the controller updates those
 selections and the existing dirty flags. Cancellation leaves them untouched.
-Both mouse buttons and outside dismissal are consumed. `dialog_font` uses the
-existing message renderer for an original printable-ASCII diagnostic screen.
+Both mouse buttons and outside dismissal are consumed. `dialog_font` displays
+printable ASCII in the active display's font roles when launched with `/FONT`.
+Its dismissal uses the same model restoration and pointer suppression.
 
-`render.c` shares one cell painter between full and stroke updates. Grid dots
+``render.c` shares one cell painter between full and stroke updates. Grid dots
 use nearby shades from the existing fixed DAC palette, never canvas mutations;
-single dots use the VGA pixel primitive rather than rectangle setup. video.c
-and its DAC programming have not changed in this refinement.
+single dots use the pixel primitive rather than rectangle setup.
 
 ## Native I/O and project state
 
@@ -226,7 +229,7 @@ is used. All DOS-facing source and executable names fit 8.3.
 | Shared load/save scratch pixels | 4096 |
 | Cursor saved pixels | 64 |
 | Total pixel/history/work buffers | 41024 |
-| Original printable-ASCII font (constant data) | 760 |
+| Original printable-ASCII faces, including Enhanced raster | 2850 |
 
 The Editor object adds small metadata; the fill queue is a separate static
 object to keep individual near objects below 32767 bytes. Smaller canvases
@@ -234,8 +237,8 @@ retain the same fixed reservation. Large objects are static, never automatic;
 there is no explicit application heap allocation and no full-screen shadow
 buffer. Standard stdio may allocate bounded runtime buffering internally.
 The link map, including runtime code/data and the 4096-byte stack, reports about
-88 KiB in total; code and DGROUP each remain below 64 KiB. DGROUP is about
-48 KiB, leaving room within the near segment for runtime file buffering. Exact measured values are in TESTING.md.
+89 KiB in total; code and DGROUP each remain below 64 KiB. DGROUP is about
+50 KiB, leaving room within the near segment for runtime file buffering. Exact measured values are in TESTING.md.
 The executable file is smaller because DOS zero-initializes BSS. Loader/PSP,
 environment and runtime bookkeeping are additional to the linked footprint.
 
@@ -245,11 +248,13 @@ active page, text cursor position and shape. Restoration clears prior screen
 contents; custom fonts/palettes and previous text contents are not preserved.
 Abrupt process termination/emulator closure is outside normal cleanup.
 
-The experimental `/HIRES` startup option requests VBE mode 101h, not a
-nonstandard BIOS 640x400 mode. VBE probing and bank selection remain in
-`video.c`; unsupported firmware falls back to Mode 13h with a diagnostic.
-`docs/VIDEO_MODES.md` records trade-offs, VBE memory organization, captures and
-DOSBox-X measurements. Mode 13h remains the recommended default.
+`/640` requests VBE mode 101h, not a nonstandard BIOS 640x400 mode. VBE probing
+and bank selection are isolated in `videovbe.c`; unsupported firmware falls
+back to Mode 13h with a diagnostic. `/320` explicitly selects Classic and
+`/HIRES` is an alias for `/640`. Options → Display Mode explains that changing
+mode requires restarting. `docs/VIDEO_MODES.md` records trade-offs, VBE memory
+organization, captures and DOSBox-X measurements. Mode 13h remains the
+recommended default.
 
 ## Provenance and engineering references
 

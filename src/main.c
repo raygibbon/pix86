@@ -92,24 +92,31 @@ int main(int argc, char **argv)
 {
     MouseState mouse, previous;
     unsigned side, flags;
-    int has_mouse, disable_mouse, request_hires, key, i, size_set;
+    int has_mouse, disable_mouse, request_hires, mode_set, key, i, size_set;
     int command, consumed, was_active, modal;
+    int font_preview;
     UiState ui;
     unsigned char colour;
     int background;
     side = 32;
-    size_set = disable_mouse = request_hires = 0;
+    size_set = disable_mouse = request_hires = mode_set = font_preview = 0;
     for (i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "/NOMOUSE") == 0 && !disable_mouse)
             disable_mouse = 1;
-        else if (strcmp(argv[i], "/HIRES") == 0 && !request_hires)
-            request_hires = 1;
+        else if (strcmp(argv[i], "/FONT") == 0 && !font_preview)
+            font_preview = 1;
+        else if ((strcmp(argv[i], "/320") == 0 ||
+                  strcmp(argv[i], "/640") == 0 ||
+                  strcmp(argv[i], "/HIRES") == 0) && !mode_set) {
+            request_hires = strcmp(argv[i], "/320") != 0;
+            mode_set = 1;
+        }
         else if (!size_set && (strcmp(argv[i], "16") == 0 ||
                  strcmp(argv[i], "32") == 0 || strcmp(argv[i], "64") == 0)) {
             side = (unsigned)(argv[i][0] - '0') * 10 + (unsigned)(argv[i][1] - '0');
             size_set = 1;
         } else {
-            puts("Usage: PIX86 [16|32|64] [/NOMOUSE] [/HIRES]");
+            puts("Usage: PIX86 [16|32|64] [/320|/640] [/NOMOUSE] [/FONT]");
             return 1;
         }
     }
@@ -134,8 +141,13 @@ int main(int argc, char **argv)
     if(video_failed()) return video_abort();
     if(has_mouse) cursor_show(mouse.x,mouse.y);
     if(request_hires && !video_hires())
-        dialog_message("High-resolution unavailable",
-                       "VBE 640x480x256 is unsupported.\nUsing VGA 320x200.",NULL);
+        dialog_message("Enhanced mode unavailable",
+                       "VBE 640x480x256 is unsupported.\nUsing Classic 320x200.",NULL);
+    if(font_preview) {
+        dialog_font();
+        mouse_poll(&mouse);
+        ui_resume(&ui,&mouse);
+    }
     previous = mouse;
     for (;;) {
         key = keyboard_poll();
@@ -166,9 +178,16 @@ int main(int argc, char **argv)
             editor_finish(&editor);
             editor.foreground=workpal_step(editor.foreground,command==CMD_COLOUR_PREV?-1:1);
             flags|=EDIT_UI|EDIT_STATUS;
-        } else if(command==CMD_FONT) {
-            editor_finish(&editor); refresh_editor(EDIT_STATUS);
-            dialog_font(); modal=1;
+        } else if(command==CMD_DISPLAY_MODE) {
+            editor_finish(&editor);
+            refresh_editor(EDIT_STATUS);
+            if(video_hires())
+                dialog_message("Display mode",
+                    "Enhanced 640x480 is active.\nRestart with PIX86 /320 for Classic.",NULL);
+            else
+                dialog_message("Display mode",
+                    "Classic 320x200 is active.\nRestart with PIX86 /640 for Enhanced.",NULL);
+            modal=1;
         } else if (command == CMD_HELP || command == CMD_ABOUT) {
             if (command == CMD_HELP)
                 dialog_message("Pix86 controls", "P E F I: tools. U R: undo/redo. G: grid. +/-: zoom. A/B: all colours FG/BG. [ ]: working colours. F2: save F3: open. Ctrl+\\: menu.", NULL);

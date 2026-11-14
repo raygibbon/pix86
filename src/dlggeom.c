@@ -1,45 +1,75 @@
 #include <string.h>
 #include "dialog.h"
 #include "layout.h"
-int dialog_line(const char **text,char *line,unsigned columns)
+
+int dialog_line(const char **text, char *line, unsigned columns)
 {
     unsigned i;
-    if(!*text || !**text || !columns) return 0;
-    if(columns>DIALOG_COLUMNS) columns=DIALOG_COLUMNS;
-    i=0;
-    while(**text && **text!='\n' && i<columns) line[i++]=*(*text)++;
-    if(**text=='\n') ++*text;
-    line[i]='\0'; return 1;
+    if (!*text || !**text || !columns)
+        return 0;
+    if (columns > DIALOG_COLUMNS)
+        columns = DIALOG_COLUMNS;
+    i = 0;
+    while (**text && **text != '\n' && i < columns)
+        line[i++] = *(*text)++;
+    if (**text == '\n')
+        ++*text;
+    line[i] = '\0';
+    return 1;
 }
-void dialog_layout(DialogLayout *l,int kind,const char *title,const char *body)
+
+void dialog_layout(DialogLayout *layout, int kind, const char *title,
+                   const char *body)
 {
     const char *p;
-    char part[DIALOG_COLUMNS+1];
-    int cols,n,lines,width,height,y;
-    cols=kind==DIALOG_FILE?(FONT_HEIGHT==8?32:40):(FONT_HEIGHT==8?22:30);
-    n=font_width(title)/FONT_WIDTH; if(n>cols) cols=n;
-    p=body;
-    while(dialog_line(&p,part,DIALOG_COLUMNS)) {
-        n=(int)strlen(part); if(n>cols) cols=n;
+    char part[DIALOG_COLUMNS + 1];
+    int columns, n, lines, width, height, y;
+    columns = kind == DIALOG_FILE ?
+        (UI_FONT_WIDTH == 4 ? 32 : 40) :
+        (UI_FONT_WIDTH == 4 ? 22 : 30);
+    n = font_ui_width(title) / UI_FONT_WIDTH;
+    if (n > columns)
+        columns = n;
+    p = body;
+    while (dialog_line(&p, part, DIALOG_COLUMNS)) {
+        n = (int)strlen(part);
+        if (n > columns)
+            columns = n;
     }
-    if(cols>DIALOG_COLUMNS) cols=DIALOG_COLUMNS;
-    lines=0; p=body;
-    while(lines<16 && dialog_line(&p,part,(unsigned)cols)) ++lines;
-    if(!lines) lines=1;
-    width=cols*FONT_WIDTH+8;
-    height=44+lines*FONT_HEIGHT+(kind==DIALOG_FILE?FONT_HEIGHT+6:0);
-    l->columns=cols;
-    l->box.x=(UI_WIDTH-width)/2; l->box.y=(UI_HEIGHT-height)/2; l->box.w=width; l->box.h=height;
-    l->body.x=l->box.x+4; l->body.y=l->box.y+14;
-    l->body.w=width-8; l->body.h=lines*FONT_HEIGHT;
-    y=l->body.y+l->body.h+4;
-    l->field.x=l->body.x; l->field.y=y; l->field.w=l->body.w;
-    l->field.h=kind==DIALOG_FILE?FONT_HEIGHT+2:0;
-    if(kind==DIALOG_FILE) y+=l->field.h+4;
-    l->hint_y=y;
-    l->accept.w=l->cancel.w=font_width("Cancel")+8;
-    l->accept.h=l->cancel.h=FONT_HEIGHT+2;
-    l->accept.y=l->cancel.y=y+FONT_HEIGHT+4;
-    l->accept.x=(UI_WIDTH-2*l->accept.w-2*FONT_WIDTH)/2;
-    l->cancel.x=l->accept.x+l->accept.w+2*FONT_WIDTH;
+    if (columns > DIALOG_COLUMNS)
+        columns = DIALOG_COLUMNS;
+    lines = 0;
+    p = body;
+    while (lines < 16 && dialog_line(&p, part, (unsigned)columns))
+        ++lines;
+    if (!lines)
+        lines = 1;
+    width = columns * UI_FONT_WIDTH + 8;
+    height = lines * UI_FONT_HEIGHT + 3 * UI_FONT_HEIGHT + 22;
+    if (kind == DIALOG_FILE)
+        height += UI_FONT_HEIGHT + 6;
+    layout->columns = columns;
+    layout->box.x = (UI_WIDTH - width) / 2;
+    layout->box.y = (UI_HEIGHT - height) / 2;
+    layout->box.w = width;
+    layout->box.h = height;
+    layout->body.x = layout->box.x + 4;
+    layout->body.y = layout->box.y + UI_FONT_HEIGHT + 8;
+    layout->body.w = width - 8;
+    layout->body.h = lines * UI_FONT_HEIGHT;
+    y = layout->body.y + layout->body.h + 4;
+    layout->field.x = layout->body.x;
+    layout->field.y = y;
+    layout->field.w = layout->body.w;
+    layout->field.h = kind == DIALOG_FILE ? UI_FONT_HEIGHT + 2 : 0;
+    if (kind == DIALOG_FILE)
+        y += layout->field.h + 4;
+    layout->hint_y = y;
+    layout->accept.w = layout->cancel.w = font_ui_width("Cancel") + 8;
+    layout->accept.h = layout->cancel.h = UI_FONT_HEIGHT + 2;
+    layout->accept.y = layout->cancel.y = y + UI_FONT_HEIGHT + 4;
+    layout->accept.x = (UI_WIDTH - 2 * layout->accept.w -
+                        2 * UI_FONT_WIDTH) / 2;
+    layout->cancel.x = layout->accept.x + layout->accept.w +
+                       2 * UI_FONT_WIDTH;
 }

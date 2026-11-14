@@ -28,6 +28,44 @@ static void clipping(int dx, int dy)
                    reference[sy*320+sx] : 0));
         }
 }
+static void ui_font(void)
+{
+    char text[2]; unsigned char upper[128];
+    int code,x,y;unsigned before;
+    text[1]='\0';
+    for(code=32;code<=126;++code) {
+        memset(screen,0,sizeof(screen));writes=0;text[0]=(char)code;
+        video_ui_text(0,0,text,173);assert(code==32?!writes:writes>0);
+        for(y=0;y<UI_FONT_HEIGHT;++y) assert(!screen[y*320+UI_FONT_WIDTH-1]);
+        for(y=UI_FONT_HEIGHT;y<8;++y) for(x=0;x<UI_FONT_WIDTH;++x) assert(!screen[y*320+x]);
+    }
+    for(code='A';code<='Z';++code) {
+        memset(screen,0,sizeof(screen));text[0]=(char)code;video_ui_text(0,0,text,173);
+        for(y=0;y<UI_FONT_HEIGHT;++y) memcpy(upper+y*UI_FONT_WIDTH,screen+y*320,UI_FONT_WIDTH);
+        memset(screen,0,sizeof(screen));text[0]=(char)(code+32);video_ui_text(0,0,text,173);
+        before=0;for(y=0;y<UI_FONT_HEIGHT;++y) if(memcmp(upper+y*UI_FONT_WIDTH,screen+y*320,UI_FONT_WIDTH)) ++before;
+        assert(before);
+    }
+    {
+        const char *pairs="0O1I1lIl.,:;";
+        for(code=0;pairs[code];code+=2) {
+            memset(screen,0,sizeof(screen));text[0]=pairs[code];video_ui_text(0,0,text,173);
+            memcpy(reference,screen,sizeof(screen));
+            memset(screen,0,sizeof(screen));text[0]=pairs[code+1];video_ui_text(0,0,text,173);
+            assert(memcmp(reference,screen,sizeof(screen)));
+        }
+    }
+    memset(screen,99,sizeof(screen));video_ui_text_box(3,4,11,5,"ABCD",173,2);
+    for(y=0;y<200;++y) for(x=0;x<320;++x)
+        if(x>=3 && x<14 && y>=4 && y<9) assert(screen[y*320+x]==2 || screen[y*320+x]==173);
+        else assert(screen[y*320+x]==99);
+    before=writes;video_ui_text(INT_MIN,INT_MIN,"a",1);video_ui_text(INT_MAX,0,"a",1);
+    video_ui_text_box(2,2,0,0,"a",1,2);assert(before==writes);
+    assert(font_ui_width("Save As")==7*UI_FONT_WIDTH && !font_ui_width(NULL));
+    memset(screen,99,sizeof(screen));video_ui_text_bg(-2,198,"abc",173,2);
+    for(y=0;y<198;++y) for(x=0;x<320;++x) assert(screen[y*320+x]==99);
+    for(y=198;y<200;++y) for(x=0;x<3*UI_FONT_WIDTH-2;++x) assert(screen[y*320+x]!=99);
+}
 int main(void)
 {
     int code, x, y, different;
@@ -90,10 +128,13 @@ int main(void)
     memset(screen,0,sizeof(screen)); video_text(0,0,"?",173); memcpy(reference,screen,sizeof(screen));
     memset(screen,0,sizeof(screen)); text[0]=(char)255; video_text(0,0,text,173);
     assert(!memcmp(screen,reference,sizeof(screen)));
+    ui_font();
     puts("PASS: original 6x8 glyphs, lowercase, spacing, clipping and extreme coordinates.");
     font_set_mode(1);
     test_width=640; test_height=480;
     assert(FONT_WIDTH==8 && FONT_HEIGHT==16 && font_width("Save As")==56);
+    assert(UI_FONT_WIDTH==8 && UI_FONT_HEIGHT==16 &&
+           font_ui_width("Save As")==56);
     memset(screen,0,sizeof(screen)); writes=0;
     video_text(400,350,"A",173);
     assert(writes>0);
@@ -103,6 +144,11 @@ int main(void)
     for(y=350;y<366;++y) for(x=400;x<408;++x)
         assert(screen[y*640+x]==2 || screen[y*640+x]==173);
     assert(screen[349*640+400]==99 && screen[350*640+399]==99);
+    memset(screen,0,sizeof(screen)); writes=0;
+    video_ui_text(400,350,"A",173);
+    assert(writes>0);
+    for(y=350;y<366;++y) for(x=400;x<408;++x)
+        assert(screen[y*640+x]==0 || screen[y*640+x]==173);
     for (code=32;code<127;++code) {
         memset(screen,0,sizeof(screen)); writes=0; text[0]=(char)code;
         video_text(0,0,text,173);
@@ -119,6 +165,12 @@ int main(void)
     memset(screen,0,sizeof(screen)); video_text(0,0,"0O1Il!.,:",173);
     for(y=0;y<16;++y) for(x=0;x<9*8;++x)
         if(screen[y*640+x]) assert(screen[y*640+x]==173);
+    memset(screen,0,sizeof(screen));video_text(0,0,"0O",173);
+    different=0;
+    for(y=0;y<16;++y) if(memcmp(screen+y*640,screen+y*640+8,8)) ++different;
+    assert(different);
+    memset(screen,0,sizeof(screen));video_text(0,0,"8",173);
+    for(x=1;x<6;++x) assert(screen[2*640+x]==173 && screen[13*640+x]==173);
     font_set_mode(0);
     puts("PASS: original 8x16 stroke font renders all printable ASCII and distinct lowercase.");
     return 0;

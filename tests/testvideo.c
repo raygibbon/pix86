@@ -15,6 +15,7 @@ int main(int argc, char **argv)
 {
     int before, hires, hires_active, width, height, x, y;
     unsigned colour;
+    (void)argv;
     before = current_mode();
     hires = argc > 1;
     if (!video_init(hires)) {

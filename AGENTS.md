@@ -53,8 +53,8 @@ Update the README and development notes when project scope changes. Document ori
   EDTEST, IOTEST, UITEST and KBDTEST in DOSBox-X. IOTEST requires a disposable directory.
 - Keep menu/dialog source names DOS 8.3, buffers bounded and DGROUP below 64 KiB.
 
-- Interface text uses the original `font.c` 6x8 glyphs, never a copied or scaled
-  reference font. Share font metrics and hit geometry in `layout.h` when changing controls.
+- Interface text uses original 6x8 editor and 4x6 menu/dialog glyphs, never
+  a copied or scaled reference font. Share font metrics and hit geometry in `layout.h` when changing controls.
 - Keep Ctrl+\ menu activation in BIOS decoding/keymap, including scan codes;
   preserve plain and AltGr path separators. Record tested layouts and limits.
 - UI theme indices must not change the fixed artwork DAC palette.
@@ -67,3 +67,6 @@ Update the README and development notes when project scope changes. Document ori
   all 256 indices accessible through the popup and preserve left/right FG/BG.
 - Grid styling is view-only. Verify dark/light artwork and native 320x200 font
   readability when changing glyphs, palette geometry or the grid painter.
+
+- Keep menu prefix letters and hit/row geometry derived from command rows.
+  Separator rows cannot be selected or executed. Preserve per-heading row memory.
