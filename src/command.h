@@ -19,6 +19,11 @@
 #define CMD_ERASER 'e'
 #define CMD_FILL 'f'
 #define CMD_PICK 'i'
+#define CMD_PALETTE 'a'
+#define CMD_BG 'b'
+#define CMD_COLOUR_PREV '['
+#define CMD_COLOUR_NEXT ']'
+#define CMD_FONT 603
 #define CMD_HELP 600
 #define CMD_ABOUT 601
 int keyboard_command(int key);

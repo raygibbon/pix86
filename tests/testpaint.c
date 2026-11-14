@@ -10,6 +10,7 @@
 #include "theme.h"
 #include "ui.h"
 #include "command.h"
+#include "workpal.h"
 static Editor editor;
 static unsigned short queue[4096];
 static unsigned char pixels[64000],baseline[64000];
@@ -180,6 +181,53 @@ static void dialogs(void)
     assert(interior_fills==1 && !black_boxes && !clears);
     assert(!memcmp(pixels,baseline,sizeof(pixels)));
 }
+static void palette_poll(void)
+{
+    int i,x,y;
+    if(current>=0) return;
+    /* Check all 256 actual rendered colour interiors before consuming input. */
+    for(i=0;i<256;++i) {
+        x=FULLPAL_X+i%16*FULLPAL_CELL_W+4;
+        y=FULLPAL_Y+i/16*FULLPAL_CELL_H+3;
+        assert(pixels[y*320+x]==i);
+    }
+}
+static void palette_overlay(void)
+{
+    Screen s; Menu m; MouseState mouse;
+    unsigned char colour; int background;
+    unsigned long before;
+    int i;
+    start();workpal_init(); clean_baseline(&s,&m,&mouse);
+    dialog_editor(&editor);dialog_mouse(0); colour=15;background=0;
+    add(-1);add(-1);add(KEY_F2);add(KEY_LEFT);add(KEY_RIGHT);add(9);add(KEY_SHIFT_TAB);add(27);
+    onpoll=palette_poll;checking_idle=1;
+    assert(!dialog_palette(&colour,&background));onpoll=NULL;
+    assert(colour==15 && background==0 && !clears && !black_boxes);
+    assert(!memcmp(pixels,baseline,sizeof(pixels)));
+    start();add(13);dialog_font();
+    assert(!memcmp(pixels,baseline,sizeof(pixels)) && !clears);
+    for(i=0;i<16;++i) assert(workpal_colour(i)==s.working[i]);
+    editor.foreground=255;editor.background=232;
+    screen_update(&s,&editor,&m,EDIT_UI,&mouse,0);
+    assert(workpal_colour(14)==255 && workpal_colour(15)==232);
+    for(i=0;i<16;++i) {
+        int x,y;
+        x=PALETTE_X+i%PALETTE_COLS*PALETTE_CELL_W;
+        y=PALETTE_Y+i/PALETTE_COLS*PALETTE_CELL_H;
+        assert(pixels[(y+1)*320+x+1]==workpal_colour(i));
+    }
+    for(i=0;i<4;++i) {
+        int y;
+        editor.tool=i;screen_update(&s,&editor,&m,EDIT_UI,&mouse,0);
+        y=TOOL_Y+i*TOOL_STEP;
+        assert(pixels[y*320+TOOL_X]==UI_PAPER);
+        if(i) assert(pixels[(y-TOOL_STEP)*320+TOOL_X]==UI_PANEL);
+    }
+    before=writes;
+    screen_update(&s,&editor,&m,EDIT_UI,&mouse,0); assert(before==writes);
+    assert(!clears);
+}
 static void routing_status(void)
 {
     UiState ui; MouseState mouse;
@@ -198,6 +246,13 @@ static void routing_status(void)
     assert(!ui_pointer(&ui,&mouse,0,0));
     mouse.buttons=0; assert(!ui_pointer(&ui,&mouse,0,0));
     assert(ui_pointer(&ui,&mouse,0,0));
+    ui_input(&ui,-1,&mouse,&command); /* poll the dismissal release */
+    mouse.x=PALETTE_X;mouse.y=PALETTE_MORE_Y;mouse.buttons=1;
+    assert(ui_input(&ui,-1,&mouse,&command) && command==CMD_PALETTE);
+    mouse.buttons=0;ui_input(&ui,-1,&mouse,&command);
+    mouse.buttons=2;
+    assert(ui_input(&ui,-1,&mouse,&command) && command==CMD_BG);
+    mouse.buttons=0;
     screen_filename(&s,"C:\\ART\\LONGNAME.P86");
     assert(!strcmp(s.filename,"LONGNAME.P86"));
     render_status_text(&editor,editor.view.x,editor.view.y,1,s.filename,text);
@@ -224,13 +279,13 @@ static void application(void)
     start();add(KEY_MENU);add(KEY_DOWN);add(27);add(KEY_F2);add(27);
     add('n');add(27);add(KEY_F3);add(27);add(KEY_MENU);add(KEY_RIGHT);add(13);add(27);
     run(0);
-    start();mouse_event(315,115,1);mouse_event(315,115,0);add(KEY_MENU);add(27);
+    start();add(CMD_PALETTE);add(KEY_END);add(13);add(KEY_MENU);add(27);
     add(KEY_F2);add(27);add(27);add(13); /* default cancel dirty Exit */
     add('n');add(27);add(KEY_F3);add(27);add(27);add('y');run(1);
     remove("PAINT.P86");
     start();add(KEY_F2);type("PAINT");add(13);add(13);
-    mouse_event(315,115,1);mouse_event(315,115,0);
-    mouse_event(60,30,1);mouse_event(60,30,0);
+    add(CMD_PALETTE);add(KEY_END);add(13);
+    mouse_event(108,30,1);mouse_event(108,30,0);
     add(KEY_F2);add('y');add(13);
     add('n');add('3');add(KEY_F3);type("PAINT");add(13);add(13);add(27);run(1);
     f=fopen("PAINT.P86","rb");assert(f);assert(file_decode(f,&image)==FILE_OK);fclose(f);
@@ -239,7 +294,7 @@ static void application(void)
 }
 int main(void)
 {
-    geometry(); menus(); dialogs(); routing_status(); application();
+    geometry(); menus(); dialogs(); palette_overlay(); routing_status(); application();
     puts("PASS: dirty rectangles, idle stability, exact overlay/cursor restoration, one startup clear and deliberate exits/file workflow.");
     return 0;
 }

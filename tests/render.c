@@ -5,6 +5,7 @@
 #include "render.h"
 #include "video.h"
 #include "theme.h"
+#include "workpal.h"
 
 static Editor editor;
 static unsigned short queue[4096];
@@ -21,6 +22,11 @@ void video_rect(int x, int y, int w, int h, unsigned char colour)
         for (xx = x; xx < x + w; ++xx)
             if (xx >= clip_x && yy >= clip_y && xx < clip_r && yy < clip_b)
                 screen[yy * 320 + xx] = colour;
+}
+
+void video_pixel(int x,int y,unsigned char colour)
+{
+    if(x>=clip_x && y>=clip_y && x<clip_r && y<clip_b) screen[y*320+x]=colour;
 }
 
 void video_text(int x, int y, const char *text, unsigned char colour)
@@ -48,9 +54,21 @@ static void test_render(unsigned side)
                 sy = editor.view.y + (int)y * zoom;
                 assert(screen[sy * 320 + sx] == (unsigned char)(y * side + x));
                 if (zoom > 1)
-                    assert(screen[(sy + zoom - 1) * 320 + sx + zoom - 1] == 8);
+                    assert(screen[(sy + zoom - 1) * 320 + sx + zoom - 1] == (unsigned char)(y * side + x));
             }
         assert(screen[DRAW_Y * 320 + DRAW_X] == UI_DESK); /* old zoom cleared */
+    }
+    editor.grid = 1;
+    for(zoom=1;zoom<=view_max_zoom(&editor.canvas);++zoom) {
+        view_set(&editor.view,&editor.canvas,zoom); render_canvas(&editor);
+        sx=editor.view.x; sy=editor.view.y;
+        assert(screen[sy*320+sx]==0);
+        if(zoom>=2) {
+            assert(screen[(sy+1)*320+sx+zoom-1]==1); /* black -> subtle grey */
+            assert(screen[(sy+zoom)*320+sx+zoom-1]==(unsigned char)side);
+        }
+        for(y=0;y<side;++y) for(x=0;x<side;++x)
+            assert(editor.canvas.pixels[y*side+x]==(unsigned char)(y*side+x));
     }
     editor.grid = 0;
     view_set(&editor.view, &editor.canvas, view_max_zoom(&editor.canvas));
@@ -59,10 +77,10 @@ static void test_render(unsigned side)
     zoom = editor.view.zoom;
     assert(screen[(sy + zoom - 1) * 320 + sx + zoom - 1] == 0);
     render_ui(&editor);
-    for (index = 0; index < 256; ++index) {
-        sx = PALETTE_X + (int)(index % 16) * PALETTE_CELL_W + 1;
-        sy = PALETTE_Y + (int)(index / 16) * PALETTE_CELL_H + 1;
-        assert(screen[sy * 320 + sx] == index);
+    for (index = 0; index < 16; ++index) {
+        sx = PALETTE_X + (int)(index % PALETTE_COLS) * PALETTE_CELL_W + 1;
+        sy = PALETTE_Y + (int)(index / PALETTE_COLS) * PALETTE_CELL_H + 1;
+        assert(screen[sy * 320 + sx] == workpal_colour((int)index));
     }
     render_status(&editor, 319, 199, 1);
     render_status(&editor, editor.view.x, editor.view.y, 1);
@@ -76,13 +94,17 @@ static void test_render(unsigned side)
     assert(screen[sy * 320 + sx] == editor.foreground);
     assert(screen[editor.view.y * 320 + editor.view.x] == 0);
     editor.grid = 1;
+    editor.canvas.pixels[0]=15;
+    render_canvas(&editor);
+    if(zoom>=2) assert(screen[(editor.view.y+1)*320+editor.view.x+zoom-1]==14);
+    assert(editor.canvas.pixels[0]==15);
     render_canvas(&editor);
     editor.foreground = 255;
     editor_mouse(&editor, sx, sy, 0);
     editor_mouse(&editor, sx, sy, EDIT_LEFT);
     render_stroke(&editor);
     assert(screen[sy * 320 + sx] == 255);
-    assert(screen[(sy + zoom - 1) * 320 + sx + zoom - 1] == 8);
+    assert(screen[(sy+1)*320+sx+zoom-1] != 255);
 }
 
 int main(void)

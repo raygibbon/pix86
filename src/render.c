@@ -4,49 +4,94 @@
 #include "video.h"
 #include "theme.h"
 #include "cursor.h"
+#include "workpal.h"
 
+static void tool_row(const Editor *editor,int tool)
+{
+    static const char *labels[4]={"P Pen ","E Ers ","F Fill","I Pick"};
+    int y;
+    unsigned char ink,paper;
+    y=TOOL_Y+tool*TOOL_STEP;
+    paper=tool==editor->tool?UI_PAPER:UI_PANEL;
+    ink=tool==editor->tool?UI_INK:UI_WHITE;
+    cursor_protect(TOOL_X,y,TOOL_WIDTH,TOOL_HEIGHT);
+    video_rect(TOOL_X,y,TOOL_WIDTH,1,paper);
+    video_rect(TOOL_X,y+TOOL_HEIGHT-1,TOOL_WIDTH,1,paper);
+    video_rect(TOOL_X,y+1,1,FONT_HEIGHT,paper);
+    video_rect(TOOL_X+TOOL_WIDTH-1,y+1,1,FONT_HEIGHT,paper);
+    video_text_bg(TOOL_TEXT_X,y+TOOL_TEXT_Y,labels[tool],ink,paper);
+}
+static void swatch(const Editor *e,int slot)
+{
+    int x,y;
+    unsigned char colour,border;
+    x=PALETTE_X+slot%PALETTE_COLS*PALETTE_CELL_W;
+    y=PALETTE_Y+slot/PALETTE_COLS*PALETTE_CELL_H;
+    colour=workpal_colour(slot);
+    border=colour==e->foreground?UI_WHITE:colour==e->background?UI_FOCUS:UI_INK;
+    cursor_protect(x,y,PALETTE_CELL_W,PALETTE_CELL_H);
+    video_rect(x,y,PALETTE_CELL_W,PALETTE_CELL_H,border);
+    video_rect(x+1,y+1,PALETTE_CELL_W-2,PALETTE_CELL_H-2,colour);
+}
+static void current_colour(unsigned char colour,int y,char name)
+{
+    char text[5];
+    cursor_protect(PALETTE_LABEL_X,y-1,TOOL_WIDTH,SWATCH_HEIGHT);
+    sprintf(text,"%c%03u",name,(unsigned)colour);
+    video_text_bg(PALETTE_LABEL_X,y,text,UI_WHITE,UI_PANEL);
+    video_rect(SWATCH_X,y-1,SWATCH_WIDTH,SWATCH_HEIGHT,UI_WHITE);
+    video_rect(SWATCH_X+1,y,SWATCH_WIDTH-2,FONT_HEIGHT,colour);
+}
 void render_ui(const Editor *editor)
 {
-    char text[12];
-    int tool, x, y;
-    unsigned index;
-    static const char *labels[4] = {"Pen", "Ers", "Fil", "Pck"};
-    video_rect(0, UI_MENU_HEIGHT, UI_LEFT_WIDTH, UI_STATUS_Y-UI_MENU_HEIGHT, UI_DESK);
-    for (tool = 0; tool < 4; ++tool) {
-        y = TOOL_Y + tool * TOOL_STEP;
-        if (tool == editor->tool) video_rect(TOOL_X, y, TOOL_WIDTH, TOOL_HEIGHT, UI_BAR);
-        video_text(TOOL_TEXT_X, y + TOOL_TEXT_Y, labels[tool], tool == editor->tool ? UI_INK : UI_WHITE);
+    int i;
+    video_rect(0,UI_MENU_HEIGHT,UI_LEFT_WIDTH,UI_STATUS_Y-UI_MENU_HEIGHT,UI_PANEL);
+    video_text(PALETTE_LABEL_X,TOOL_TITLE_Y,"Tools",UI_WHITE);
+    video_rect(1,TOOL_TITLE_Y+FONT_HEIGHT+1,TOOL_WIDTH+1,1,UI_DIM);
+    for(i=0;i<4;++i) tool_row(editor,i);
+    video_text(PALETTE_LABEL_X,PALETTE_TITLE_Y,"Colour",UI_WHITE);
+    current_colour(editor->foreground,FG_Y,'F');
+    current_colour(editor->background,BG_Y,'B');
+    for(i=0;i<16;++i) swatch(editor,i);
+    video_text_bg(PALETTE_X,PALETTE_MORE_Y+1,"A All ",UI_INK,UI_BAR);
+}
+/* Grid dots follow exact cell edges, using a nearby shade rather than a bright
+   continuous mesh. This is view-only and never writes to canvas storage. */
+static unsigned char grid_colour(unsigned char colour)
+{
+    unsigned n;
+    if(colour<16) return (unsigned char)(colour+(colour<8?1:-1));
+    n=colour-16;
+    if(colour>=232) return (unsigned char)(colour-180);
+    if(n%6) return (unsigned char)(colour-1);
+    if(n/6%6) return (unsigned char)(colour-6);
+    if(n/36) return (unsigned char)(colour-36);
+    return 17;
+}
+static void canvas_cell(const Editor *editor,int x,int y)
+{
+    int sx,sy,zoom,i;
+    unsigned char colour,grid;
+    zoom=editor->view.zoom;
+    sx=editor->view.x+x*zoom; sy=editor->view.y+y*zoom;
+    colour=editor->canvas.pixels[(unsigned)y*editor->canvas.width+x];
+    video_rect(sx,sy,zoom,zoom,colour);
+    if(editor->grid && zoom>=2) {
+        grid=grid_colour(colour);
+        for(i=1;i<zoom;i+=2) {
+            video_pixel(sx+zoom-1,sy+i,grid);
+            video_pixel(sx+i,sy+zoom-1,grid);
+        }
     }
-    video_rect(UI_RIGHT_X, UI_MENU_HEIGHT, UI_WIDTH-UI_RIGHT_X, UI_STATUS_Y-UI_MENU_HEIGHT, UI_DESK);
-    video_text(PALETTE_LABEL_X, PALETTE_TITLE_Y, "Palette", UI_WHITE);
-    for (index = 0; index < 256; ++index) {
-        x = PALETTE_X + (int)(index % 16) * PALETTE_CELL_W;
-        y = PALETTE_Y + (int)(index / 16) * PALETTE_CELL_H;
-        video_rect(x, y, PALETTE_CELL_W, PALETTE_CELL_H,
-                   index == editor->foreground ? UI_WHITE : UI_INK);
-        video_rect(x + 1, y + 1, PALETTE_CELL_W - 2,
-                   PALETTE_CELL_H - 2, (unsigned char)index);
-    }
-    sprintf(text, "FG %03u", (unsigned)editor->foreground);
-    video_text(PALETTE_LABEL_X, FG_Y, text, UI_WHITE);
-    video_rect(SWATCH_X, FG_Y-1, SWATCH_WIDTH, SWATCH_HEIGHT, UI_WHITE);
-    video_rect(SWATCH_X+1, FG_Y, SWATCH_WIDTH-2, FONT_HEIGHT, editor->foreground);
-    sprintf(text, "BG %03u", (unsigned)editor->background);
-    video_text(PALETTE_LABEL_X, BG_Y, text, UI_WHITE);
-    video_rect(SWATCH_X, BG_Y-1, SWATCH_WIDTH, SWATCH_HEIGHT, UI_WHITE);
-    video_rect(SWATCH_X+1, BG_Y, SWATCH_WIDTH-2, FONT_HEIGHT, editor->background);
-    video_text(PALETTE_LABEL_X, PALETTE_HINT_Y, "L:FG R:BG", UI_WHITE);
-    video_text(PALETTE_LABEL_X, GRID_HINT_Y, "G: grid", UI_WHITE);
 }
 
 void render_canvas(const Editor *editor)
 {
     unsigned x, y;
-    int zoom, cell;
+    int zoom;
     const View *view;
     view = &editor->view;
     zoom = view->zoom;
-    cell = editor->grid && zoom >= 2 ? zoom - 1 : zoom;
     {
         Rect area,art,parts[4];
         int n,i;
@@ -55,37 +100,21 @@ void render_canvas(const Editor *editor)
         art.w=(int)view->width*zoom+2; art.h=(int)view->height*zoom+2;
         n=rect_subtract(&area,&art,parts);
         for(i=0;i<n;++i) video_rect(parts[i].x,parts[i].y,parts[i].w,parts[i].h,UI_DESK);
-        video_rect(art.x,art.y,art.w,1,8);
-        video_rect(art.x,art.y+art.h-1,art.w,1,8);
-        video_rect(art.x,art.y,1,art.h,8);
-        video_rect(art.x+art.w-1,art.y,1,art.h,8);
+        video_rect(art.x,art.y,art.w,1,UI_FRAME);
+        video_rect(art.x,art.y+art.h-1,art.w,1,UI_FRAME);
+        video_rect(art.x,art.y,1,art.h,UI_FRAME);
+        video_rect(art.x+art.w-1,art.y,1,art.h,UI_FRAME);
     }
     for (y = 0; y < editor->canvas.height; ++y)
-        for (x = 0; x < editor->canvas.width; ++x) {
-            video_rect(view->x + (int)x * zoom, view->y + (int)y * zoom,
-                       cell, cell, editor->canvas.pixels[y * editor->canvas.width + x]);
-            if(cell<zoom) {
-                video_rect(view->x+(int)x*zoom+cell,view->y+(int)y*zoom,1,zoom,8);
-                video_rect(view->x+(int)x*zoom,view->y+(int)y*zoom+cell,cell,1,8);
-            }
-        }
+        for (x = 0; x < editor->canvas.width; ++x)
+            canvas_cell(editor,(int)x,(int)y);
 }
 
 void render_stroke(const Editor *editor)
 {
-    int x, y, sx, sy, cell, zoom;
-    zoom = editor->view.zoom;
-    cell = editor->grid && zoom >= 2 ? zoom - 1 : zoom;
-    for (y = editor->dirty_y0; y <= editor->dirty_y1; ++y)
-        for (x = editor->dirty_x0; x <= editor->dirty_x1; ++x) {
-            sx = editor->view.x + x * zoom;
-            sy = editor->view.y + y * zoom;
-            video_rect(sx, sy, cell, cell,
-                       editor->canvas.pixels[(unsigned)y * editor->canvas.width + x]);
-            if(cell<zoom) {
-                video_rect(sx+cell,sy,1,zoom,8); video_rect(sx,sy+cell,cell,1,8);
-            }
-        }
+    int x,y;
+    for(y=editor->dirty_y0;y<=editor->dirty_y1;++y)
+        for(x=editor->dirty_x0;x<=editor->dirty_x1;++x) canvas_cell(editor,x,y);
 }
 
 void render_status_text(const Editor *editor, int mouse_x, int mouse_y, int has_mouse, const char *filename, char *text)
@@ -130,33 +159,19 @@ void render_restore(const Editor *editor,const Rect *r)
     if(rect_overlap(r,&art)) render_canvas(editor);
     video_unclip();
 }
-void render_ui_change(const Editor *editor,int tool,unsigned char fg,unsigned char bg)
+void render_ui_change(const Editor *editor,int tool,unsigned char fg,unsigned char bg,
+                      const unsigned char *old)
 {
-    int i,x,y;
-    unsigned index;
-    char text[12];
-    static const char *labels[4]={"Pen","Ers","Fil","Pck"};
-    if(tool!=editor->tool) for(i=0;i<4;++i) if(i==tool || i==editor->tool) {
-        y=TOOL_Y+i*TOOL_STEP; cursor_protect(TOOL_X,y,TOOL_WIDTH,TOOL_HEIGHT);
-        video_rect(TOOL_X,y,TOOL_WIDTH,TOOL_HEIGHT,i==editor->tool?UI_BAR:UI_DESK);
-        video_text(TOOL_TEXT_X,y+TOOL_TEXT_Y,labels[i],i==editor->tool?UI_INK:UI_WHITE);
+    int i;
+    unsigned char colour;
+    if(tool!=editor->tool) {
+        tool_row(editor,tool); tool_row(editor,editor->tool);
     }
-    if(fg!=editor->foreground) for(i=0;i<2;++i) {
-        index=i?editor->foreground:fg;
-        x=PALETTE_X+(int)(index%16)*PALETTE_CELL_W;
-        y=PALETTE_Y+(int)(index/16)*PALETTE_CELL_H;
-        cursor_protect(x,y,PALETTE_CELL_W,PALETTE_CELL_H);
-        video_rect(x,y,PALETTE_CELL_W,PALETTE_CELL_H,i?UI_WHITE:UI_INK);
-        video_rect(x+1,y+1,PALETTE_CELL_W-2,PALETTE_CELL_H-2,(unsigned char)index);
+    for(i=0;i<16;++i) {
+        colour=workpal_colour(i);
+        if(old[i]!=colour || (fg!=editor->foreground && (colour==fg || colour==editor->foreground)) ||
+           (bg!=editor->background && (colour==bg || colour==editor->background))) swatch(editor,i);
     }
-    if(fg!=editor->foreground) {
-        cursor_protect(PALETTE_LABEL_X,FG_Y-1,UI_WIDTH-PALETTE_LABEL_X,SWATCH_HEIGHT);
-        sprintf(text,"FG %03u",(unsigned)editor->foreground); video_text_bg(PALETTE_LABEL_X,FG_Y,text,UI_WHITE,UI_DESK);
-        video_rect(SWATCH_X+1,FG_Y,SWATCH_WIDTH-2,FONT_HEIGHT,editor->foreground);
-    }
-    if(bg!=editor->background) {
-        cursor_protect(PALETTE_LABEL_X,BG_Y-1,UI_WIDTH-PALETTE_LABEL_X,SWATCH_HEIGHT);
-        sprintf(text,"BG %03u",(unsigned)editor->background); video_text_bg(PALETTE_LABEL_X,BG_Y,text,UI_WHITE,UI_DESK);
-        video_rect(SWATCH_X+1,BG_Y,SWATCH_WIDTH-2,FONT_HEIGHT,editor->background);
-    }
+    if(fg!=editor->foreground) current_colour(editor->foreground,FG_Y,'F');
+    if(bg!=editor->background) current_colour(editor->background,BG_Y,'B');
 }

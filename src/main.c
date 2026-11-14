@@ -12,6 +12,7 @@
 #include "menu.h"
 #include "screen.h"
 #include "ui.h"
+#include "workpal.h"
 
 /* No large automatic objects or full-screen buffers in the small model. */
 static Editor editor;
@@ -84,6 +85,8 @@ int main(int argc, char **argv)
     int has_mouse, disable_mouse, key, i, size_set;
     int command, consumed, was_active, modal;
     UiState ui;
+    unsigned char colour;
+    int background;
     side = 32;
     size_set = disable_mouse = 0;
     for (i = 1; i < argc; ++i) {
@@ -130,9 +133,26 @@ int main(int argc, char **argv)
             command == CMD_SAVE_AS || command == CMD_NEW) {
             if (file_command(command)) break;
             modal = 1;
+        } else if(command==CMD_PALETTE || command==CMD_BG) {
+            editor_finish(&editor); refresh_editor(EDIT_STATUS);
+            background=command==CMD_BG;
+            colour=background?editor.background:editor.foreground;
+            if(dialog_palette(&colour,&background)) {
+                if(background) editor.background=colour;
+                else editor.foreground=colour;
+                flags|=EDIT_UI|EDIT_STATUS;
+            }
+            modal=1;
+        } else if(command==CMD_COLOUR_PREV || command==CMD_COLOUR_NEXT) {
+            editor_finish(&editor);
+            editor.foreground=workpal_step(editor.foreground,command==CMD_COLOUR_PREV?-1:1);
+            flags|=EDIT_UI|EDIT_STATUS;
+        } else if(command==CMD_FONT) {
+            editor_finish(&editor); refresh_editor(EDIT_STATUS);
+            dialog_font(); modal=1;
         } else if (command == CMD_HELP || command == CMD_ABOUT) {
             if (command == CMD_HELP)
-                dialog_message("Pix86 controls", "P E F I: tools. U R: undo/redo. G: grid. +/-: zoom. F2: save F3: open. Ctrl+\\: menu.", NULL);
+                dialog_message("Pix86 controls", "P E F I: tools. U R: undo/redo. G: grid. +/-: zoom. A/B: all colours FG/BG. [ ]: working colours. F2: save F3: open. Ctrl+\\: menu.", NULL);
             else dialog_message("About Pix86", "Original 16-bit DOS pixel editor. Animation is planned.", NULL);
             modal = 1;
         } else if (command > 0) flags |= editor_key(&editor, command);

@@ -42,7 +42,8 @@ int keyboard_command(int key)
     case CMD_EXIT: case CMD_UNDO: case CMD_REDO: case CMD_CLEAR:
     case CMD_GRID: case CMD_ZOOM_IN: case CMD_ZOOM_OUT:
     case CMD_PENCIL: case CMD_ERASER: case CMD_FILL: case CMD_PICK:
-    case CMD_HELP: case CMD_ABOUT: return key;
+    case CMD_PALETTE: case CMD_BG: case CMD_COLOUR_PREV: case CMD_COLOUR_NEXT:
+    case CMD_FONT: case CMD_HELP: case CMD_ABOUT: return key;
     default: return CMD_NONE;
     }
 }
