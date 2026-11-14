@@ -1,78 +1,129 @@
-# M1 verification
+# M2 verification
 
-Verified on 2026-11-14. These results cover the local build and DOSBox-X's
-built-in DOS environment. They do not claim execution on native FreeDOS,
-MS-DOS, real VGA hardware or every mouse driver.
+Verified on 2026-11-14. Tests cover Linux-hosted compilation, portable behavior
+and DOSBox-X's built-in DOS. Native FreeDOS/MS-DOS, real VGA hardware and other
+mouse drivers remain untested. Saving/loading and animation are not implemented.
 
-## Automated checks
+## Automated host checks
 
-- `scripts/build.sh`: Open Watcom v2 Linux-hosted 16-bit compiler/linker,
-  toolchain build dated 2026-04-04. All six application modules compiled with
-  `-bt=dos -ms -0 -za -wx -w4 -os`; zero warnings/errors. Only the DOS `lib286`
-  runtime appears in the link map. Stack: 4096 bytes. Output: 13550 bytes.
-  Setting `WATCOM` to a nonexistent installation returned a nonzero status
-  and a useful `Missing wcl` diagnostic.
-- `file mnt/PIX86.EXE`: `MS-DOS executable, MZ for MS-DOS`.
-- `python3 tests/mzcheck.py mnt/PIX86.EXE`: valid plain MZ container, four
-  relocations, valid entry/stack, no extended executable header. Container
-  inspection alone does not establish CPU bitness; the compiler target, link
-  map and successful 8086-emulated execution provide additional evidence.
-- `scripts/test.sh`: strict C89 host compilation, canvas capacity and bounds,
-  invalid/overflow dimensions, guard bytes, cursor save/restore at all 64000
-  screen positions, overlapping moves, repeated hide and status redraw ordering.
-  Tests link the real canvas/cursor code to a mock clipped framebuffer; they
-  do not test VGA or DOS interrupts.
+`./scripts/test.sh` builds three suites with strict C89, pedantic diagnostics,
+all warnings enabled and warnings treated as errors:
 
-## DOSBox-X runtime checks
+- M1 canvas validation and exact cursor save/restore at all 64000 screen positions,
+  overlapping moves, repeated hide and status redraw ordering.
+- Pixel get/set, all 256 indices (including 0/255), rejected bounds, canvas clear
+  and guard bytes around a maximum-size canvas.
+- Every displayed subpixel of every canvas cell at every fitting zoom for
+  16×16, 32×32 and 64×64; centring, all four boundaries, invalid zooms and unchanged
+  artwork. All 256 palette hit-test indices and outside boundaries.
+- Line connectivity to every endpoint on a 64×64 canvas, covering all slopes and
+  octants; inclusive endpoints, no-op strokes, invalid endpoints and eraser/pick.
+- Whole 4096-pixel fills from opposite corners, no-op fills, invalid starts,
+  enclosed regions, diagonal disconnection and a winding one-cell corridor.
+- History exhaustion, oldest-state expiry, complete undo/redo traversal, branch
+  edits, no-op preservation of redo and undoable clear.
+- Editor gestures: a multi-sample drag is one action, final release movement is
+  included, held fill is one action, picking preserves redo, new edits discard
+  redo, leaving/re-entering breaks interpolation, toolbar presses cannot paint,
+  undo while held stops the stroke, palette selection leaves pixels unchanged,
+  background selection, grid toggle and zoom preservation.
+- Mock-framebuffer rendering at every zoom, all 256 palette cells, grid on/off,
+  clearing old zoom bounds and partial stroke updates without changing neighbors.
 
-DOSBox-X 2025.02.01 SDL2 (Debian package 2025.02.01+dfsg-3), VGA-only machine,
-normal CPU core, `cputype=8086`, fixed 12000 cycles, 4 MiB configured memory.
-DOSBox-X labels its 8086 core experimental. No extender or DPMI host was loaded.
-The emulator and its missing host dependency were extracted under `/tmp`;
-no emulator code/libraries were added to Pix86.
+The portable editor suite also passes with AddressSanitizer and
+UndefinedBehaviorSanitizer (`cc -fsanitize=address,undefined` using the same
+portable sources). Hardware-dependent VGA/input implementations are excluded
+from host tests; renderer and cursor suites use clipped mock framebuffers.
 
-Interactive input was supplied through X11 automation and rendered windows were
-visually inspected. The DOS harness automatically checks the child's exit code
-and restored BIOS state after each interactive ESC:
+## Open Watcom and DOS-side automated checks
 
-| Harness case | Observed result |
+`./scripts/build.sh` passes with the installed Open Watcom v2 Linux-hosted
+16-bit toolchain, build dated 2026-04-04. All eleven application modules compile
+with `-bt=dos -ms -0 -za -wx -w4 -os`, zero warnings/errors. The link map uses
+only Watcom's `lib286/dos/clibs.lib`, with no extender or DPMI startup.
+
+- `mnt/PIX86.EXE`: 17448 bytes; `file` identifies an MS-DOS MZ executable.
+- `python3 tests/mzcheck.py`: valid plain MZ, four relocations, valid entry/stack,
+  no extended executable header. MZ inspection is a container check, supported
+  by the explicit compiler target and real-mode execution tests.
+- Link map: 54688 bytes of linked code/data/stack, including a 4096-byte stack.
+  DGROUP is 0x9560 = 38240 bytes, below the 65536-byte segment limit. These values
+  exclude PSP/environment and other DOS/runtime allocation overhead.
+- `./scripts/dostest.sh` builds `EDTEST.EXE` from the same portable editor suite.
+  It was executed in DOSBox-X with output redirected to `EDTEST.TXT` and reported
+  `PASS: M2 pixels, zoom, lines, fill, history, palette and editor gestures.`
+  This exercises actual 16-bit `int`/`unsigned` arithmetic, not only host integers.
+
+The two larger framebuffer suites are host-only; their mock 64000-byte arrays
+are not part of the DOS application. DOS-side tests run with a normal 386 CPU
+core at maximum cycles; the compiled executable still uses 16-bit/8086 code.
+The application also launched/rendered under the experimental 8086 emulator core.
+
+## Interactive DOSBox-X checks
+
+DOSBox-X 2025.02.01 SDL2 (Debian package 2025.02.01+dfsg-3), VGA-only emulation,
+normal CPU core, 386 CPU, fixed 40000 cycles, 4 MiB configured memory. No guest
+OS boot, DOS extender or DPMI host was used. Toolchain/emulator dependencies are
+installed externally or extracted under `/tmp`, never vendored into Pix86.
+
+Mouse/keyboard input and screenshots were checked using X11 automation. The
+initial desktop macro was unreliable due to input/timing interactions, so final
+workflow checks use an isolated Xvfb display with `autolock=false` and
+`mouse_emulation=never`. This is test configuration, not an application dependency.
+The [DOSBox-X mouse guide](https://dosbox-x.com/wiki/Guide%3AMouse-support-in-DOSBox%E2%80%90X)
+describes those emulator options.
+
+The interface renders the centred canvas/grid, four selectable tools, 256-cell
+palette, foreground/background indicators and canvas-coordinate/zoom/history
+status. The isolated screenshot pixel checks passed for a continuous pencil
+drag, undo/redo, configuring BG and erasing the entire drag, a closed outline
+with a differently coloured fill contained inside, picking that colour,
+fill undo/redo, zooming the drawing without changing its pixels, and grid toggle.
+Drawing strokes, undo/redo, fill and eraser were also visually inspected on the
+desktop. The repeatable checklist below covers the full intended
+interactive acceptance sequence; passing portable tests do not substitute for
+native DOS/hardware checks.
+
+The DOS restoration harness validates return code, prior mode/page and text cursor
+state after interactive ESC. Its optional third argument selects canvas size:
+`DOSCHECK mouse 32`, `DOSCHECK null 16`, `DOSCHECK iret 64`. The null and IRET cases
+temporarily replace INT 33h and should be run only in an emulator. The driver's
+vector is restored immediately after the child exits. Cursor position includes
+the application's final console message (row 6 at 80 columns; row 7 at 40).
+
+| Executed case | Result after ESC |
 | --- | --- |
-| `DOSCHECK` | PASS, exit 0, mode 3, page 1, cursor 0600, shape 0607 |
-| `DOSCHECK null` | PASS, exit 0, mode 1, page 0, cursor 0700, shape 0607 |
-| `DOSCHECK iret` | PASS, exit 0, mode 3, page 1, cursor 0600, shape 0607 |
+| Working driver, 32×32 | PASS, exit 0, mode 3, page 1, cursor 0600, shape 0607 |
+| Null driver vector, 16×16 | PASS, exit 0, mode 1, page 0, cursor 0700, shape 0607 |
+| IRET driver stub, 64×64 | PASS, exit 0, mode 3, page 1, cursor 0600, shape 0607 |
 
-The harness starts at row 5, column 10. The application's exit message advances
-the restored cursor to row 6 (80 columns), or row 7 (40 columns, due to wrapping).
-It restores the mouse vector immediately after the child exits. Run this
-harness in an emulator; it deliberately changes the driver vector temporarily.
-It is separate from `PIX86.EXE` and uses Watcom extensions for child spawning.
-
-Visual checks: title, toolbar placeholders, canvas, palette and status rendered
-correctly; the BIOS font was legible. Coordinates changed with motion and
-reached X=319/Y=199 at the lower-right edge. The left-button indicator changed
-while held; the right-button indicator was also verified with mouse capture.
-Arrow and F1 input left the application running. The pointer remained visible
-and movement left no visible trails.
-Both absent-driver cases displayed `NO MOUSE DRIVER - ESC TO EXIT` without a
-pointer, and ESC restored text mode. The `/NOMOUSE` option also displayed the
-fallback workspace and exited with ESC. Automated framebuffer tests cover cursor
-restoration more exhaustively than visual inspection.
+The 16×16 and 64×64 workspaces were visually checked at their initial 10× and
+2× zooms, with a missing-driver message and no pointer. `PIX86 64 /NOMOUSE`
+also rendered the fallback workspace and exited with ESC.
 
 ## Repeating interactive acceptance checks
 
-1. Build, launch `PIX86` in DOSBox-X, and capture the mouse if needed.
-2. Check title/workspace/toolbar/palette/status and a visible pointer. Move over
-   the canvas, palette and status bar, then all four edges. Check no trails and
-   coordinates within X=0..319, Y=0..199.
-3. Hold left, right and both buttons. Check `L:1`, `R:1`, and both respectively;
-   release and check both return to zero. No painting should occur.
-4. Press extended keys (arrows/F1); the loop should continue. ESC should exit
-   promptly, leave readable DOS text and return an exit code of zero.
-5. Build the harness and run its three cases above. Inspect the reports on the
-   host. Also try `PIX86 /NOMOUSE` for the explicit fallback option.
-6. Repeat on actual FreeDOS and MS-DOS with real mouse drivers/VGA hardware.
-   These native-system checks remain outstanding.
+1. Build, launch `PIX86 32`, and check palette, toolbar, FG/BG, zoom and grid.
+2. Choose colours at both ends of the palette. Draw a fast pencil drag; check
+   continuity and exactly one undo entry. Undo and redo it.
+3. Right-click a palette cell to set BG; erase a drag. Undo and redo it. Clear
+   with C and undo the clear.
+4. Draw a closed outline, choose another colour and fill inside. Check the
+   boundary and outside pixels; undo/redo the fill. Pick a colour with I and
+   with right-click. Hold fill to check it does not repeat actions.
+5. Zoom down/up and toggle G; check the artwork stays identical and mapping
+   selects the intended cells at every edge. Zoom 1 has no grid lines.
+6. Make more than four actions, undo to the bound, redo, then undo and draw a
+   new edit. Check redo is discarded. Changing FG/BG or zoom should preserve it.
+7. Leave the canvas during a held stroke; return and release. Check there is
+   no bridge across the interface and no paint from a press starting in the UI.
+8. Repeat with `PIX86 16` and `PIX86 64`. Test tool keys P/E/F/I, U/R and
+   Ctrl+Z/Ctrl+Y, extended keys, missing mouse drivers and `/NOMOUSE`.
+9. ESC should return promptly to readable DOS text. Run all harness cases and
+   inspect `MOUSE.TXT`, `NULL.TXT` and `IRET.TXT` on the host.
+10. Repeat on native FreeDOS/MS-DOS and real VGA/mouse hardware (outstanding).
 
-Known limits: one 128x128 canvas, static placeholder controls, BIOS 8x8 ASCII
-labels, conventional near-memory canvas storage, normal ESC cleanup only, and
-no painting, animation, formats, VESA or alternative platforms.
+Known limits: canvas size is chosen at launch, maximum zoom is constrained by
+320×200, grid lines consume one displayed pixel per cell, history retains four
+actions, and polling can miss a complete click that occurs between samples.
+No artwork survives exit; there are no file operations or animation features.

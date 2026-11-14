@@ -8,9 +8,10 @@ typedef struct Canvas {
     unsigned char *pixels;
 } Canvas;
 
-/* M1 caps a canvas at 32767 bytes for safe 16-bit near objects. */
+/* Canvases are capped at 32767 bytes for safe 16-bit near objects. */
 int canvas_init(Canvas *canvas, unsigned width, unsigned height,
                 unsigned char *storage, unsigned capacity);
+int canvas_set(Canvas *canvas, unsigned x, unsigned y, unsigned char colour);
 void canvas_clear(Canvas *canvas, unsigned char colour);
 int canvas_get(const Canvas *canvas, unsigned x, unsigned y,
                unsigned char *colour);

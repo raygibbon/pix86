@@ -2,13 +2,13 @@
 
 A lightweight, DOS-native pixel-art and frame-by-frame animation editor for game creators.
 
-**Status:** M1 DOS foundation implemented and tested in DOSBox-X. Native
-FreeDOS/MS-DOS hardware testing remains outstanding.
+**Status:** M2 pixel drawing editor, targeting native 16-bit real-mode DOS.
 
-M1 displays an original 320x200 VGA workspace with a 128x128 software canvas,
-placeholder toolbar and palette, mouse cursor and coordinate/button status.
-ESC returns to DOS text mode. Painting and animation are planned; the toolbar,
-swatches and frame label are not functional editing controls.
+Draw on a 16×16, 32×32 or 64×64 indexed canvas with pencil, eraser, four-connected
+fill and eyedropper tools. Integer zoom, an optional grid, all 256 palette indices
+and four undoable actions support small sprite work. Canvas pixels stay in
+software memory. Animation, saving/loading and layers are not implemented.
+There is no persistence: exiting discards the artwork.
 
 ## Build on Linux
 
@@ -38,30 +38,76 @@ dosbox-x -defaultconf -c "mount c ./mnt" -c "c:" -c "PIX86.EXE"
 ```
 
 Alternatively, mount `mnt/` in an existing DOSBox-X session, switch to `C:`,
-and run `PIX86`. Use VGA emulation and launch from a DOS text mode. Move the
-mouse to update screen coordinates, hold buttons to inspect `L`/`R`, and press
-ESC to exit. DOSBox-X may require a click or Ctrl+F10 to capture the mouse;
-Ctrl+F10 releases it. On real DOS, load a compatible INT 33h mouse driver first.
-Without a driver the workspace still opens, shows a message, and ESC works.
-`PIX86 /NOMOUSE` explicitly disables mouse initialization for diagnosis.
+and run `PIX86`. Use VGA emulation and launch from a DOS text mode. DOSBox-X may
+require a click or Ctrl+F10 to capture the mouse; Ctrl+F10 releases it. On real
+DOS, load a compatible INT 33h mouse driver first. Without a driver, the workspace
+opens with an explanatory message and keyboard shortcuts/ESC still work.
 
-Exit restores the prior text mode/page/cursor, clearing the prior screen.
-Copy only `PIX86.EXE` to a DOS machine; no runtime DLL or data assets are needed.
+Choose canvas size when launching (default: 32×32):
+
+```text
+PIX86 16
+PIX86 32
+PIX86 64
+PIX86 32 /NOMOUSE
+```
+
+Size is fixed for the session. `/NOMOUSE` skips driver initialization for diagnosis.
+Exit restores the prior text mode/page/cursor, clearing the prior screen. Copy
+only `PIX86.EXE` to DOS; no runtime DLL or data assets are needed.
+
+## Drawing controls
+
+| Control | Action |
+| --- | --- |
+| Left toolbar or P / E / F / I | Pencil / eraser / fill / eyedropper |
+| Left-drag on canvas | Draw or erase; one drag is one undo action |
+| Left-click with fill | Fill four-connected matching pixels; one action |
+| Left-click with eyedropper, or right-click canvas | Pick foreground index |
+| Left-click palette | Select foreground (FG) |
+| Right-click palette | Configure eraser/clear background (BG) |
+| + / = and - | Increase/decrease integer zoom within workspace limits |
+| G | Toggle pixel grid (visible at zoom 2 and above) |
+| U / Ctrl+Z | Undo |
+| R / Ctrl+Y | Redo |
+| C | Clear to BG, undoable |
+| ESC | Return to DOS; artwork is discarded |
+
+All 256 indices appear in the right-hand 16×16 palette. The selected foreground
+has a bright outline, numeric label and swatch; background has a separate label
+and swatch. These selections do not alter existing pixels. Palette RGB editing
+is outside M2. Canvas coordinates and zoom appear in the status bar; `--,--`
+means the pointer is outside the canvas. `G` shows grid state; `U` and `R` show
+available history counts. Grid lines belong to the view, never the artwork.
+
+The canvas is centred, initially at the largest fitting zoom: 10× for 16×16,
+5× for 32×32 and 2× for 64×64. Zoom 1× is available for every size. Drawing pauses
+outside the canvas; returning while holding the button starts a new segment in
+the same action, without drawing a bridge across the interface. Tool, zoom,
+grid, clear or history shortcuts finish a held stroke; release before starting
+a new one. Four actions are retained; older actions expire. Only actual pixel
+edits clear redo, so colour selection, zoom and no-op tools preserve it.
 
 ## Tests and development notes
 
 ```sh
-./scripts/test.sh                    # C89 host tests; requires a C compiler
-python3 tests/mzcheck.py mnt/PIX86.EXE # executable container check
-./scripts/doscheck.sh                # build optional DOS integration harness
+./scripts/test.sh                     # strict C89 host suites; requires cc
+python3 tests/mzcheck.py mnt/PIX86.EXE  # executable container check
+./scripts/dostest.sh                  # build EDTEST.EXE, portable suite for DOS
+./scripts/doscheck.sh                 # build interactive restoration harness
 ```
 
-In DOSBox-X, run `DOSCHECK`, exercise input, then press ESC. Run `DOSCHECK null`
-and `DOSCHECK iret` to exercise genuinely missing driver vectors. Each requires
-ESC and writes a PASS/FAIL report to `MOUSE.TXT`, `NULL.TXT` or `IRET.TXT` in
-`mnt/`. These harness files are development tools, not part of the application.
-See [test results and manual checklist](docs/TESTING.md) and
-[architecture, memory limits and provenance](docs/ARCHITECTURE.md).
+Run `EDTEST > EDTEST.TXT` in DOSBox-X to exercise tools, coordinates, history and
+gestures with Watcom's 16-bit integers. The larger mock-framebuffer suites are
+host-only. For interactive cleanup checks, run `DOSCHECK`, then ESC. Also run
+`DOSCHECK null 16` and `DOSCHECK iret 64` to exercise missing mouse vectors and
+other canvas sizes. Reports go to `MOUSE.TXT`, `NULL.TXT` and `IRET.TXT` in `mnt/`.
+The harness deliberately changes the driver vector temporarily; use an emulator.
+These executables are development tools and are not needed to run Pix86.
+
+See [actual test results and checklist](docs/TESTING.md) and
+[architecture, memory budget and provenance](docs/ARCHITECTURE.md). Native
+FreeDOS/MS-DOS and real VGA/mouse hardware checks remain outstanding.
 
 ## Goals
 

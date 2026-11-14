@@ -41,7 +41,8 @@ int main(int argc, char **argv)
     if (iret_mouse)
         _dos_setvect(0x33, (void (__interrupt __far *)(void))
                      (unsigned char __far *)&iret_opcode);
-    result = _spawnl(_P_WAIT, "PIX86.EXE", "PIX86.EXE", NULL);
+    result = _spawnl(_P_WAIT, "PIX86.EXE", "PIX86.EXE",
+                     argc > 2 ? argv[2] : "32", NULL);
     _dos_setvect(0x33, old_mouse);
     r.h.ah = 0x0f;
     int86(0x10, &r, &r);

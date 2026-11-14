@@ -24,6 +24,8 @@ rm -f PIX86.EXE "$ROOT/mnt/PIX86.EXE"
 wcl -bt=dos -ms -0 -za -wx -w4 -os -k4096 \
     "$ROOT/src/main.c" "$ROOT/src/video.c" "$ROOT/src/mouse.c" \
     "$ROOT/src/keyboard.c" "$ROOT/src/canvas.c" "$ROOT/src/cursor.c" \
+    "$ROOT/src/tools.c" "$ROOT/src/history.c" "$ROOT/src/view.c" \
+    "$ROOT/src/editor.c" "$ROOT/src/render.c" \
     -fm=PIX86.MAP -fe=PIX86.EXE
 if [ ! -s PIX86.EXE ]; then
     echo "Open Watcom did not produce PIX86.EXE." >&2

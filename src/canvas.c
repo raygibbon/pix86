@@ -38,3 +38,12 @@ int canvas_get(const Canvas *canvas, unsigned x, unsigned y,
     *colour = canvas->pixels[y * canvas->width + x];
     return 1;
 }
+
+int canvas_set(Canvas *canvas, unsigned x, unsigned y, unsigned char colour)
+{
+    if (canvas == NULL || canvas->pixels == NULL ||
+        x >= canvas->width || y >= canvas->height)
+        return 0;
+    canvas->pixels[y * canvas->width + x] = colour;
+    return 1;
+}
