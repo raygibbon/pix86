@@ -8,7 +8,6 @@ static unsigned char previous_page;
 static unsigned short previous_cursor;
 static unsigned short previous_shape;
 static int active;
-static unsigned char __far *font;
 static unsigned char __far *vga = (unsigned char __far *)0xa0000000UL;
 
 static void set_mode(unsigned char mode)
@@ -21,7 +20,6 @@ static void set_mode(unsigned char mode)
 int video_init(void)
 {
     union REGS r;
-    union REGPACK font_regs;
     int i;
     if (active)
         return 1;
@@ -45,10 +43,6 @@ int video_init(void)
         video_shutdown();
         return 0;
     }
-    font_regs.w.ax = 0x1130;
-    font_regs.h.bh = 3;
-    intr(0x10, &font_regs);
-    font = (unsigned char __far *)MK_FP(font_regs.w.es, font_regs.w.bp);
     /* Original restrained palette: greys, then a small RGB colour cube. */
     outp(0x3c8, 0);
     for (i = 0; i < 256; ++i) {
@@ -120,20 +114,4 @@ void video_rect(int x, int y, int width, int height, unsigned char colour)
 void video_clear(unsigned char colour)
 {
     video_rect(0, 0, VIDEO_WIDTH, VIDEO_HEIGHT, colour);
-}
-
-void video_text(int x, int y, const char *text, unsigned char colour)
-{
-    int row, col;
-    unsigned char bits;
-    while (*text && x < VIDEO_WIDTH) {
-        for (row = 0; row < 8; ++row) {
-            bits = font[(unsigned char)*text * 8U + row];
-            for (col = 0; col < 8; ++col)
-                if (bits & (0x80U >> col))
-                    video_pixel(x + col, y + row, colour);
-        }
-        x += 8;
-        ++text;
-    }
 }

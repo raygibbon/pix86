@@ -1,7 +1,7 @@
 #include "menu.h"
 #include "keyboard.h"
 static const char *titles[MENU_COUNT] = {"File", "Edit", "View", "Frame", "Options", "Help"};
-static const int starts[MENU_COUNT] = {0, 40, 80, 120, 168, 232};
+static const int starts[MENU_COUNT] = {0, 36, 72, 108, 150, 204};
 static const int counts[MENU_COUNT] = {5, 3, 3, 3, 1, 2};
 static const MenuItem items[MENU_COUNT][5] = {
     {{"New", "N", 'n'}, {"Open", "F3", KEY_F3}, {"Save", "F2", KEY_F2},
@@ -12,8 +12,9 @@ static const MenuItem items[MENU_COUNT][5] = {
     {{"Grid", "G", 'g'}},
     {{"Controls", "", CMD_HELP}, {"About", "", CMD_ABOUT}}
 };
-int menu_left(int heading) { return starts[heading] > 118 ? 118 : starts[heading]; }
-int menu_width(int heading) { return (heading + 1 < MENU_COUNT ? starts[heading+1] : 280) - starts[heading]; }
+int menu_heading_left(int heading) { return starts[heading]; }
+int menu_left(int heading) { return starts[heading] > 172 ? 172 : starts[heading]; }
+int menu_width(int heading) { return (heading + 1 < MENU_COUNT ? starts[heading+1] : 240) - starts[heading]; }
 int menu_items(int heading) { return counts[heading]; }
 const char *menu_title(int heading) { return titles[heading]; }
 const MenuItem *menu_item(int heading, int item) { return &items[heading][item]; }
@@ -35,6 +36,11 @@ int menu_key(Menu *menu, int key, int *command)
 {
     int heading;
     *command = 0;
+    if (key == KEY_MENU) {
+        if (menu->active) menu->active = 0;
+        else open_menu(menu, 0);
+        return 1;
+    }
     heading = keyboard_menu(key);
     if (heading >= 0) { open_menu(menu, heading); return 1; }
     if (key == KEY_F10) { menu->active = !menu->active; menu->item = 0; return 1; }
@@ -56,16 +62,16 @@ int menu_mouse(Menu *menu, int x, int y, unsigned buttons, int *command)
     menu->buttons = buttons;
     consumed = menu->active;
     if (!(pressed & 1)) return consumed;
-    if (y >= 0 && y < 16) {
+    if (y >= 0 && y < MENU_BAR_HEIGHT) {
         for (i = 0; i < MENU_COUNT; ++i)
             if (x >= starts[i] && x < starts[i] + menu_width(i)) {
                 open_menu(menu, i); return 1;
             }
     }
     if (!menu->active) return 0;
-    row = (y - 18) / 14;
-    if (x >= menu_left(menu->heading) && x < menu_left(menu->heading) + 202 &&
-        y >= 18 && row < counts[menu->heading]) {
+    row = (y - MENU_ROW_TOP) / MENU_ROW_HEIGHT;
+    if (x >= menu_left(menu->heading) && x < menu_left(menu->heading) + MENU_DROP_WIDTH &&
+        y >= MENU_ROW_TOP && row < counts[menu->heading]) {
         menu->item = row; activate(menu, command);
     } else menu->active = 0;
     return 1;

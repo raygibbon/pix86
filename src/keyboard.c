@@ -1,14 +1,13 @@
-#include <conio.h>
+#include <bios.h>
 #include "keyboard.h"
 
 int keyboard_poll(void)
 {
-    int key;
-    if (!kbhit())
-        return -1;
-    key = getch();
-    if (key == 0 || key == 0xe0) {
-        return 256 + getch();
-    }
-    return key;
+    unsigned word, shifts;
+    /* BIOS retains the scan byte that DOS getch() loses for ASCII controls.
+       Standard services work on XT-class BIOSes as well as enhanced keyboards. */
+    if (!_bios_keybrd(_KEYBRD_READY)) return -1;
+    shifts = _bios_keybrd(_KEYBRD_SHIFTSTATUS);
+    word = _bios_keybrd(_KEYBRD_READ);
+    return keyboard_decode(word, shifts);
 }

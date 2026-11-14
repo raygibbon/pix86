@@ -30,3 +30,6 @@ wcl -bt=dos -ms -0 -za -wx -w4 -os -k4096 -I"$ROOT/tests/stubs" -I"$ROOT/src" \
     "$ROOT/src/keymap.c" "$ROOT/src/dialog.c" "$ROOT/src/dlginput.c" \
     "$ROOT/src/editor.c" "$ROOT/src/canvas.c" "$ROOT/src/tools.c" \
     "$ROOT/src/history.c" "$ROOT/src/view.c" -fe="$ROOT/mnt/UITEST.EXE"
+wcl -bt=dos -ms -0 -za -wx -w4 -os -k4096 -I"$ROOT/src" \
+    "$ROOT/tests/testkeys.c" "$ROOT/src/keyboard.c" "$ROOT/src/keymap.c" \
+    -fe="$ROOT/mnt/KBDTEST.EXE"

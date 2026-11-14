@@ -50,5 +50,11 @@ Update the README and development notes when project scope changes. Document ori
 - Route overlays before editor input. Consume dismissal clicks and wait for
   button release before resuming canvas strokes. Preserve cursor hide/repaint/show.
 - Run `scripts/test.sh`, `scripts/build.sh` and `scripts/dostest.sh`; execute
-  EDTEST, IOTEST and UITEST in DOSBox-X. IOTEST requires a disposable directory.
+  EDTEST, IOTEST, UITEST and KBDTEST in DOSBox-X. IOTEST requires a disposable directory.
 - Keep menu/dialog source names DOS 8.3, buffers bounded and DGROUP below 64 KiB.
+
+- Interface text uses the original `font.c` 6x8 glyphs, never a copied or scaled
+  reference font. Share font metrics and hit geometry when changing controls.
+- Keep Ctrl+\ menu activation in BIOS decoding/keymap, including scan codes;
+  preserve plain and AltGr path separators. Record tested layouts and limits.
+- UI theme indices must not change the fixed artwork DAC palette.
