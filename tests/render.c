@@ -4,6 +4,7 @@
 #include "editor.h"
 #include "render.h"
 #include "video.h"
+#include "theme.h"
 
 static Editor editor;
 static unsigned short queue[4096];
@@ -21,7 +22,7 @@ void video_rect(int x, int y, int w, int h, unsigned char colour)
 void video_text(int x, int y, const char *text, unsigned char colour)
 {
     (void)x; (void)y; (void)colour;
-    assert(strlen(text) <= 40);
+    assert(strlen(text) <= 53);
 }
 
 static void test_render(unsigned side)
@@ -43,7 +44,7 @@ static void test_render(unsigned side)
                 if (zoom > 1)
                     assert(screen[(sy + zoom - 1) * 320 + sx + zoom - 1] == 8);
             }
-        assert(screen[DRAW_Y * 320 + DRAW_X] == 3); /* old zoom cleared */
+        assert(screen[DRAW_Y * 320 + DRAW_X] == UI_DESK); /* old zoom cleared */
     }
     editor.grid = 0;
     view_set(&editor.view, &editor.canvas, view_max_zoom(&editor.canvas));

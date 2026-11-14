@@ -10,6 +10,7 @@
 #include "project.h"
 #include "dialog.h"
 #include "menu.h"
+#include "theme.h"
 
 /* No large automatic objects or full-screen buffers in the small model. */
 static Editor editor;
@@ -43,7 +44,7 @@ static int file_command(int key)
         }
     } else {
         if (key == KEY_SAVE_AS || !project.filename[0]) {
-            if (!dialog_filename("Save .P86", project.filename[0] ?
+            if (!dialog_filename(key == KEY_SAVE_AS ? "Save As .P86" : "Save .P86", project.filename[0] ?
                                  project.filename : "UNTITLED.P86", path)) return 0;
         } else strcpy(path, project.filename);
         status = project_save(&project, path, 0);
@@ -94,13 +95,12 @@ int main(int argc, char **argv)
     }
     has_mouse = !disable_mouse && mouse_init();
     dialog_mouse(has_mouse);
-    video_clear(3);
+    video_clear(UI_DESK);
     render_ui(&editor);
     render_canvas(&editor);
     mouse_poll(&mouse);
     render_status(&editor, mouse.x, mouse.y, has_mouse);
     menu_draw(&menu);
-    if (editor_is_dirty(&editor)) video_text(304, 4, "*", 15);
     if (has_mouse) cursor_show(mouse.x, mouse.y);
     previous = mouse;
     for (;;) {
@@ -123,6 +123,15 @@ int main(int argc, char **argv)
             }
         }
         if (!consumed) command = key;
+        if (was_active && !menu.active && command > 0) {
+            /* Dismiss the dropdown before a command can open a modal window. */
+            cursor_hide();
+            video_clear(UI_DESK);
+            render_ui(&editor);
+            render_canvas(&editor);
+            render_status(&editor, mouse.x, mouse.y, has_mouse);
+            menu_draw(&menu);
+        }
         if (command == 27 || command == KEY_F2 || command == KEY_F3 ||
             command == KEY_SAVE_AS || command == 'n' || command == 'N') {
             cursor_hide();
@@ -131,7 +140,7 @@ int main(int argc, char **argv)
         } else if (command == CMD_HELP || command == CMD_ABOUT) {
             cursor_hide();
             if (command == CMD_HELP)
-                dialog_message("Pix86 controls", "P E F I: tools. U R: undo/redo. G: grid. +/-: zoom. F2: save F3: open. F10: menu.", NULL);
+                dialog_message("Pix86 controls", "P E F I: tools. U R: undo/redo. G: grid. +/-: zoom. F2: save F3: open. Ctrl+\\: menu.", NULL);
             else dialog_message("About Pix86", "Original 16-bit DOS pixel editor. Animation is planned.", NULL);
             modal = 1;
         } else if (command > 0) flags |= editor_key(&editor, command);
@@ -150,13 +159,12 @@ int main(int argc, char **argv)
         if (flags) {
             cursor_hide();
             if (modal || (was_active && (!menu.active || old_heading != menu.heading)))
-                video_clear(3);
+                video_clear(UI_DESK);
             if (flags & EDIT_UI) render_ui(&editor);
             if (flags & EDIT_CANVAS) render_canvas(&editor);
             else if (flags & EDIT_STROKE) render_stroke(&editor);
             render_status(&editor, mouse.x, mouse.y, has_mouse);
             menu_draw(&menu);
-            if (editor_is_dirty(&editor)) video_text(304, 4, "*", 15);
         }
         if (has_mouse) {
             cursor_hide();

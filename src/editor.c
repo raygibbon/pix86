@@ -41,7 +41,7 @@ void editor_finish(Editor *editor)
 
 unsigned editor_mouse(Editor *editor, int x, int y, unsigned buttons)
 {
-    int cx, cy, inside;
+    int cx, cy, inside, tool;
     unsigned pressed, changed, flags;
     unsigned char index;
     pressed = buttons & ~editor->previous_buttons;
@@ -79,12 +79,10 @@ unsigned editor_mouse(Editor *editor, int x, int y, unsigned buttons)
         else if (pressed & EDIT_RIGHT) editor->background = index;
         return flags | EDIT_UI;
     }
-    if ((pressed & EDIT_LEFT) && x >= 2 && x < 34 && y >= 24 && y < 138) {
-        index = (unsigned char)((y - 24) / 30);
-        if ((y - 24) % 30 < 24) {
-            editor->tool = index;
-            return flags | EDIT_UI;
-        }
+    tool = toolbar_hit(x, y);
+    if ((pressed & EDIT_LEFT) && tool >= 0) {
+        editor->tool = tool;
+        return flags | EDIT_UI;
     }
     if (!inside)
         return flags;

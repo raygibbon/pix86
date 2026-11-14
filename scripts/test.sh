@@ -34,3 +34,6 @@ mkdir -p "$ROOT/build/iotest"
     "$ROOT/src/canvas.c" "$ROOT/src/tools.c" "$ROOT/src/history.c" \
     "$ROOT/src/view.c" -o "$ROOT/build/uitest"
 "$ROOT/build/uitest"
+"${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror -I"$ROOT/src" \
+    "$ROOT/tests/testfont.c" "$ROOT/src/font.c" -o "$ROOT/build/fonttest"
+"$ROOT/build/fonttest"

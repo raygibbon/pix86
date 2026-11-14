@@ -1,6 +1,10 @@
 #ifndef PIX86_MENU_H
 #define PIX86_MENU_H
 #define MENU_COUNT 6
+#define MENU_BAR_HEIGHT 10
+#define MENU_ROW_HEIGHT 10
+#define MENU_ROW_TOP 12
+#define MENU_DROP_WIDTH 148
 #define CMD_HELP 600
 #define CMD_ABOUT 601
 typedef struct Menu { int active, heading, item; unsigned buttons; } Menu;
@@ -9,6 +13,7 @@ void menu_init(Menu *menu);
 /* Nonzero consumes the event. command is zero unless an item activates. */
 int menu_key(Menu *menu, int key, int *command);
 int menu_mouse(Menu *menu, int x, int y, unsigned buttons, int *command);
+int menu_heading_left(int heading);
 int menu_left(int heading);
 int menu_width(int heading);
 int menu_items(int heading);

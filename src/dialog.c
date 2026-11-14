@@ -5,6 +5,8 @@
 #include "keyboard.h"
 #include "mouse.h"
 #include "cursor.h"
+#include "font.h"
+#include "theme.h"
 
 static int has_mouse;
 static unsigned previous_buttons;
@@ -21,46 +23,49 @@ static int event(MouseState *mouse)
 {
     int key;
     unsigned pressed;
-    if (has_mouse) cursor_show(mouse->x, mouse->y);
-    delay(10);
-    key = keyboard_poll();
-    mouse_poll(mouse);
-    pressed = mouse->buttons & ~previous_buttons;
-    previous_buttons = mouse->buttons;
-    cursor_hide();
-    if (key >= 0) return key;
-    return (pressed & MOUSE_LEFT) ? -2 : -1;
+    for (;;) {
+        if (has_mouse) cursor_show(mouse->x, mouse->y);
+        delay(10);
+        key = keyboard_poll();
+        mouse_poll(mouse);
+        pressed = mouse->buttons & ~previous_buttons;
+        previous_buttons = mouse->buttons;
+        cursor_hide();
+        if (key >= 0) return key;
+        if (pressed & MOUSE_LEFT) return -2;
+        /* Pointer motion needs cursor restoration, not a dialog repaint. */
+    }
 }
 static void box(const char *title)
 {
-    video_rect(6, 42, 308, 116, 15);
-    video_rect(7, 43, 306, 114, 3);
-    video_rect(7, 43, 306, 14, 5);
-    video_text(12, 46, title, 15);
+    video_rect(DIALOG_X, DIALOG_Y, DIALOG_WIDTH, DIALOG_HEIGHT, UI_INK);
+    video_rect(DIALOG_X + 1, DIALOG_Y + 1, DIALOG_WIDTH - 2, DIALOG_HEIGHT - 2, UI_PAPER);
+    video_text(DIALOG_TEXT_X, DIALOG_Y + 3, title, UI_INK);
+    video_rect(DIALOG_X + 1, 61, DIALOG_WIDTH - 2, 1, UI_DIM);
 }
 static void line(int y, const char *text)
 {
-    char part[37];
+    char part[41];
     unsigned offset, length;
     length = (unsigned)strlen(text);
-    for (offset = 0; offset < length && y < 146; offset += 36) {
-        strncpy(part, text + offset, 36);
-        part[36] = '\0';
-        video_text(12, y, part, 15);
-        y += 8;
+    for (offset = 0; offset < length && y < 134; offset += 40) {
+        strncpy(part, text + offset, 40);
+        part[40] = '\0';
+        video_text(DIALOG_TEXT_X, y, part, UI_INK);
+        y += FONT_HEIGHT;
     }
 }
 static void button(int x, const char *label, int selected)
 {
-    video_rect(x, 136, 88, 16, selected ? 15 : 1);
-    video_rect(x + 1, 137, 86, 14, selected ? 8 : 4);
-    video_text(x + 5, 140, label, 15);
+    video_rect(x, DIALOG_BUTTON_Y, DIALOG_BUTTON_WIDTH, DIALOG_BUTTON_HEIGHT,
+               selected ? UI_SELECT : UI_PAPER);
+    video_text(x + 4, DIALOG_BUTTON_Y + 1, label, selected ? UI_WHITE : UI_INK);
 }
 static int hit_button(const MouseState *mouse)
 {
-    if (mouse->y < 136 || mouse->y >= 152) return -1;
-    if (mouse->x >= 44 && mouse->x < 132) return 0;
-    if (mouse->x >= 188 && mouse->x < 276) return 1;
+    if (mouse->y < DIALOG_BUTTON_Y || mouse->y >= DIALOG_BUTTON_Y + DIALOG_BUTTON_HEIGHT) return -1;
+    if (mouse->x >= DIALOG_ACCEPT_X && mouse->x < DIALOG_ACCEPT_X + DIALOG_BUTTON_WIDTH) return 0;
+    if (mouse->x >= DIALOG_CANCEL_X && mouse->x < DIALOG_CANCEL_X + DIALOG_BUTTON_WIDTH) return 1;
     return -1;
 }
 static int focus_key(int key)
@@ -72,29 +77,31 @@ int dialog_filename(const char *title, const char *initial, char *output)
     DialogInput input;
     MouseState mouse;
     unsigned offset, position;
-    char visible[35];
+    char visible[40];
     int result, key, focus, hit;
     dialog_input(&input, initial);
     focus = 0; offset = 0;
     begin_dialog(); mouse_poll(&mouse);
     for (;;) {
         if (input.cursor < offset) offset = input.cursor;
-        if (input.cursor > offset + 33) offset = input.cursor - 33;
+        if (input.cursor > offset + 38) offset = input.cursor - 38;
         box(title);
-        video_text(12, 66, "DOS 8.3 path; default .P86", 15);
-        video_rect(11, 82, 294, 14, input.replace && focus == 0 ? 8 : 1);
-        strncpy(visible, input.text + offset, 34); visible[34] = '\0';
-        video_text(12, 85, visible, 15);
-        if (focus == 0) video_rect(12 + (int)(input.cursor-offset)*8, 94, 8, 1, 15);
-        video_text(12, 110, "Tab: focus  Arrows: edit", 15);
-        button(44, "OK", focus == 1); button(188, "Cancel", focus == 2);
+        video_text(DIALOG_TEXT_X, 66, "DOS 8.3 path; default .P86", UI_INK);
+        video_rect(DIALOG_TEXT_X - 1, 82, 244, 12, focus == 0 ? UI_FIELD : UI_PAPER);
+        if (input.replace && focus == 0) video_rect(DIALOG_TEXT_X, 83, 240, 10, UI_FOCUS);
+        strncpy(visible, input.text + offset, 39); visible[39] = '\0';
+        video_text(DIALOG_TEXT_X, 84, visible, input.replace && focus == 0 ? UI_WHITE : UI_INK);
+        if (focus == 0) video_rect(DIALOG_TEXT_X + (int)(input.cursor-offset)*FONT_WIDTH, 92, 5, 1, UI_INK);
+        video_text(DIALOG_TEXT_X, 106, "Tab: focus  Arrows: edit", UI_INK);
+        video_text(DIALOG_TEXT_X, 118, "Enter: accept  Esc: cancel", UI_INK);
+        button(DIALOG_ACCEPT_X, "OK", focus == 1); button(DIALOG_CANCEL_X, "Cancel", focus == 2);
         key = event(&mouse);
         if (key == -2) {
             hit = hit_button(&mouse);
             if (hit == 1) return 0;
             if (hit == 0) { key = 13; focus = 1; }
-            else if (mouse.x >= 12 && mouse.x < 292 && mouse.y >= 82 && mouse.y < 97) {
-                position = offset + (unsigned)(mouse.x-12)/8;
+            else if (mouse.x >= DIALOG_TEXT_X && mouse.x < DIALOG_TEXT_X + 240 && mouse.y >= 82 && mouse.y < 94) {
+                position = offset + (unsigned)(mouse.x-DIALOG_TEXT_X)/FONT_WIDTH;
                 input.cursor = position < input.length ? position : input.length;
                 input.replace = 0; focus = 0;
             }
@@ -114,8 +121,8 @@ int dialog_confirm(const char *title, const char *question)
     begin_dialog(); mouse_poll(&mouse);
     for (;;) {
         box(title); line(66, question);
-        video_text(12, 120, "Y: yes  N/Esc: cancel", 15);
-        button(44, "Yes", focus == 0); button(188, "Cancel", focus == 1);
+        video_text(DIALOG_TEXT_X, 120, "Y: yes  N/Esc: cancel", UI_INK);
+        button(DIALOG_ACCEPT_X, "Yes", focus == 0); button(DIALOG_CANCEL_X, "Cancel", focus == 1);
         key = event(&mouse);
         if (key == -2) { hit = hit_button(&mouse); if (hit >= 0) return hit == 0; }
         if (focus_key(key)) focus = !focus;
@@ -133,17 +140,17 @@ int dialog_new_size(unsigned current)
     begin_dialog(); mouse_poll(&mouse);
     for (;;) {
         box("New canvas");
-        video_text(12, 66, "1:16x16   2:32x32   3:64x64", 15);
-        for (i = 0; i < 3; ++i) video_rect(12 + i*80, 78, 64, 2, i == choice ? 15 : 1);
-        video_text(12, 100, "Arrows: size  Tab: focus", 15);
-        button(44, "Create", focus == 0); button(188, "Cancel", focus == 1);
+        video_text(DIALOG_TEXT_X, 66, "1:16x16     2:32x32     3:64x64", UI_INK);
+        for (i = 0; i < 3; ++i) video_rect(DIALOG_TEXT_X + i*72, 78, 60, 1, i == choice ? UI_INK : UI_PAPER);
+        video_text(DIALOG_TEXT_X, 100, "Arrows: size  Tab: focus", UI_INK);
+        button(DIALOG_ACCEPT_X, "Create", focus == 0); button(DIALOG_CANCEL_X, "Cancel", focus == 1);
         key = event(&mouse);
         if (key == -2) {
             hit = hit_button(&mouse);
             if (hit == 1) return 0;
             if (hit == 0) return 16 << choice;
-            if (mouse.y >= 62 && mouse.y < 82 && mouse.x >= 12 && mouse.x < 252) {
-                choice = (mouse.x - 12)/80; focus = 0;
+            if (mouse.y >= 62 && mouse.y < 82 && mouse.x >= DIALOG_TEXT_X && mouse.x < DIALOG_TEXT_X + 216) {
+                choice = (mouse.x - DIALOG_TEXT_X)/72; focus = 0;
             }
         }
         if (key == 27) return 0;
@@ -163,7 +170,7 @@ void dialog_message(const char *title, const char *message, const FileReport *re
         box(title); line(62, message);
         if (report != NULL && report->backup[0]) line(86, report->backup);
         if (report != NULL && report->temporary[0]) line(110, report->temporary);
-        button(44, "OK", 1);
+        button(DIALOG_ACCEPT_X, "OK", 1);
         key = event(&mouse);
         if (key >= 0 || (key == -2 && hit_button(&mouse) == 0)) return;
     }

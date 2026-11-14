@@ -1,5 +1,6 @@
 #ifndef PIX86_KEYBOARD_H
 #define PIX86_KEYBOARD_H
+#define KEY_MENU 602
 #define KEY_F2 (256 + 60)
 #define KEY_F3 (256 + 61)
 #define KEY_SAVE_AS (256 + 85)
@@ -20,6 +21,8 @@
 #define KEY_ALT_H (256 + 35)
 /* Return File/Edit/View/Frame/Options/Help index or -1. */
 int keyboard_menu(int key);
+/* Decode BIOS AH scan/AL character plus BIOS shift flags (Ctrl=4, Alt=8). */
+int keyboard_decode(unsigned word, unsigned shifts);
 /* Nonblocking ASCII or 256+BIOS scan code; -1 means no key. */
 int keyboard_poll(void);
 #endif

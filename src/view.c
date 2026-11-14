@@ -52,3 +52,12 @@ int palette_hit(int screen_x, int screen_y, unsigned char *index)
     *index = (unsigned char)(y * 16 + x);
     return 1;
 }
+
+int toolbar_hit(int x, int y)
+{
+    int row;
+    if (x < TOOL_X || x >= TOOL_X + TOOL_WIDTH || y < TOOL_Y) return -1;
+    row = (y - TOOL_Y) / TOOL_STEP;
+    if (row >= 4 || (y - TOOL_Y) % TOOL_STEP >= TOOL_HEIGHT) return -1;
+    return row;
+}

@@ -57,8 +57,8 @@ Right-click canvas picks colour; right-click palette configures the background.
 ## View, rendering and platform boundaries
 
 `view.c` calculates integer zoom, centred origins and mouse-to-canvas coordinates.
-The drawing area is x=40..215, y=20..187. All zooms from 1 to the largest fitting
-integer are accepted: maximum 10, 5 or 2 for the three sizes respectively.
+The drawing area is x=24..245, y=14..189. All zooms from 1 to the largest fitting
+integer are accepted: maximum 11, 5 or 2 for the three sizes respectively.
 Mapping uses half-open bounds; the last displayed pixel belongs to the last
 canvas cell. Long subtraction protects negative/outside screen coordinates.
 Grid pixels map to their containing cell. Palette hit testing maps the right
@@ -75,17 +75,23 @@ afterwards, so its saved pixels cannot overwrite an edit.
 Mode 13h entry, clips drawing, and uses unsigned offsets up to 63999 for VGA.
 Rectangle endpoints use long arithmetic before clipping; rectangles write directly
 to VGA within this module to avoid a per-pixel function call. Text uses the
-machine's BIOS 8×8 font; no font is bundled. The original M1 DAC palette remains
-unchanged, with all indices exposed in M2 (some RGB entries intentionally repeat).
+original `font.c` renderer with a 6x8 advance and 760 bytes of hand-drawn
+ASCII glyphs. Shared `font.h` metrics drive control text and hit geometry. The
+renderer clips transparent ink on all edges with long coordinates. `theme.h`
+chooses UI colours from the existing palette without DAC changes. The original
+M1 DAC palette remains unchanged, with all indices exposed in M2 (some RGB entries intentionally repeat).
 
 `mouse.c` owns INT 33h polling, null/IRET vector checks, driver reset, position
 and button reads. Mode 13h's 640-unit horizontal range is divided by two.
 `menu.c` owns portable keyboard/mouse menu state and bounded command descriptions;
 `menudraw.c` paints overlays. `keymap.c` interprets extended menu mnemonics.
 The editor remains unaware of these modules.
-`keyboard.c` owns nonblocking DOS console input and preserves extended-key
-pairs as 256 + BIOS scan code (F2=60, F3=61, Shift+F2=85). ASCII keys retain their
-existing values. Extended keys cannot accidentally enter filename strings.
+`keyboard.c` polls BIOS keyboard words (AH scan, AL character) and current shift
+flags, preserving information lost by console getch(). `keymap.c` decodes these
+portably; Ctrl+\ opens/closes File, with conventional FS (1Ch) plus scan/logical
+fallbacks. Plain/AltGr backslash remains editable. Extended keys stay 256 + BIOS
+scan code (F2=60, F3=61, Shift+F2=85). ASCII drawing keys retain their values.
+See UI_DESIGN.md for layout/queued-modifier limitations and factual references.
 `cursor.c` saves/restores 64 bytes for the original pointer using only the video
 interface. `main.c` parses launch options, polls input, dispatches dirty render
 flags, dispatches file commands, and confirms dirty ESC before normal cleanup. No interrupt handlers are installed.
@@ -135,8 +141,9 @@ baseline until content/selections change.
 `dlginput.c` is portable filename editing state: selected prefill, bounded insertion,
 Backspace/Delete and Left/Right/Home/End. `dialog.c` draws centred VGA boxes and
 polls keyboard/mouse input without knowing file parsing. Tab/Shift+Tab select
-controls; fresh mouse presses activate buttons or place the text cursor. The
-34-character filename window follows the insertion cursor. Destructive prompts
+controls; fresh mouse presses activate buttons or place the text cursor.
+Idle polling moves/restores the software cursor without repainting the box. The
+39-character filename window follows the insertion cursor. Destructive prompts
 default to Cancel; Y explicitly approves. New offers the three canvas sizes.
 All modal exits repaint the entire workspace with the cursor hidden. Main routes
 menus before editor commands, consumes outside clicks and blocks held buttons
@@ -165,6 +172,7 @@ is used. All DOS-facing source and executable names fit 8.3.
 | Shared load/save scratch pixels | 4096 |
 | Cursor saved pixels | 64 |
 | Total pixel/history/work buffers | 41024 |
+| Original printable-ASCII font (constant data) | 760 |
 
 The Editor object adds small metadata; the fill queue is a separate static
 object to keep individual near objects below 32767 bytes. Smaller canvases
@@ -172,7 +180,7 @@ retain the same fixed reservation. Large objects are static, never automatic;
 there is no explicit application heap allocation and no full-screen shadow
 buffer. Standard stdio may allocate bounded runtime buffering internally.
 The link map, including runtime code/data and the 4096-byte stack, reports about
-80 KiB in total; code and DGROUP each remain below 64 KiB. DGROUP is about
+81 KiB in total; code and DGROUP each remain below 64 KiB. DGROUP is about
 48 KiB, leaving room within the near segment for runtime file buffering. Exact measured values are in TESTING.md.
 The executable file is smaller because DOS zero-initializes BSS. Loader/PSP,
 environment and runtime bookkeeping are additional to the linked footprint.
@@ -198,8 +206,6 @@ Abrupt process termination/emulator closure is outside normal cleanup.
 - [Ralf Brown's Interrupt List: mouse reset](https://www.delorie.com/djgpp/doc/rbinter/id/75/59.html)
   and [position/buttons](https://www.delorie.com/djgpp/doc/rbinter/id/78/59.html):
   factual interrupt contracts and absent-driver precautions, not source code.
-  [BIOS font information](https://www.delorie.com/djgpp/doc/rbinter/id/63/1.html)
-  specifies the runtime ROM font pointer interface.
 - [DOSBox-X documentation](https://dosbox-x.com/wiki/Home): emulator configuration
   and launch options. The emulator is a test tool, not a shipped dependency.
 

@@ -1,6 +1,16 @@
 #ifndef PIX86_DIALOG_H
 #define PIX86_DIALOG_H
 #include "fileio.h"
+#define DIALOG_X 30
+#define DIALOG_Y 48
+#define DIALOG_WIDTH 260
+#define DIALOG_HEIGHT 104
+#define DIALOG_TEXT_X 38
+#define DIALOG_BUTTON_Y 136
+#define DIALOG_BUTTON_WIDTH 60
+#define DIALOG_BUTTON_HEIGHT 10
+#define DIALOG_ACCEPT_X 80
+#define DIALOG_CANCEL_X 180
 
 typedef struct DialogInput {
     char text[FILE_PATH_MAX];

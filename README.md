@@ -2,7 +2,7 @@
 
 A lightweight, DOS-native pixel-art and frame-by-frame animation editor for game creators.
 
-**Status:** M2.5 pixel editor with keyboard/mouse menus, compact file dialogs
+**Status:** M2.5 pixel editor with compact 6x8 text, keyboard/mouse menus, file dialogs
 and native .P86 saving/loading, targeting
 16-bit real-mode DOS.
 
@@ -11,6 +11,8 @@ fill and eyedropper tools. Integer zoom, an optional grid, all 256 palette indic
 and four undoable actions support small sprite work. Canvas pixels stay in
 software memory. Save and reopen native `.P86` projects, including canvas size
 and foreground/background selections. Animation and layers are not implemented.
+
+![Compact Pix86 workspace in DOSBox-X at 2x display size](docs/UI.PNG)
 
 ## Build on Linux
 
@@ -74,7 +76,7 @@ only `PIX86.EXE` to DOS; no runtime DLL or data assets are needed.
 | U / Ctrl+Z | Undo |
 | R / Ctrl+Y | Redo |
 | C | Clear to BG, undoable |
-| F10 / Alt+F,E,V,R,O,H | Menu bar / File, Edit, View, Frame, Options, Help |
+| Ctrl+\ (primary), F10 / Alt+F,E,V,R,O,H | Menu bar / File, Edit, View, Frame, Options, Help |
 | Arrows / Enter / Esc (menu open) | Navigate / execute / close menu |
 | F2 | Save (asks for a name on an untitled canvas) |
 | Shift+F2 | Save As |
@@ -85,11 +87,15 @@ only `PIX86.EXE` to DOS; no runtime DLL or data assets are needed.
 All 256 indices appear in the right-hand 16×16 palette. The selected foreground
 has a bright outline, numeric label and swatch; background has a separate label
 and swatch. These selections do not alter existing pixels. Palette RGB editing
-is outside M2. Canvas coordinates and zoom appear in the status bar; `--,--`
+is outside M2. The narrow toolbar and 64x96 palette leave a 222x176 drawing
+region. Text uses an original crisp 6x8 bitmap font; UI colours use existing
+palette entries so saved artwork retains its colours. The single compact status
+line shows dimensions, coordinates, tool, FG/BG, zoom,
+grid, modified state and history; `X--Y--`
 means the pointer is outside the canvas. `G` shows grid state; `U` and `R` show
 available history counts. Grid lines belong to the view, never the artwork.
 
-The canvas is centred, initially at the largest fitting zoom: 10× for 16×16,
+The canvas is centred, initially at the largest fitting zoom: 11× for 16×16,
 5× for 32×32 and 2× for 64×64. Zoom 1× is available for every size. Drawing pauses
 outside the canvas; returning while holding the button starts a new segment in
 the same action, without drawing a bridge across the interface. Tool, zoom,
@@ -119,7 +125,8 @@ and closed. Replacement keeps a backup until installation succeeds. Errors leave
 the canvas unsaved; a rollback failure displays retained BAK/TMP paths for manual
 recovery. See [replacement guarantees and format](docs/FILE_FORMAT.md).
 
-An asterisk at the right of the menu bar means the current project differs from the saved state.
+An asterisk at the start of the status line means the project differs from the
+saved state.
 This compares actual pixels, dimensions and saved FG/BG selections, independently
 of undo-history position. Choosing another FG/BG therefore also marks a project
 modified. Undo can return to the saved artwork, including after history expiry;
@@ -131,7 +138,8 @@ New, Open and Exit ask before discarding unsaved changes. Y or Yes permits
 discarding; N, Esc or Cancel abandons the operation. Cancel is initially selected;
 Tab/arrows and Enter operate the buttons. A cancelled or failed Open retains the
 current artwork. New starts an unnamed blank canvas. Saving/loading messages
-are acknowledged with any key. Menus display file/drawing shortcuts. F10 or Alt+F/E/V/R/O/H opens menus;
+are acknowledged with any key. Menus display file/drawing shortcuts. Ctrl+\ opens File and closes an open
+menu when pressed again. F10 and Alt+F/E/V/R/O/H are alternatives;
 Left/Right switches headings, Up/Down selects items, Enter executes and Esc
 closes. Frame (Alt+R) contains disabled future commands. Click a heading/item
 to use menus with the mouse; outside clicks close and are consumed. Release
@@ -143,7 +151,7 @@ held buttons after closing a menu/dialog before drawing. See
 ```sh
 ./scripts/test.sh                     # strict C89 host suites; requires cc
 python3 tests/mzcheck.py mnt/PIX86.EXE  # executable container check
-./scripts/dostest.sh                  # build EDTEST.EXE, IOTEST.EXE and UITEST.EXE for DOS
+./scripts/dostest.sh                  # build EDTEST.EXE, IOTEST.EXE UITEST.EXE and KBDTEST.EXE for DOS
 ./scripts/doscheck.sh                 # build interactive restoration harness
 ```
 
@@ -155,7 +163,8 @@ flush, close, rename and rollback failures. It creates/removes test fixtures;
 run it only in a disposable directory. The host test script uses `build/iotest/`. UITEST exercises menu navigation,
 mouse hit testing, real dialog loops with scripted input, cursor editing and
 drawing handoff; it uses mock video/input and performs no hardware checks. For interactive cleanup checks, run
-`DOSCHECK`, then ESC. Also run
+`DOSCHECK`, then ESC. KBDTEST injects BIOS words to check the real keyboard
+module; `KBDTEST /LOG` records raw physical keystrokes to KEYS.TXT until Escape. Also run
 `DOSCHECK null 16` and `DOSCHECK iret 64` to exercise missing mouse vectors and
 other canvas sizes. Reports go to `MOUSE.TXT`, `NULL.TXT` and `IRET.TXT` in `mnt/`.
 The harness deliberately changes the driver vector temporarily; use an emulator.
