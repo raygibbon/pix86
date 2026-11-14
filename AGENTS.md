@@ -4,6 +4,12 @@
 
 Pix86 is an original pixel-art and frame-based animation editor, planned for DOS with 16-bit C/Open Watcom as the first target.
 
+## First-party DOS project reference
+
+- [Zine](https://github.com/raygibbon/zine) is an existing 16-bit DOS C/Open Watcom project to consult for build scripts, DOSBox-X testing, memory and filename constraints, and modular structure.
+- Treat Zine as an engineering reference rather than a Pix86 dependency. Prefer original Pix86 implementations. Any deliberate reuse of Zine code must be separately assessed for relevance and licensing and explicitly documented.
+- Do not bring over Zine's Watt-32 networking, bundled third-party code, or unrelated site-generator functionality.
+
 ## Non-negotiable clean-room policy
 
 - GrafX2 and Autodesk Animator / Animator Pro are **reference-only** projects.
