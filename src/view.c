@@ -13,17 +13,22 @@ int view_max_zoom(const Canvas *canvas)
     return horizontal < vertical ? horizontal : vertical;
 }
 
-int view_set(View *view, const Canvas *canvas, int zoom)
+int view_fit(View *view,const Canvas *canvas,int timeline,int zoom)
 {
-    if (view == NULL || zoom < 1 || zoom > view_max_zoom(canvas))
-        return 0;
-    view->width = canvas->width;
-    view->height = canvas->height;
-    view->zoom = zoom;
-    view->x = DRAW_X + (DRAW_WIDTH - (int)canvas->width * zoom) / 2;
-    view->y = DRAW_Y + (DRAW_HEIGHT - (int)canvas->height * zoom) / 2;
+    int height,max,h;
+    if(view==NULL || canvas==NULL || !canvas->width || !canvas->height) return 0;
+    height=timeline?TIMELINE_Y-DRAW_Y-2:DRAW_HEIGHT;
+    max=DRAW_WIDTH/canvas->width; h=height/canvas->height;
+    if(h<max) max=h;
+    if(zoom==0) zoom=max;
+    if(zoom<1 || zoom>max) return 0;
+    view->width=canvas->width; view->height=canvas->height; view->zoom=zoom;
+    view->x=DRAW_X+(DRAW_WIDTH-(int)canvas->width*zoom)/2;
+    view->y=DRAW_Y+(height-(int)canvas->height*zoom)/2;
     return 1;
 }
+int view_set(View *view,const Canvas *canvas,int zoom)
+{ return view_fit(view,canvas,0,zoom); }
 
 int view_map(const View *view, int screen_x, int screen_y, int *x, int *y)
 {

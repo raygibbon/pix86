@@ -13,6 +13,10 @@
 #define DRAW_Y 14
 #define DRAW_WIDTH 274
 #define DRAW_HEIGHT 176
+#define TIMELINE_HEIGHT 36
+#define TIMELINE_Y (UI_STATUS_Y - TIMELINE_HEIGHT)
+#define TIMELINE_CELL 24
+#define TIMELINE_SLOTS 9
 #define TOOL_X 2
 #define TOOL_TITLE_Y 14
 #define TOOL_Y 25

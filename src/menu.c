@@ -3,12 +3,12 @@
 #include <ctype.h>
 #include <string.h>
 static const char *titles[MENU_COUNT] = {"File", "Edit", "View", "Frame", "Options", "Help"};
-static const int counts[MENU_COUNT] = {5, 3, 5, 3, 3, 3};
-static const MenuItem items[MENU_COUNT][5] = {
+static const int counts[MENU_COUNT] = {5, 3, 6, 3, 3, 3};
+static const MenuItem items[MENU_COUNT][10] = {
     {{"New", "N", CMD_NEW}, {"Open", "F3", CMD_OPEN}, {"Save", "F2", CMD_SAVE},
      {"Save As", "Shift-F2", CMD_SAVE_AS}, {"Exit", "Esc", CMD_EXIT}},
     {{"Undo", "Ctrl-Z", CMD_UNDO}, {"Redo", "Ctrl-Y", CMD_REDO}, {"Clear", "C", CMD_CLEAR}},
-    {{"Zoom in", "+", CMD_ZOOM_IN}, {"Zoom out", "-", CMD_ZOOM_OUT}, {"Grid", "G", CMD_GRID}, {"8x8 guides", "8", CMD_GUIDE8}, {"16x16 guides", "6", CMD_GUIDE16}},
+    {{"Zoom in", "+", CMD_ZOOM_IN}, {"Zoom out", "-", CMD_ZOOM_OUT}, {"Grid", "G", CMD_GRID}, {"8x8 guides", "8", CMD_GUIDE8}, {"16x16 guides", "6", CMD_GUIDE16}, {"Timeline", "Tab", CMD_TIMELINE}},
     {{"Add frame", "", 0}, {"Duplicate", "", 0}, {"Playback", "", 0}},
     {{"Colours", "A", CMD_PALETTE}, {"Background", "B", CMD_BG}, {"Grid", "G", CMD_GRID}},
     {{"Controls", "", CMD_HELP}, {"About", "", CMD_ABOUT}, {"Font sample", "", CMD_FONT}}

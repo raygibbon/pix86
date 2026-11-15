@@ -23,6 +23,7 @@
 #define CMD_BG 'b'
 #define CMD_COLOUR_PREV '['
 #define CMD_COLOUR_NEXT ']'
+#define CMD_TIMELINE 612
 #define CMD_GUIDE8 610
 #define CMD_GUIDE16 611
 #define CMD_FONT 603

@@ -21,7 +21,7 @@ int editor_init(Editor *editor, unsigned side, unsigned short *fill_queue)
     editor->background = 0;
     editor->foreground = 15;
     editor->tool = TOOL_PENCIL;
-    editor->grid = editor->guide = 0;
+    editor->timeline = editor->grid = editor->guide = 0;
     editor->dragging = editor->segment_valid = 0;
     editor->previous_buttons = 0;
     editor->fill_queue = fill_queue;
@@ -128,6 +128,11 @@ unsigned editor_key(Editor *editor, int key)
         editor->tool = tool;
         return EDIT_UI | EDIT_STATUS;
     }
+    if(key==CMD_TIMELINE) {
+        editor_finish(editor); editor->timeline=!editor->timeline;
+        view_fit(&editor->view,&editor->canvas,editor->timeline,0);
+        return EDIT_CANVAS | EDIT_STATUS | EDIT_TIMELINE;
+    }
     if(key==CMD_GUIDE8 || key==CMD_GUIDE16) {
         editor_finish(editor);
         zoom=key==CMD_GUIDE8?8:16;
@@ -156,7 +161,7 @@ unsigned editor_key(Editor *editor, int key)
     if (key == CMD_ZOOM_IN || key == CMD_ZOOM_OUT) {
         editor_finish(editor);
         zoom = editor->view.zoom + (key == '-' ? -1 : 1);
-        if (view_set(&editor->view, &editor->canvas, zoom))
+        if (view_fit(&editor->view, &editor->canvas, editor->timeline, zoom))
             return EDIT_CANVAS | EDIT_STATUS;
         return EDIT_STATUS;
     }

@@ -163,6 +163,7 @@ void render_restore(const Editor *editor,const Rect *r)
     for(i=0;i<n;++i) video_rect(parts[i].x,parts[i].y,parts[i].w,parts[i].h,UI_DESK);
     if(r->x<UI_LEFT_WIDTH || r->x+r->w>UI_RIGHT_X) render_ui(editor);
     if(rect_overlap(r,&art)) render_canvas(editor);
+    render_timeline(editor);
     video_unclip();
 }
 void render_ui_change(const Editor *editor,int tool,unsigned char fg,unsigned char bg,
@@ -180,4 +181,15 @@ void render_ui_change(const Editor *editor,int tool,unsigned char fg,unsigned ch
     }
     if(fg!=editor->foreground) current_colour(editor->foreground,FG_Y,'F');
     if(bg!=editor->background) current_colour(editor->background,BG_Y,'B');
+}
+
+void render_timeline(const Editor *e)
+{
+    if(!e->timeline) return;
+    cursor_protect(DRAW_X-1,TIMELINE_Y,UI_WIDTH-DRAW_X+1,TIMELINE_HEIGHT);
+    video_rect(DRAW_X-1,TIMELINE_Y,UI_WIDTH-DRAW_X+1,TIMELINE_HEIGHT,UI_PANEL);
+    video_rect(DRAW_X-1,TIMELINE_Y,UI_WIDTH-DRAW_X+1,1,UI_DIM);
+    video_text_bg(DRAW_X,TIMELINE_Y+2,"Animation   Tab: hide",UI_WHITE,UI_PANEL);
+    video_rect(DRAW_X,TIMELINE_Y+13,TIMELINE_CELL-2,21,UI_SELECT);
+    video_text(DRAW_X+3,TIMELINE_Y+19,"1",UI_WHITE);
 }

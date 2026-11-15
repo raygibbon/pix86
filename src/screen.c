@@ -39,7 +39,7 @@ void screen_init(Screen *s,const Editor *e,const MouseState *mouse,int has_mouse
     menu_init(&s->menu); s->tool=e->tool; s->foreground=e->foreground; s->background=e->background;
     s->status[0]=s->filename[0]='\0';
     cursor_hide(); video_unclip(); video_clear(UI_DESK);
-    render_ui(e); render_canvas(e); menu_draw_bar(&s->menu);
+    render_ui(e); render_canvas(e); render_timeline(e); menu_draw_bar(&s->menu);
     video_rect(0,UI_STATUS_Y,UI_WIDTH,FONT_HEIGHT,UI_BAR); status(s,e,&s->menu,mouse,has_mouse);
 }
 void screen_update(Screen *s,const Editor *e,const Menu *m,unsigned flags,const MouseState *mouse,int has_mouse)
@@ -61,6 +61,7 @@ void screen_update(Screen *s,const Editor *e,const Menu *m,unsigned flags,const 
                        (e->dirty_x1-e->dirty_x0+1)*e->view.zoom,(e->dirty_y1-e->dirty_y0+1)*e->view.zoom);
         render_stroke(e);
     }
+    if(flags&(EDIT_CANVAS|EDIT_STROKE|EDIT_TIMELINE)) render_timeline(e);
     menu_draw_change(m,&s->menu);
     status(s,e,m,mouse,has_mouse);
     for(i=0;i<16;++i) s->working[i]=workpal_colour(i);

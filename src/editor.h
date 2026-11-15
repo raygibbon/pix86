@@ -12,6 +12,7 @@
 #define EDIT_CANVAS 2
 #define EDIT_STATUS 4
 #define EDIT_STROKE 8
+#define EDIT_TIMELINE 16
 #define EDIT_LEFT 1
 #define EDIT_RIGHT 2
 
@@ -25,7 +26,7 @@ typedef struct Editor {
     View view;
     unsigned short *fill_queue;
     unsigned char foreground, background, stroke_colour;
-    int guide, tool, grid, dragging, segment_valid, last_x, last_y;
+    int timeline, guide, tool, grid, dragging, segment_valid, last_x, last_y;
     int dirty_x0, dirty_y0, dirty_x1, dirty_y1;
     unsigned previous_buttons;
 } Editor;
