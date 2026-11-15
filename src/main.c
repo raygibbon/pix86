@@ -79,6 +79,31 @@ static int file_command(int key)
     return 0;
 }
 
+static void export_command(void)
+{
+    ExportOptions options;
+    ExportReport report;
+    char path[FILE_PATH_MAX],initial[FILE_PATH_MAX],message[200];
+    char *dot;
+    int status;
+    editor_finish(&editor); editor.playing=0; refresh_editor(EDIT_STATUS|EDIT_TIMELINE);
+    options.mode=EXPORT_CURRENT; options.layout=SHEET_HORIZONTAL; options.columns=4;
+    strcpy(initial,project.filename[0]?project.filename:"UNTITLED.BMP");
+    dot=strrchr(initial,'.'); if(dot) strcpy(dot,".BMP");
+    if(!dialog_export(initial,path,&options)) return;
+    editor_image(&editor,&scratch);
+    status=export_run(&scratch,editor.history.active,path,&options,0,project.filename,&report);
+    if(status==FILE_EXISTS) {
+        sprintf(message,"Replace existing BMP file(s)?\n%s",report.path);
+        if(!dialog_confirm("Overwrite export?",message)) return;
+        status=export_run(&scratch,editor.history.active,path,&options,1,project.filename,&report);
+    }
+    sprintf(message,"%u of %u file(s) exported.\n%s\n%s",report.completed,report.total,
+        status==FILE_OK?"Export complete":file_message(status),report.path);
+    dialog_message(status==FILE_OK?"BMP exported":"Export stopped",message,
+        status==FILE_OK?NULL:&report.recovery);
+}
+
 int main(int argc, char **argv)
 {
     MouseState mouse, previous;
@@ -141,8 +166,9 @@ int main(int argc, char **argv)
         if (consumed) { editor_finish(&editor); if(command!=CMD_PLAY) editor.playing=0; }
         /* Restore an exposed menu before dispatching a modal command. */
         screen_update(&screen,&editor,&ui.menu,0,&mouse,has_mouse);
-        if(command==CMD_EXIT || command==CMD_SAVE || command==CMD_OPEN || command==CMD_SAVE_AS || command==CMD_NEW || command==CMD_PALETTE || command==CMD_BG || command==CMD_FONT || command==CMD_HELP || command==CMD_ABOUT) editor.playing=0;
-        if (command == CMD_EXIT || command == CMD_SAVE || command == CMD_OPEN ||
+        if(command==CMD_EXPORT || command==CMD_EXIT || command==CMD_SAVE || command==CMD_OPEN || command==CMD_SAVE_AS || command==CMD_NEW || command==CMD_PALETTE || command==CMD_BG || command==CMD_FONT || command==CMD_HELP || command==CMD_ABOUT) editor.playing=0;
+        if(command==CMD_EXPORT) { export_command(); modal=1; }
+        else if (command == CMD_EXIT || command == CMD_SAVE || command == CMD_OPEN ||
             command == CMD_SAVE_AS || command == CMD_NEW) {
             if (file_command(command)) break;
             modal = 1;

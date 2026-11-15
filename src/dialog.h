@@ -1,6 +1,7 @@
 #ifndef PIX86_DIALOG_H
 #define PIX86_DIALOG_H
 #include "fileio.h"
+#include "export.h"
 #include "editor.h"
 #include "region.h"
 #define DIALOG_FILE 0
@@ -25,6 +26,7 @@ void dialog_input(DialogInput *input,const char *initial);
 int dialog_edit(DialogInput *input,int key);
 void dialog_mouse(int available);
 void dialog_editor(const Editor *editor);
+int dialog_export(const char *initial,char *path,ExportOptions *options);
 int dialog_filename(const char *title,const char *initial,char *output);
 int dialog_confirm(const char *title,const char *question);
 int dialog_new_size(unsigned current);

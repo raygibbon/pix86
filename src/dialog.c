@@ -250,3 +250,75 @@ void dialog_font(void)
     strcpy(body+n,"\nABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz\na e o p m rn  0O 1Il\n! : ; . , ' ` \\ /\nPLAYER01.P86  mixed_Case-09\nTools File Edit View Options");
     dialog_message("Original 6x8 font",body,NULL);
 }
+
+static int export_focus(int focus,const ExportOptions *o)
+{
+    return (focus!=2 || o->mode==EXPORT_SHEET) &&
+        (focus!=3 || (o->mode==EXPORT_SHEET && o->layout==SHEET_GRID));
+}
+static void export_rows(const DialogLayout *l,const ExportOptions *o,int focus)
+{
+    static const char *modes[3]={"Current frame","All frames","Sprite sheet"};
+    static const char *layouts[3]={"Horizontal","Vertical","Grid"};
+    char text[33];
+    Rect row;
+    int i,enabled;
+    for(i=0;i<EXPORT_OPTION_ROWS;++i) {
+        if(!i) sprintf(text,"Mode:    %-23s",modes[o->mode]);
+        else if(i==1) sprintf(text,"Layout:  %-23s",layouts[o->layout]);
+        else sprintf(text,"Columns: %-23u",o->columns);
+        row=l->body; row.y+=i*EXPORT_ROW_HEIGHT; row.h=EXPORT_ROW_HEIGHT;
+        enabled=export_focus(i+1,o);
+        protect(&row);
+        video_text_box(row.x,row.y,row.w,row.h,text,
+            !enabled?UI_DIM:focus==i+1?UI_WHITE:UI_INK,
+            focus==i+1?UI_SELECT:UI_PAPER);
+    }
+}
+int dialog_export(const char *initial,char *path,ExportOptions *options)
+{
+    DialogLayout l;
+    DialogInput input,before;
+    MouseState m;
+    ExportOptions o,old;
+    unsigned offset,position;
+    int key,focus,prior,direction,row;
+    o=*options; focus=0; offset=0;
+    dialog_layout(&l,DIALOG_FILE,"Export BMP","Mode\nLayout\nColumns");
+    dialog_input(&input,initial);
+    begin(&l,"Export BMP","Mode\nLayout\nColumns","Tab focus  Enter export",&m);
+    export_rows(&l,&o,focus); field(&l,&input,&offset,1);
+    ui_button(&l.accept,"Export",0); ui_button(&l.cancel,"Cancel",0);
+    for(;;) {
+        key=event(&m); prior=focus; before=input; old=o; direction=0;
+        if(key==-2) {
+            if(hit(&l.cancel,&m)) return finish(&l,0);
+            if(hit(&l.accept,&m)) { key=13; focus=4; }
+            else if(hit(&l.field,&m)) {
+                position=offset+(unsigned)(m.x-l.field.x)/FONT_WIDTH;
+                input.cursor=position<input.length?position:input.length;
+                input.replace=0; focus=0;
+            } else if(hit(&l.body,&m)) {
+                row=(m.y-l.body.y)/EXPORT_ROW_HEIGHT+1;
+                if(export_focus(row,&o)) { focus=row; direction=1; }
+            }
+        }
+        if(key==27 || (key==13 && focus==5)) return finish(&l,0);
+        if(key==13) { strcpy(path,input.text); *options=o; return finish(&l,1); }
+        if(key==9 || key==KEY_SHIFT_TAB) {
+            do { focus=(focus+(key==9?1:5))%6; } while(!export_focus(focus,&o));
+        } else if(focus==0) (void)dialog_edit(&input,key);
+        else if(focus>=1 && focus<=3) {
+            if(key==KEY_LEFT || key==KEY_DOWN || key=='-') direction=-1;
+            if(key==KEY_RIGHT || key==KEY_UP || key=='+' || key==' ') direction=1;
+        }
+        if(direction) {
+            if(focus==1) o.mode=(o.mode+3+direction)%3;
+            if(focus==2) o.layout=(o.layout+3+direction)%3;
+            if(focus==3) o.columns=(unsigned)((int)o.columns+15+direction)%16+1;
+        }
+        if(prior!=focus || memcmp(&old,&o,sizeof(o))) export_rows(&l,&o,focus);
+        if(prior!=focus || before.cursor!=input.cursor || before.replace!=input.replace || strcmp(before.text,input.text)) field(&l,&input,&offset,focus==0);
+        if(prior!=focus) { ui_button(&l.accept,"Export",focus==4); ui_button(&l.cancel,"Cancel",focus==5); }
+    }
+}

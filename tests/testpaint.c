@@ -308,6 +308,19 @@ static void timeline(void)
     assert(editor.pixels[0]==231);
     assert(!clears);
 }
+static void export_overlay(void)
+{
+    Screen s; Menu m; MouseState mouse;
+    ExportOptions o;
+    char path[FILE_PATH_MAX];
+    start(); clean_baseline(&s,&m,&mouse);
+    o.mode=EXPORT_CURRENT; o.layout=SHEET_HORIZONTAL; o.columns=4;
+    dialog_editor(&editor);
+    checking_idle=1;
+    add(-1); add(-1); add(KEY_F2); add(-1); add(27);
+    assert(!dialog_export("PLAYER.BMP",path,&o));
+    assert(!memcmp(pixels,baseline,sizeof(pixels)) && !clears);
+}
 static void type(const char *text) { while(*text) add((unsigned char)*text++); }
 static void run(int mouse)
 {
@@ -335,10 +348,19 @@ static void application(void)
     f=fopen("PAINT.P86","rb");assert(f);assert(file_decode(f,&image)==FILE_OK);fclose(f);
     assert(image.width==16 && image.foreground==255 && image.pixels[17]==255);
     remove("PAINT.P86");
+    remove("OUT.BMP");
+    start(); add(CMD_EXPORT); add(27); add(27); run(1);
+    assert(file_exists("OUT.BMP")==0);
+    start(); add(CMD_EXPORT); type("OUT"); add(13); add(13);
+    /* Existing-file overwrite defaults to Cancel and remains clean. */
+    add(CMD_EXPORT); type("OUT"); add(13); add(13);
+    add(CMD_EXPORT); type("OUT"); add(13); add('y'); add(13); add(27); run(1);
+    f=fopen("OUT.BMP","rb"); assert(f!=NULL);
+    assert(fgetc(f)=='B' && fgetc(f)=='M'); fclose(f); remove("OUT.BMP");
 }
 int main(void)
 {
-    geometry(); menus(); dialogs(); palette_overlay(); routing_status(); timeline(); application();
+    geometry(); menus(); dialogs(); palette_overlay(); routing_status(); timeline(); export_overlay(); application();
     puts("PASS: dirty rectangles, idle stability, exact overlay/cursor restoration, one startup clear and deliberate exits/file workflow.");
     editor_dispose(&editor);
     return 0;

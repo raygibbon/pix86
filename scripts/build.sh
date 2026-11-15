@@ -29,7 +29,7 @@ wcl -bt=dos -ms -0 -za -wx -we -w4 -os -k4096 \
     "$ROOT/src/menu.c" "$ROOT/src/menudraw.c" "$ROOT/src/uipaint.c" "$ROOT/src/canvas.c" "$ROOT/src/cursor.c" \
     "$ROOT/src/tools.c" "$ROOT/src/history.c" "$ROOT/src/view.c" "$ROOT/src/workpal.c" \
     "$ROOT/src/editor.c" "$ROOT/src/anim.c" "$ROOT/src/render.c" "$ROOT/src/region.c" "$ROOT/src/screen.c" \
-    fileio.o "$ROOT/src/project.c" \
+    fileio.o "$ROOT/src/project.c" "$ROOT/src/bmp.c" "$ROOT/src/export.c" \
     "$ROOT/src/dialog.c" "$ROOT/src/dlginput.c" "$ROOT/src/dlggeom.c" \
     -fm=PIX86.MAP -fe=PIX86.EXE
 if [ ! -s PIX86.EXE ]; then
