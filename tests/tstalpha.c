@@ -33,6 +33,15 @@ static void model(void)
 {
     unsigned pos;
     assert(editor_init(&e,32,queue)); assert(editor_new_shape(&e,16,24));
+    assert(editor_new_document(&e,16,24,1,141));
+    assert(e.document->transparent && canvas_transparent(&e.canvas,15,23));
+    assert(e.background==141 && e.pixels[0]==141 && !editor_is_dirty(&e));
+    e.foreground=0; click(0,0); editor_key(&e,CMD_UNDO);
+    assert(canvas_transparent(&e.canvas,0,0));
+    assert(editor_new_document(&e,16,24,0,141));
+    assert(!e.document->transparent && !canvas_transparent(&e.canvas,15,23));
+    assert(e.pixels[383]==141 && !editor_is_dirty(&e));
+    assert(editor_new_shape(&e,16,24));
     e.foreground=0; editor_key(&e,CMD_TRANS_ERASE); e.tool=TOOL_ERASER;
     click(0,0); assert(e.pixels[0]==0 && canvas_transparent(&e.canvas,0,0) && editor_is_dirty(&e));
     e.tool=TOOL_PENCIL; click(0,0); assert(e.pixels[0]==0 && !canvas_transparent(&e.canvas,0,0));
