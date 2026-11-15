@@ -26,7 +26,7 @@ int project_open(Project *project, const char *path)
     int status;
     status = file_load(path, project->scratch);
     if (status == FILE_OK) {
-        editor_load(project->editor, project->scratch);
+        if(!editor_load(project->editor, project->scratch)) return FILE_HEADER;
         file_name(path, project->filename);
     }
     return status;
@@ -34,7 +34,7 @@ int project_open(Project *project, const char *path)
 
 int project_new(Project *project, unsigned side)
 {
-    if (!editor_init(project->editor, side, project->editor->fill_queue)) return 0;
+    if (!editor_new_shape(project->editor, side<256?side:side/256, side<256?side:side%256)) return 0;
     project->filename[0] = '\0';
     return 1;
 }

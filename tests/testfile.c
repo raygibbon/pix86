@@ -194,6 +194,7 @@ static void test_malformed(void)
     assert(decode(length) == FILE_OK);
     check_pattern(16);
     /* Truncated or unsupported input must not touch live art or its history. */
+    editor_dispose(&editor);
     assert(editor_init(&editor, 32, queue));
     project_init(&project, &editor, &image);
     canvas_clear(&editor.canvas, 117);
@@ -225,6 +226,7 @@ static void test_malformed(void)
 static void test_dirty(void)
 {
     unsigned i;
+    editor_dispose(&editor);
     assert(editor_init(&editor, 64, queue));
     project_init(&project, &editor, &image);
     assert(!editor_is_dirty(&editor));
@@ -300,6 +302,7 @@ static void test_failures(void)
 {
     unsigned mode;
     int status;
+    editor_dispose(&editor);
     assert(editor_init(&editor, 16, queue));
     project_init(&project, &editor, &image);
     canvas_clear(&editor.canvas, 11);

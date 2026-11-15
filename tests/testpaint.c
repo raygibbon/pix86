@@ -81,6 +81,7 @@ static void mouse_event(int x,int y,unsigned buttons)
 { add(-1); events[count-1].x=x; events[count-1].y=y; events[count-1].buttons=buttons; }
 static void clean_baseline(Screen *s,Menu *m,MouseState *mouse)
 {
+    editor_dispose(&editor);
     assert(editor_init(&editor,16,queue));
     /* High contrast artwork makes erased/mis-restored canvas pixels visible. */
     memset(editor.pixels,231,256);
@@ -236,7 +237,7 @@ static void routing_status(void)
     start(); clean_baseline(&s,&m,&mouse); ui_init(&ui);
     assert(keyboard_command('U')==CMD_UNDO && keyboard_command('r')==CMD_REDO);
     assert(keyboard_command('N')==CMD_NEW && keyboard_command('=')==CMD_ZOOM_IN);
-    assert(keyboard_command(KEY_DELETE)==CMD_NONE && keyboard_command(-1)==CMD_NONE);
+    assert(keyboard_command(KEY_DELETE)==CMD_FRAME_DELETE && keyboard_command(-1)==CMD_NONE);
     assert(ui_input(&ui,KEY_MENU,&mouse,&command) && !command && ui.menu.active);
     assert(ui_input(&ui,CMD_EXIT,&mouse,&command) && !command && !ui.menu.active);
     assert(!ui_pointer(&ui,&mouse,1,1));

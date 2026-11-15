@@ -41,6 +41,7 @@ static void test_render(unsigned side)
 {
     unsigned x, y, index;
     int zoom, sx, sy;
+    editor_dispose(&editor);
     assert(editor_init(&editor, side, queue));
     for (y = 0; y < side; ++y)
         for (x = 0; x < side; ++x)

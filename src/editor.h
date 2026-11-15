@@ -20,9 +20,11 @@ typedef struct Editor {
     Canvas canvas;
     unsigned char pixels[4096];
     History history;
-    unsigned char saved_pixels[4096];
+    P86Image ANIM_FAR *document, ANIM_FAR *saved;
     unsigned saved_width, saved_height;
     unsigned char saved_foreground, saved_background;
+    unsigned first_frame, elapsed;
+    int playing;
     View view;
     unsigned short *fill_queue;
     unsigned char foreground, background, stroke_colour;
@@ -33,6 +35,10 @@ typedef struct Editor {
 
 /* Supported square sizes: 16,32,64; fill_queue has 4096 entries. */
 int editor_init(Editor *editor, unsigned side, unsigned short *fill_queue);
+void editor_dispose(Editor *editor);
+int editor_new_shape(Editor *editor,unsigned width,unsigned height);
+unsigned editor_tick(Editor *editor,unsigned milliseconds);
+unsigned editor_select(Editor *editor,unsigned frame);
 unsigned editor_mouse(Editor *editor, int x, int y, unsigned buttons);
 unsigned editor_key(Editor *editor, int key);
 void editor_finish(Editor *editor);

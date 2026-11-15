@@ -116,6 +116,7 @@ static void menus(void)
     menu_key(&menu, KEY_F10, &command);
     assert(menu_mouse(&menu, 100, 180, 1, &command) && !menu.active && !command);
     /* The dismissal is consumed; holding into the drawing area cannot edit. */
+    editor_dispose(&editor);
     assert(editor_init(&editor, 16, queue));
     editor.previous_buttons = 1;
     editor_mouse(&editor, editor.view.x, editor.view.y, 1);

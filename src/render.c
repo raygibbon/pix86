@@ -185,11 +185,36 @@ void render_ui_change(const Editor *editor,int tool,unsigned char fg,unsigned ch
 
 void render_timeline(const Editor *e)
 {
+    unsigned f,slot;
+    int x,y,tx,ty;
+    unsigned char paper,ink,colour;
+    char label[20];
+    static const char *controls[9]={"<",">","+","Dup","Del","Play","<<",">>","X"};
     if(!e->timeline) return;
     cursor_protect(DRAW_X-1,TIMELINE_Y,UI_WIDTH-DRAW_X+1,TIMELINE_HEIGHT);
     video_rect(DRAW_X-1,TIMELINE_Y,UI_WIDTH-DRAW_X+1,TIMELINE_HEIGHT,UI_PANEL);
     video_rect(DRAW_X-1,TIMELINE_Y,UI_WIDTH-DRAW_X+1,1,UI_DIM);
-    video_text_bg(DRAW_X,TIMELINE_Y+2,"Animation   Tab: hide",UI_WHITE,UI_PANEL);
-    video_rect(DRAW_X,TIMELINE_Y+13,TIMELINE_CELL-2,21,UI_SELECT);
-    video_text(DRAW_X+3,TIMELINE_Y+19,"1",UI_WHITE);
+    for(slot=0;slot<9;++slot) {
+        x=DRAW_X+(int)slot*30;
+        video_text_bg(x,TIMELINE_Y+2,slot==5 && e->playing?"Stop":controls[slot],UI_WHITE,UI_PANEL);
+    }
+    for(slot=0;slot<TIMELINE_SLOTS;++slot) {
+        f=e->first_frame+slot; if(f>=e->document->frames) break;
+        x=DRAW_X+(int)slot*TIMELINE_CELL; y=TIMELINE_Y+13;
+        paper=f==e->history.active?UI_SELECT:UI_BAR;
+        ink=f==e->history.active?UI_WHITE:UI_INK;
+        video_rect(x,y,TIMELINE_CELL-2,21,paper);
+        sprintf(label,"%u",f+1); video_text(x+2,y+1,label,ink);
+        /* Original nearest-sample 8x8 thumbnail, no extra image allocation. */
+        for(ty=0;ty<8;++ty) for(tx=0;tx<8;++tx) {
+            unsigned offset;
+            offset=(unsigned)(ty*e->canvas.height/8)*e->canvas.width+tx*e->canvas.width/8;
+            colour=f==e->history.active?e->pixels[offset]:e->document->pixels[f*e->history.size+offset];
+            video_pixel(x+12+tx,y+11+ty,colour);
+        }
+    }
+    sprintf(label,"%u/%u",e->history.active+1,e->document->frames);
+    video_text(DRAW_X+TIMELINE_SLOTS*TIMELINE_CELL,TIMELINE_Y+14,label,UI_WHITE);
+    sprintf(label,"%ums",e->document->duration[e->history.active]);
+    video_text(DRAW_X+TIMELINE_SLOTS*TIMELINE_CELL,TIMELINE_Y+24,label,UI_WHITE);
 }

@@ -47,6 +47,7 @@ static void test_view(void)
     int zoom, cx, cy, dx, dy;
     unsigned char colour;
     for (side = 16; side <= 64; side *= 2) {
+        editor_dispose(&editor);
         assert(editor_init(&editor, side, queue));
         memset(before, 123, side * side);
         memcpy(editor.canvas.pixels, before, side * side);
@@ -94,6 +95,7 @@ static void test_lines(void)
 {
     int x1, y1, x, y, count, previous, current;
     unsigned char colour;
+    editor_dispose(&editor);
     assert(editor_init(&editor, 64, queue));
     /* Every endpoint from a central point exercises all octants and slopes. */
     for (y1 = 0; y1 < 64; ++y1)
@@ -141,6 +143,7 @@ static void test_lines(void)
 static void test_fill(void)
 {
     unsigned x, y;
+    editor_dispose(&editor);
     assert(editor_init(&editor, 64, queue));
     assert(tools_fill(&editor.canvas, 0, 0, 255, queue) == 4096);
     for (y = 0; y < 64; ++y)
@@ -176,6 +179,7 @@ static void test_fill(void)
 static void test_history(void)
 {
     unsigned i;
+    editor_dispose(&editor);
     assert(editor_init(&editor, 64, queue));
     assert(!history_undo(&editor.history, &editor.canvas));
     assert(!history_redo(&editor.history, &editor.canvas));
@@ -214,6 +218,7 @@ static void mouse_cell(int x, int y, unsigned buttons)
 static void test_interactions(void)
 {
     unsigned i;
+    editor_dispose(&editor);
     assert(editor_init(&editor, 16, queue));
     mouse_cell(0, 0, EDIT_LEFT);
     mouse_cell(7, 7, EDIT_LEFT);

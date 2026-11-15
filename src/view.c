@@ -28,7 +28,7 @@ int view_fit(View *view,const Canvas *canvas,int timeline,int zoom)
     return 1;
 }
 int view_set(View *view,const Canvas *canvas,int zoom)
-{ return view_fit(view,canvas,0,zoom); }
+{ return zoom>0 && view_fit(view,canvas,0,zoom); }
 
 int view_map(const View *view, int screen_x, int screen_y, int *x, int *y)
 {

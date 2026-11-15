@@ -28,3 +28,25 @@ int ui_pointer(UiState *ui,const MouseState *mouse,int consumed,int was_active)
     }
     return !consumed;
 }
+
+/* Call after overlays and before editor pointer routing. A timeline press and
+   its held release remain owned by the UI, even if the pointer leaves it. */
+int ui_timeline(UiState *ui,int open,unsigned first,unsigned count,const MouseState *m,int *cmd)
+{
+    int slot;
+    static const int commands[8]={CMD_FRAME_PREV,CMD_FRAME_NEXT,CMD_FRAME_ADD,
+        CMD_FRAME_DUP,CMD_FRAME_DELETE,CMD_PLAY,CMD_SCROLL_LEFT,CMD_SCROLL_RIGHT};
+    if(!open || ui->menu.active || ui->blocked || !(m->buttons&1) ||
+       m->x<DRAW_X-1 || m->y<TIMELINE_Y || m->y>=UI_STATUS_Y) return 0;
+    *cmd=0;
+    if(m->y<TIMELINE_Y+12) {
+        slot=(m->x-DRAW_X)/30;
+        if(slot>=0 && slot<8) *cmd=commands[slot];
+        else *cmd=CMD_TIMELINE;
+    } else {
+        slot=(m->x-DRAW_X)/TIMELINE_CELL;
+        if(slot>=0 && slot<TIMELINE_SLOTS && first+(unsigned)slot<count)
+            *cmd=CMD_SELECT_FRAME+(int)first+slot;
+    }
+    ui->blocked=1; return 1;
+}

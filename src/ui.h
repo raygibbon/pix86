@@ -4,6 +4,7 @@
 #include "mouse.h"
 /* Live interaction state, independent of document, renderer and file adapter. */
 typedef struct UiState { Menu menu; int blocked; } UiState;
+int ui_timeline(UiState *ui,int open,unsigned first,unsigned count,const MouseState *mouse,int *command);
 void ui_init(UiState *ui);
 /* Route overlays first. Consumed events must not reach drawing tools. */
 int ui_input(UiState *ui,int key,const MouseState *mouse,int *command);
