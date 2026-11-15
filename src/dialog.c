@@ -193,14 +193,15 @@ static void full_cell(int index,int selected)
                FULLPAL_Y+index/16*FULLPAL_CELL_H+inset,
                FULLPAL_CELL_W-2*inset,FULLPAL_CELL_H-2*inset,(unsigned char)index);
 }
-static void full_value(int index,int background)
+static void full_value(int index,int background,const char *title)
 {
     char text[26];
-    sprintf(text,"%s %03d  Tab changes FG/BG",background?"BG":"FG",index);
+    if(title) sprintf(text,"Index %03d                ",index);
+    else sprintf(text,"%s %03d  Tab changes FG/BG",background?"BG":"FG",index);
     cursor_protect(74,158,172,FONT_HEIGHT);
     video_text_bg(74,158,text,UI_INK,UI_PAPER);
 }
-int dialog_palette(unsigned char *colour,int *background)
+static int palette(unsigned char *colour,int *background,const char *title)
 {
     DialogLayout l;
     MouseState m;
@@ -209,11 +210,11 @@ int dialog_palette(unsigned char *colour,int *background)
     l.box.x=66; l.box.y=18; l.box.w=188; l.box.h=164;
     protect(&l.box); ui_border(&l.box,UI_INK);
     video_rect(67,19,186,162,UI_PAPER);
-    video_text_bg(74,22,"All 256 colours",UI_INK,UI_PAPER);
-    video_text_bg(74,32,"Left:FG  Right:BG",UI_INK,UI_PAPER);
+    video_text_bg(74,22,title?title:"All 256 colours",UI_INK,UI_PAPER);
+    video_text_bg(74,32,title?"Left/right: choose":"Left:FG  Right:BG",UI_INK,UI_PAPER);
     selected=*colour; target=*background;
     for(i=0;i<256;++i) full_cell(i,i==selected);
-    full_value(selected,target);
+    full_value(selected,target,title);
     video_text_bg(74,170,"Arrows Enter:OK Esc:cancel",UI_INK,UI_PAPER);
     mouse_poll(&m); previous_buttons=m.buttons;
     for(;;) {
@@ -227,7 +228,7 @@ int dialog_palette(unsigned char *colour,int *background)
             if(!hit(&l.box,&m)) return finish(&l,0);
         }
         if(key==13) { *colour=(unsigned char)selected; *background=target; return finish(&l,1); }
-        if(key==9 || key==KEY_SHIFT_TAB) target=!target;
+        if(!title && (key==9 || key==KEY_SHIFT_TAB)) target=!target;
         if(key==KEY_LEFT) selected=(selected+255)&255;
         if(key==KEY_RIGHT) selected=(selected+1)&255;
         if(key==KEY_UP) selected=(selected+240)&255;
@@ -235,9 +236,13 @@ int dialog_palette(unsigned char *colour,int *background)
         if(key==KEY_HOME) selected=0;
         if(key==KEY_END) selected=255;
         if(selected!=previous) { full_cell(previous,0); full_cell(selected,1); }
-        if(selected!=previous || target!=oldtarget) full_value(selected,target);
+        if(selected!=previous || target!=oldtarget) full_value(selected,target,title);
     }
 }
+int dialog_palette(unsigned char *colour,int *background)
+{ return palette(colour,background,NULL); }
+int dialog_colour(const char *title,unsigned char *colour)
+{ int target; target=0; return palette(colour,&target,title); }
 void dialog_font(void)
 {
     char body[280];

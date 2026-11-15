@@ -8,6 +8,12 @@
 #define CMD_OPEN KEY_F3
 #define CMD_SAVE KEY_F2
 #define CMD_SAVE_AS KEY_SAVE_AS
+#define CMD_FILL_BG 660
+#define CMD_PREVIEW 661
+#define CMD_PREVIEW_LINK 662
+#define CMD_CHECKER 663
+#define CMD_TRANS_BLANK 664
+#define CMD_TRANS_ERASE 665
 #define CMD_EXPORT 604
 #define CMD_EXIT 27
 #define CMD_UNDO 26

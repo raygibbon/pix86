@@ -42,7 +42,7 @@ int editor_new_shape(Editor *e,unsigned w,unsigned h)
 int editor_init(Editor *e,unsigned side,unsigned short *queue)
 {
     if(!e || !queue || !anim_dimensions(side,side)) return 0;
-    memset(e,0,sizeof(*e)); e->fill_queue=queue;
+    memset(e,0,sizeof(*e)); e->fill_queue=queue; e->preview_colour=7; e->checker=1;
     e->document=anim_alloc(sizeof(P86Image));
     e->saved=anim_alloc(sizeof(P86Image));
     if(!e->document || !e->saved || !history_create(&e->history,e->document)) {
@@ -56,6 +56,13 @@ void editor_finish(Editor *editor)
     if (editor->dragging)
         history_commit(&editor->history, &editor->canvas);
     editor->dragging = editor->segment_valid = 0;
+}
+
+unsigned editor_background(Editor *e,unsigned char colour)
+{
+    int changed;
+    changed=e->background!=colour; e->background=colour;
+    return EDIT_UI|EDIT_STATUS|(changed && e->preview_link?EDIT_CANVAS:0);
 }
 
 unsigned editor_mouse(Editor *editor, int x, int y, unsigned buttons)
@@ -96,7 +103,7 @@ unsigned editor_mouse(Editor *editor, int x, int y, unsigned buttons)
         return flags;
     if (palette_hit(x, y, &index)) {
         if (pressed & EDIT_LEFT) editor->foreground = index;
-        else if (pressed & EDIT_RIGHT) editor->background = index;
+        else if (pressed & EDIT_RIGHT) return flags | editor_background(editor,index);
         return flags | EDIT_UI;
     }
     tool = toolbar_hit(x, y);
@@ -170,7 +177,13 @@ unsigned editor_key(Editor *editor, int key)
         editor->grid = !editor->grid;
         return EDIT_CANVAS | EDIT_STATUS;
     }
-    if (key == 'c') {
+    if(key==CMD_PREVIEW_LINK || key==CMD_CHECKER) {
+        editor_finish(editor);
+        if(key==CMD_PREVIEW_LINK) editor->preview_link=!editor->preview_link;
+        else editor->checker=!editor->checker;
+        return EDIT_CANVAS|EDIT_STATUS;
+    }
+    if (key == 'c' || key==CMD_FILL_BG) {
         editor_finish(editor);
         canvas_clear(&editor->canvas, editor->background);
         history_commit(&editor->history, &editor->canvas);

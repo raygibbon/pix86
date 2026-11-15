@@ -177,10 +177,18 @@ int main(int argc, char **argv)
             background=command==CMD_BG;
             colour=background?editor.background:editor.foreground;
             if(dialog_palette(&colour,&background)) {
-                if(background) editor.background=colour;
+                if(background) flags|=editor_background(&editor,colour);
                 else editor.foreground=colour;
                 flags|=EDIT_UI|EDIT_STATUS;
             }
+            modal=1;
+        } else if(command==CMD_PREVIEW) {
+            editor_finish(&editor); editor.playing=0; colour=editor.preview_colour;
+            if(dialog_colour("Preview background",&colour)) { editor.preview_colour=colour; editor.preview_link=0; flags|=EDIT_CANVAS|EDIT_STATUS; }
+            modal=1;
+        } else if(command==CMD_FILL_BG) {
+            editor_finish(&editor); editor.playing=0;
+            if(dialog_confirm("Fill frame with BG?","Replace this frame's artwork?")) flags|=editor_key(&editor,CMD_FILL_BG);
             modal=1;
         } else if(command==CMD_COLOUR_PREV || command==CMD_COLOUR_NEXT) {
             editor_finish(&editor);

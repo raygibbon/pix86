@@ -27,7 +27,8 @@ typedef struct Editor {
     int playing;
     View view;
     unsigned short *fill_queue;
-    unsigned char foreground, background, stroke_colour;
+    unsigned char foreground, background, stroke_colour, preview_colour;
+    int preview_link, checker, transparent_eraser, stroke_transparent;
     int timeline, guide, tool, grid, dragging, segment_valid, last_x, last_y;
     int dirty_x0, dirty_y0, dirty_x1, dirty_y1;
     unsigned previous_buttons;
@@ -40,6 +41,7 @@ void editor_dispose(Editor *editor);
 int editor_new_shape(Editor *editor,unsigned width,unsigned height);
 unsigned editor_tick(Editor *editor,unsigned milliseconds);
 unsigned editor_select(Editor *editor,unsigned frame);
+unsigned editor_background(Editor *editor,unsigned char colour);
 unsigned editor_mouse(Editor *editor, int x, int y, unsigned buttons);
 unsigned editor_key(Editor *editor, int key);
 void editor_finish(Editor *editor);

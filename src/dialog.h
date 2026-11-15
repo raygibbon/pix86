@@ -30,6 +30,7 @@ int dialog_export(const char *initial,char *path,ExportOptions *options);
 int dialog_filename(const char *title,const char *initial,char *output);
 int dialog_confirm(const char *title,const char *question);
 int dialog_new_size(unsigned current);
+int dialog_colour(const char *title,unsigned char *colour);
 int dialog_palette(unsigned char *colour,int *background);
 void dialog_font(void);
 void dialog_message(const char *title,const char *message,const FileReport *report);
