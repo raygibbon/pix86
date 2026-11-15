@@ -7,7 +7,7 @@ Pix86 targets 8086 real-mode DOS (`-bt=dos -ms -0`) and VGA Mode 13h,
 
 `anim.h` defines the original `Animation` storage contract: supported dimensions,
 up to 16 frames, 16,384 total indexed pixels and per-frame millisecond durations.
-`anim.c` validates the six shapes. All indices are opaque, including zero; blank
+`anim.c` validates the six shapes. All indices can be opaque, including zero; packed masks independently mark transparency. Opaque blank
 frames use BG. `fileio.h` aliases this portable structure as `P86Image` for the
 codec. Nothing in the animation representation depends on DOS video or file I/O.
 
@@ -106,7 +106,7 @@ counts, durations and exact lengths before application. Version 1 remains its
 24-byte header plus exactly one supported square image. Version 2 stores an
 explicit count and sequential duration/pixel records, including rectangles.
 See [FILE_FORMAT.md](FILE_FORMAT.md). The low-level version 1 writer is retained
-for independent compatibility fixtures; application saves use version 2.
+for independent compatibility fixtures; application saves use version 3.
 
 `project.c` captures into one near scratch image, preserving the checked exclusive
 TMP creation, fwrite/flush/close checks, approved replacement, BAK rollback and
@@ -128,19 +128,19 @@ bounds; no dependency or full-sheet allocation is added.
 
 The 4096-byte stack, strict ordinary modules and extended-CRT file adapter remain.
 Watcom uses `_fmalloc`/`_ffree` and declared CRT far-memory interfaces for seven
-separate document blocks; hosts use malloc/free. Each block is 16,424 bytes in
-DOS, below 32 KiB. All seven reserve 114,968 bytes outside DGROUP. The near active
-canvas is 4096 bytes; fill queue 8192; near file scratch 16,424. No large automatic
+separate document blocks; hosts use malloc/free. Each block is 18,474 bytes in
+DOS, below 32 KiB. All seven reserve 129,318 bytes outside DGROUP. The near active
+canvas is 4096 bytes; fill queue 8192; near file scratch 18,474. No large automatic
 images or large frame arrays live in DGROUP. Smaller documents retain this fixed
 bounded reservation so editing/history do not allocate during an operation.
 
-The final linked map reports DGROUP 38,784 bytes including the stack (26,752 bytes
-below 64 KiB), near code 49,032 bytes, and total linked image 87,840 bytes.
-`PIX86.EXE` is 54,204 bytes. Linked image plus reserved far blocks is 202,808 bytes;
+The final linked map reports DGROUP 41,856 bytes including the stack (23,680 bytes
+below 64 KiB), near code 54,536 bytes.
+`PIX86.EXE` is 60,202 bytes; seven far blocks reserve another 129,318 bytes.
 PSP/environment, heap bookkeeping, stdio and loader overhead are additional.
 Initialization on insufficient conventional memory fails with a diagnostic.
-Up to 16 frames are allowed for every shape except 64×64 (four). There is no
-transparency, onion skin or layers. BMP export is implemented. Native hardware and
+Up to 16 frames are allowed for every shape except 64×64 (four). Packed transparency is implemented; onion skin and layers remain deferred.
+BMP and bounded streaming PNG export are implemented. Native hardware and
 FreeDOS/MS-DOS remain untested; DOSBox-X evidence is in TESTING.md.
 
 ## Provenance and engineering references

@@ -41,6 +41,18 @@ int editor_new_shape(Editor *e,unsigned w,unsigned h)
     editor_mark_saved(e);
     return 1;
 }
+int editor_new_document(Editor *e,unsigned w,unsigned h,int transparent,unsigned char background)
+{
+    if(!editor_new_shape(e,w,h)) return 0;
+    e->background=background;
+    canvas_clear(&e->canvas,background);
+    if(transparent) memset(e->mask,255,w*h/8);
+    e->document->transparent=(unsigned char)(transparent!=0);
+    e->transparent_eraser=(unsigned char)(transparent!=0);
+    history_init(&e->history,&e->canvas);
+    editor_mark_saved(e);
+    return 1;
+}
 int editor_init(Editor *e,unsigned side,unsigned short *queue)
 {
     if(!e || !queue || !anim_dimensions(side,side)) return 0;

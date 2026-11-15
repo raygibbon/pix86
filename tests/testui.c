@@ -192,6 +192,13 @@ static void dialogs(void)
     start(); add_button(DIALOG_CONFIRM,"Unsaved","Discard?",0); assert(!dialog_confirm("Unsaved", "Discard?"));
     start(); add(KEY_RIGHT,0,0,0); add(13,0,0,0); assert(dialog_new_size(16)==32);
     start(); add(-1,newlayout.body.x+17*FONT_WIDTH,newlayout.body.y+2,1); add(-1,newlayout.body.x+17*FONT_WIDTH,newlayout.body.y+2,0); add_button(DIALOG_NEW,"New canvas",DIALOG_NEW_CHOICES,1); assert(dialog_new_size(16)==64);
+    { int transparent;
+      start(); add(13,0,0,0); assert(dialog_new_document(32,&transparent)==32 && transparent);
+      start(); add('o',0,0,0); add(13,0,0,0);
+      assert(dialog_new_document(32,&transparent)==32 && !transparent);
+      start(); add('o',0,0,0); add('t',0,0,0); add(13,0,0,0);
+      assert(dialog_new_document(32,&transparent)==32 && transparent);
+    }
     start(); add(27,0,0,0); assert(!dialog_new_size(32));
     start(); add('4',0,0,0); assert(dialog_new_size(32)==16*256+24);
     start(); add('5',0,0,0); assert(dialog_new_size(32)==16*256+32);

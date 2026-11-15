@@ -57,3 +57,9 @@ wcl -bt=dos -ms -0 -za -wx -we -w4 -os -k4096 -DBMP_FAULTS -I"$ROOT/src" \
 wcl -bt=dos -ms -0 -ze -wx -we -w4 -os -k4096 -I"$ROOT/src" \
     "$ROOT/tests/bmpview.c" "$ROOT/src/video.c" "$ROOT/src/font.c" "$ROOT/src/textsize.c" \
     -fe="$ROOT/mnt/BMPVIEW.EXE"
+wcc -bt=dos -ms -0 -za -wx -we -w4 -os -Dfwrite=alpha_write -fo=faultpng.o "$ROOT/src/png.c"
+wcl -bt=dos -ms -0 -za -wx -we -w4 -os -k4096 -DALPHA_FAULTS -I"$ROOT/src" \
+    "$ROOT/tests/tstalpha.c" faultpng.o "$ROOT/src/export.c" "$ROOT/src/bmp.c" "$ROOT/src/colour.c" \
+    fileio.o "$ROOT/src/editor.c" "$ROOT/src/history.c" "$ROOT/src/anim.c" \
+    "$ROOT/src/canvas.c" "$ROOT/src/tools.c" "$ROOT/src/view.c" "$ROOT/src/workpal.c" "$ROOT/src/keymap.c" \
+    -fe="$ROOT/mnt/ALPHTEST.EXE"

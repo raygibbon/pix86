@@ -39,6 +39,7 @@ typedef struct Editor {
    fill_queue has 4096 entries. Dimensions are checked by anim_dimensions. */
 int editor_init(Editor *editor, unsigned side, unsigned short *fill_queue);
 void editor_dispose(Editor *editor);
+int editor_new_document(Editor *editor,unsigned width,unsigned height,int transparent,unsigned char background);
 int editor_new_shape(Editor *editor,unsigned width,unsigned height);
 unsigned editor_tick(Editor *editor,unsigned milliseconds);
 unsigned editor_select(Editor *editor,unsigned frame);

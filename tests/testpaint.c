@@ -322,6 +322,20 @@ static void export_overlay(void)
     assert(!dialog_export("PLAYER.BMP",path,&o));
     assert(!memcmp(pixels,baseline,sizeof(pixels)) && !clears);
 }
+static void background_preview(void)
+{
+    Screen s; Menu m; MouseState mouse;
+    unsigned long before;
+    start(); clean_baseline(&s,&m,&mouse);
+    editor.mask[0]=1; editor.preview_link=1; editor.checker=0;
+    screen_update(&s,&editor,&m,EDIT_CANVAS,&mouse,0);
+    editor_background(&editor,141);
+    screen_update(&s,&editor,&m,EDIT_UI|EDIT_STATUS,&mouse,0);
+    assert(pixels[(editor.view.y+1)*320+editor.view.x+1]==141);
+    assert(pixels[(editor.view.y+1)*320+editor.view.x+editor.view.zoom+1]==231);
+    assert(pixels[(BG_Y+1)*320+SWATCH_X+1]==141 && editor.pixels[0]==231);
+    before=writes; screen_update(&s,&editor,&m,0,&mouse,0); assert(writes==before);
+}
 static void type(const char *text) { while(*text) add((unsigned char)*text++); }
 static void run(int mouse)
 {
@@ -361,7 +375,7 @@ static void application(void)
 }
 int main(void)
 {
-    geometry(); menus(); dialogs(); palette_overlay(); routing_status(); timeline(); export_overlay(); application();
+    geometry(); menus(); dialogs(); palette_overlay(); routing_status(); timeline(); export_overlay(); background_preview(); application();
     puts("PASS: dirty rectangles, idle stability, exact overlay/cursor restoration, one startup clear and deliberate exits/file workflow.");
     editor_dispose(&editor);
     return 0;
