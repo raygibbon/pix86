@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include "tools.h"
 
-unsigned tools_pencil(Canvas *canvas, int x0, int y0, int x1, int y1,
-                      unsigned char colour)
+unsigned tools_stroke(Canvas *canvas, int x0, int y0, int x1, int y1,
+                      unsigned char colour,int transparent)
 {
     int dx, dy, sx, sy, error, twice;
     unsigned changed;
@@ -21,8 +21,10 @@ unsigned tools_pencil(Canvas *canvas, int x0, int y0, int x1, int y1,
     changed = 0;
     for (;;) {
         if (canvas_get(canvas, (unsigned)x0, (unsigned)y0, &old) &&
-            old != colour) {
-            canvas_set(canvas, (unsigned)x0, (unsigned)y0, colour);
+            (transparent?!canvas_transparent(canvas,(unsigned)x0,(unsigned)y0):
+             old!=colour || canvas_transparent(canvas,(unsigned)x0,(unsigned)y0))) {
+            if(transparent) canvas_mask_set(canvas,(unsigned)x0,(unsigned)y0,1);
+            else canvas_set(canvas, (unsigned)x0, (unsigned)y0, colour);
             ++changed;
         }
         if (x0 == x1 && y0 == y1)
@@ -33,6 +35,9 @@ unsigned tools_pencil(Canvas *canvas, int x0, int y0, int x1, int y1,
     }
     return changed;
 }
+
+unsigned tools_pencil(Canvas *c,int x0,int y0,int x1,int y1,unsigned char colour)
+{ return tools_stroke(c,x0,y0,x1,y1,colour,0); }
 
 unsigned tools_erase(Canvas *canvas, int x0, int y0, int x1, int y1,
                      unsigned char background)
@@ -46,7 +51,9 @@ unsigned tools_fill(Canvas *canvas, unsigned x, unsigned y,
     unsigned char old;
     unsigned head, tail, pos, nx, ny, neighbor, direction;
     unsigned count;
-    if (queue == NULL || !canvas_get(canvas, x, y, &old) || old == colour ||
+    int transparent;
+    transparent=canvas_transparent(canvas,x,y);
+    if (queue == NULL || !canvas_get(canvas, x, y, &old) || (!transparent && old == colour) ||
         (unsigned long)canvas->width * canvas->height > TOOLS_MAX_PIXELS)
         return 0;
     count = canvas->width * canvas->height;
@@ -73,8 +80,9 @@ unsigned tools_fill(Canvas *canvas, unsigned x, unsigned y,
                 if (ny + 1 == canvas->height) continue;
                 neighbor = pos + canvas->width;
             }
-            if (neighbor < count && canvas->pixels[neighbor] == old) {
-                canvas->pixels[neighbor] = colour;
+            if (neighbor < count && canvas_transparent(canvas,neighbor%canvas->width,neighbor/canvas->width)==transparent &&
+                (transparent || canvas->pixels[neighbor] == old)) {
+                canvas_set(canvas,neighbor%canvas->width,neighbor/canvas->width,colour);
                 queue[tail++] = (unsigned short)neighbor;
             }
         }

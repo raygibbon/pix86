@@ -35,6 +35,7 @@ int keyboard_command(int key)
 {
     if(key>=CMD_SELECT_FRAME && key<CMD_SELECT_FRAME+16) return key;
     if(key>=0 && key<=255) key=tolower((unsigned char)key);
+    if(key=='t') return CMD_TRANS_ERASE;
     if(key=='u') return CMD_UNDO;
     if(key=='r') return CMD_REDO;
     if(key=='=') return CMD_ZOOM_IN;

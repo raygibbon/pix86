@@ -19,6 +19,7 @@
 typedef struct Editor {
     Canvas canvas;
     unsigned char pixels[4096];
+    unsigned char mask[512];
     History history;
     Animation ANIM_FAR *document, ANIM_FAR *saved;
     unsigned saved_width, saved_height;
@@ -41,6 +42,8 @@ void editor_dispose(Editor *editor);
 int editor_new_shape(Editor *editor,unsigned width,unsigned height);
 unsigned editor_tick(Editor *editor,unsigned milliseconds);
 unsigned editor_select(Editor *editor,unsigned frame);
+void editor_store(Editor *editor);
+void editor_restore(Editor *editor);
 unsigned editor_background(Editor *editor,unsigned char colour);
 unsigned editor_mouse(Editor *editor, int x, int y, unsigned buttons);
 unsigned editor_key(Editor *editor, int key);

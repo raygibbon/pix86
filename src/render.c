@@ -19,7 +19,7 @@ static void tool_row(const Editor *editor,int tool)
     video_rect(TOOL_X,y+TOOL_HEIGHT-1,TOOL_WIDTH,1,paper);
     video_rect(TOOL_X,y+1,1,FONT_HEIGHT,paper);
     video_rect(TOOL_X+TOOL_WIDTH-1,y+1,1,FONT_HEIGHT,paper);
-    video_text_bg(TOOL_TEXT_X,y+TOOL_TEXT_Y,labels[tool],ink,paper);
+    video_text_bg(TOOL_TEXT_X,y+TOOL_TEXT_Y,tool==TOOL_ERASER && editor->transparent_eraser?"E Alp ":labels[tool],ink,paper);
 }
 static void swatch(const Editor *e,int slot)
 {
@@ -67,6 +67,27 @@ static unsigned char grid_colour(unsigned char colour,int strong)
     if(grey>12) grey=12;
     return (unsigned char)grey;
 }
+static unsigned char preview_colour(const Editor *e,int x,int y)
+{
+    unsigned char colour;
+    colour=e->preview_link?e->background:e->preview_colour;
+    if(e->checker && ((x/8+y/8)&1)) {
+        if(colour<16) colour=(unsigned char)(colour==15?14:colour+1);
+        else colour=(unsigned char)((colour-16)%6==5?colour-1:colour+1);
+    }
+    return colour;
+}
+static void preview_cell(const Editor *e,int sx,int sy,int zoom)
+{
+    int x,y,w,h;
+    for(y=sy;y<sy+zoom;y+=h) {
+        h=8-y%8; if(h>sy+zoom-y) h=sy+zoom-y;
+        for(x=sx;x<sx+zoom;x+=w) {
+            w=8-x%8; if(w>sx+zoom-x) w=sx+zoom-x;
+            video_rect(x,y,w,h,preview_colour(e,x,y));
+        }
+    }
+}
 static void canvas_cell(const Editor *editor,int x,int y)
 {
     int sx,sy,zoom;
@@ -74,7 +95,8 @@ static void canvas_cell(const Editor *editor,int x,int y)
     zoom=editor->view.zoom;
     sx=editor->view.x+x*zoom; sy=editor->view.y+y*zoom;
     colour=editor->canvas.pixels[(unsigned)y*editor->canvas.width+x];
-    video_rect(sx,sy,zoom,zoom,colour);
+    if(canvas_transparent(&editor->canvas,(unsigned)x,(unsigned)y)) { preview_cell(editor,sx,sy,zoom); colour=preview_colour(editor,sx,sy); }
+    else video_rect(sx,sy,zoom,zoom,colour);
     grid=grid_colour(colour,0);
     if(editor->grid && zoom>=3) {
         video_rect(sx+zoom-1,sy,1,zoom,grid);
@@ -134,7 +156,7 @@ void render_status_text(const Editor *editor, int mouse_x, int mouse_y, int has_
     sprintf(text, "%-12.12s%c%ux%u %s %s F%03u B%03u Z%d",
             filename && *filename ? filename : "UNTITLED",
             editor_is_dirty(editor) ? '*' : ' ', editor->canvas.width,
-            editor->canvas.height, coords, names[editor->tool],
+            editor->canvas.height, coords, editor->tool==TOOL_ERASER && editor->transparent_eraser?"Alp":names[editor->tool],
             (unsigned)editor->foreground, (unsigned)editor->background,
             editor->view.zoom);
 
@@ -165,13 +187,14 @@ void render_restore(const Editor *editor,const Rect *r)
     video_unclip();
 }
 void render_ui_change(const Editor *editor,int tool,unsigned char fg,unsigned char bg,
-                      const unsigned char *old)
+                      const unsigned char *old,int alpha)
 {
     int i;
     unsigned char colour;
     if(tool!=editor->tool) {
         tool_row(editor,tool); tool_row(editor,editor->tool);
     }
+    if(alpha!=editor->transparent_eraser) tool_row(editor,TOOL_ERASER);
     for(i=0;i<16;++i) {
         colour=workpal_colour(i);
         if(old[i]!=colour || (fg!=editor->foreground && (colour==fg || colour==editor->foreground)) ||
@@ -208,6 +231,9 @@ void render_timeline(const Editor *e)
             unsigned offset;
             offset=(unsigned)(ty*e->canvas.height/8)*e->canvas.width+tx*e->canvas.width/8;
             colour=f==e->history.active?e->pixels[offset]:e->document->pixels[f*e->history.size+offset];
+            if(f==e->history.active?((e->mask[offset/8]>>(offset%8))&1):
+               ((e->document->mask[(f*e->history.size+offset)/8]>>(offset%8))&1))
+                colour=preview_colour(e,x+12+tx,y+11+ty);
             video_pixel(x+12+tx,y+11+ty,colour);
         }
     }

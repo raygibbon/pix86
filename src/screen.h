@@ -5,7 +5,7 @@
 #include "mouse.h"
 typedef struct Screen {
     Menu menu;
-    int tool;
+    int tool,alpha;
     unsigned char foreground,background;
     char status[UI_STATUS_CHARS+1];
     char filename[13];

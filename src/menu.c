@@ -3,7 +3,7 @@
 #include <ctype.h>
 #include <string.h>
 static const char *titles[MENU_COUNT] = {"File", "Edit", "View", "Frame", "Options", "Help"};
-static const int counts[MENU_COUNT] = {6, 4, 6, 9, 6, 3};
+static const int counts[MENU_COUNT] = {6, 4, 6, 9, 8, 3};
 static const MenuItem items[MENU_COUNT][10] = {
     {{"New", "N", CMD_NEW}, {"Open", "F3", CMD_OPEN}, {"Save", "F2", CMD_SAVE},
      {"Save As", "Shift-F2", CMD_SAVE_AS}, {"Export", "", CMD_EXPORT}, {"Exit", "Esc", CMD_EXIT}},
@@ -13,7 +13,7 @@ static const MenuItem items[MENU_COUNT][10] = {
      {"Delete", "Del", CMD_FRAME_DELETE}, {"Previous", ",", CMD_FRAME_PREV},
      {"Next", ".", CMD_FRAME_NEXT}, {"Play/stop", "Space", CMD_PLAY},
      {"Faster", "(", CMD_FASTER}, {"Slower", ")", CMD_SLOWER}, {"Onion skin", "", 0}},
-    {{"Colours", "A", CMD_PALETTE}, {"Background", "B", CMD_BG}, {"Preview colour", "", CMD_PREVIEW}, {"Link preview to BG", "", CMD_PREVIEW_LINK}, {"Checkerboard", "", CMD_CHECKER}, {"Grid", "G", CMD_GRID}},
+    {{"Colours", "A", CMD_PALETTE}, {"Background", "B", CMD_BG}, {"Preview colour", "", CMD_PREVIEW}, {"Link preview to BG", "", CMD_PREVIEW_LINK}, {"Checkerboard", "", CMD_CHECKER}, {"Transparent blanks", "", CMD_TRANS_BLANK}, {"Alpha eraser", "T", CMD_TRANS_ERASE}, {"Grid", "G", CMD_GRID}},
     {{"Controls", "", CMD_HELP}, {"About", "", CMD_ABOUT}, {"Font sample", "", CMD_FONT}}
 };
 int menu_width(int heading) { return font_width(titles[heading])+10; }
