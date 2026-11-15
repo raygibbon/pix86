@@ -1,6 +1,7 @@
 #include <string.h>
 #include "bmp.h"
 #include "fileio.h"
+#include "colour.h"
 #define BMP_OFFSET 1078UL
 #define BMP_CHUNK 128
 static void put16(unsigned char *p,unsigned n)
@@ -15,12 +16,11 @@ int bmp_size(unsigned w,unsigned h,unsigned long *bytes)
     if((unsigned long)h>(0xffffffffUL-BMP_OFFSET)/stride) return FILE_LENGTH;
     *bytes=BMP_OFFSET+stride*h; return FILE_OK;
 }
-static unsigned char component(unsigned dac)
-{ return (unsigned char)((dac*255U+31U)/63U); }
 int bmp_write(FILE *f,unsigned w,unsigned h,BmpRead read,const void *ctx)
 {
     unsigned char header[54],buf[BMP_CHUNK],colour[4];
-    unsigned i,q,r,g,b,x,y,n,pad;
+    unsigned i,x,y,n,pad;
+    unsigned char rgb[3];
     unsigned long bytes;
     int status;
     if(!f || !read) return FILE_WRITE_ERROR;
@@ -32,9 +32,8 @@ int bmp_write(FILE *f,unsigned w,unsigned h,BmpRead read,const void *ctx)
     put32(header+46,256UL);
     if(fwrite(header,1,sizeof(header),f)!=sizeof(header)) return FILE_WRITE_ERROR;
     for(i=0;i<256;++i) {
-        if(i<16) r=g=b=i*4;
-        else { q=i-16; r=(q%6)*12; g=(q/6%6)*12; b=(q/36%6)*12; }
-        colour[0]=component(b); colour[1]=component(g); colour[2]=component(r); colour[3]=0;
+        colour_rgb((unsigned char)i,rgb);
+        colour[0]=rgb[2]; colour[1]=rgb[1]; colour[2]=rgb[0]; colour[3]=0;
         if(fwrite(colour,1,4,f)!=4) return FILE_WRITE_ERROR;
     }
     pad=(4-w%4)%4;

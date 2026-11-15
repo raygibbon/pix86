@@ -49,7 +49,7 @@ wcc -bt=dos -ms -0 -za -wx -we -w4 -os -Dfwrite=bmp_fault_write \
 wcc -bt=dos -ms -0 -ze -wx -we -w4 -os -Dfflush=bmp_fault_flush -Dfclose=bmp_fault_close \
     -fo=bmpio.o "$ROOT/src/fileio.c"
 wcl -bt=dos -ms -0 -za -wx -we -w4 -os -k4096 -DBMP_FAULTS -I"$ROOT/src" \
-    "$ROOT/tests/testbmp.c" faultbmp.o bmpio.o "$ROOT/src/export.c" \
+    "$ROOT/tests/testbmp.c" faultbmp.o bmpio.o "$ROOT/src/export.c" "$ROOT/src/png.c" "$ROOT/src/colour.c" \
     "$ROOT/src/editor.c" "$ROOT/src/history.c" "$ROOT/src/anim.c" "$ROOT/src/canvas.c" \
     "$ROOT/src/view.c" "$ROOT/src/tools.c" "$ROOT/src/workpal.c" "$ROOT/src/keymap.c" \
     -fe="$ROOT/mnt/BMPTEST.EXE"
