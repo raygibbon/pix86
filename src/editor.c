@@ -3,6 +3,7 @@
 #include <string.h>
 #include "editor.h"
 #include "tools.h"
+#include "flyout.h"
 
 static void follow(Editor *e);
 static unsigned editor_frame_command(Editor *e,int key);
@@ -57,7 +58,7 @@ int editor_new_document(Editor *e,unsigned w,unsigned h,int transparent,unsigned
 int editor_init(Editor *e,unsigned side,unsigned short *queue)
 {
     if(!e || !queue || !anim_dimensions(side,side)) return 0;
-    memset(e,0,sizeof(*e)); e->fill_queue=queue; e->preview_colour=7; e->checker=1;
+    memset(e,0,sizeof(*e)); e->group_tool[1]=TOOL_SELECT; e->fill_queue=queue; e->preview_colour=7; e->checker=1;
     e->document=anim_alloc(sizeof(P86Image));
     e->saved=anim_alloc(sizeof(P86Image));
     if(!e->document || !e->saved || !history_create(&e->history,e->document)) {
@@ -84,6 +85,8 @@ void editor_finish(Editor *editor)
     if (editor->dragging)
         history_commit(&editor->history, &editor->canvas);
     editor->dragging = editor->segment_valid = 0;
+    if(editor->selection.state==SEL_DRAG) editor->selection.state=SEL_FLOAT;
+    if(editor->selection.state==SEL_RECT) editor->selection.state=SEL_ACTIVE;
 }
 
 unsigned editor_background(Editor *e,unsigned char colour)
@@ -134,10 +137,7 @@ unsigned editor_mouse(Editor *editor, int x, int y, unsigned buttons)
     }
     tool = toolbar_hit(x, y);
     if ((pressed & EDIT_LEFT) && tool >= 0) {
-        editor_finish(editor);
-        editor->tool = tool;
-        if(tool==TOOL_MOVE) return flags|editor_key(editor,CMD_MOVE);
-        return flags | EDIT_UI;
+        return flags|editor_key(editor,tool_command(editor->group_tool[tool]));
     }
     if((pressed&EDIT_LEFT) && ((editor->selection.state==SEL_ACTIVE && inside &&
         cx>=editor->selection.x && cy>=editor->selection.y &&
@@ -185,6 +185,7 @@ unsigned editor_key(Editor *editor, int key)
         return editor_select(editor,(unsigned)(key-CMD_SELECT_FRAME));
     if(key>=CMD_FRAME_ADD && key<=CMD_SCROLL_RIGHT) {
         selection_reset(editor);
+        if(key==CMD_PLAY) return editor_frame_command(editor,key);
         return editor_frame_command(editor,key)|EDIT_CANVAS;
     }
     editor->playing=0;
@@ -198,7 +199,7 @@ unsigned editor_key(Editor *editor, int key)
     if(key==CMD_MOVE) tool=TOOL_MOVE;
     if (tool >= 0) {
         editor_finish(editor);
-        editor->tool = tool;
+        editor->tool = tool; editor->group_tool[tool_group(tool)]=(unsigned char)tool;
         return EDIT_UI | EDIT_STATUS;
     }
     if(key==CMD_TIMELINE) {
@@ -340,6 +341,7 @@ static unsigned editor_frame_command(Editor *e,int key)
     n=e->document->frames; a=e->history.active; size=e->history.size;
     if(key==CMD_PLAY) {
         e->playing=!e->playing; e->elapsed=0;
+        if(e->playing) e->playback_dropped=0;
         return EDIT_TIMELINE|EDIT_STATUS;
     }
     if(key==CMD_FRAME_PREV || key==CMD_FRAME_NEXT)
@@ -380,20 +382,47 @@ static unsigned editor_frame_command(Editor *e,int key)
 }
 unsigned editor_tick(Editor *e,unsigned ms)
 {
-    unsigned long elapsed,total;
-    unsigned i,old;
+    unsigned long elapsed,remaining,total,cycles;
+    unsigned old,next,i;
+    unsigned long due;
     if(!e->playing || !ms) return 0;
-    elapsed=(unsigned long)e->elapsed+ms; total=0;
-    for(i=0;i<e->document->frames;++i) total+=e->document->duration[i];
-    elapsed%=total; old=e->history.active;
-    while(elapsed>=e->document->duration[e->history.active]) {
-        elapsed-=e->document->duration[e->history.active];
-        e->history.active=(e->history.active+1)%e->document->frames;
+    elapsed=(unsigned long)e->elapsed+ms;
+    old=e->history.active;
+    if(elapsed<e->document->duration[old]) {
+        e->elapsed=(unsigned)elapsed;
+        return 0;
     }
-    e->elapsed=(unsigned)elapsed;
-    if(old==e->history.active) return 0;
-    anim_copy(e->document->pixels+old*e->history.size,e->pixels,e->history.size);
-    anim_copy(e->document->mask+old*e->history.size/8,e->mask,e->history.size/8);
+    if(e->document->frames==1) {
+        e->elapsed=(unsigned)(elapsed%e->document->duration[old]);
+        return 0;
+    }
+
+    /* Count frame deadlines the old catch-up path would have crossed, but
+       present only the next frame and restart its duration from this tick. */
+    due=1; remaining=elapsed-e->document->duration[old];
+    next=(old+1)%e->document->frames;
+    total=0;
+    for(i=0;i<e->document->frames;++i) total+=e->document->duration[i];
+    if(remaining>=total) {
+        cycles=remaining/total;
+        due+=cycles*e->document->frames;
+        remaining%=total;
+    }
+    while(remaining>=e->document->duration[next]) {
+        remaining-=e->document->duration[next];
+        next=(next+1)%e->document->frames;
+        ++due;
+    }
+    if(due>1) {
+        unsigned long missed;
+        missed=due-1;
+        if(missed>=9999UL || e->playback_dropped>9999UL-missed) e->playback_dropped=9999UL;
+        else e->playback_dropped+=missed;
+    }
+    e->playback_previous=old;
+    editor_store(e);
+    e->history.active=(old+1)%e->document->frames;
+    e->elapsed=0;
     editor_restore(e);
-    follow(e); return EDIT_CANVAS|EDIT_STATUS|EDIT_TIMELINE;
+    follow(e); return EDIT_PLAYBACK|EDIT_STATUS|EDIT_TIMELINE;
 }

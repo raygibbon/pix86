@@ -30,6 +30,15 @@ static void refresh_editor(unsigned flags)
     screen_update(&screen,&editor,&screen.menu,flags,&mouse,mouse_available);
 }
 
+static int command_uses_modal(int command)
+{
+    return command==CMD_EXPORT || command==CMD_EXIT || command==CMD_SAVE ||
+        command==CMD_OPEN || command==CMD_SAVE_AS || command==CMD_NEW ||
+        command==CMD_PALETTE || command==CMD_BG || command==CMD_FONT ||
+        command==CMD_HELP || command==CMD_ABOUT || command==CMD_PREVIEW ||
+        command==CMD_FILL_BG;
+}
+
 static int discard_changes(void)
 {
     return !editor_is_dirty(&editor) ||
@@ -117,7 +126,8 @@ int main(int argc, char **argv)
     unsigned char colour;
     int background, was_playing, hires, video_error;
     clock_t last_tick,now;
-    unsigned long ticks;
+    unsigned long ticks,loop_ms,frame_elapsed;
+    unsigned delay_ms,duration;
     side = height = 32;
     size_set = disable_mouse = hires = video_error = 0;
     for (i = 1; i < argc; ++i) {
@@ -164,15 +174,16 @@ int main(int argc, char **argv)
         mouse_poll(&mouse);
         was_playing=editor.playing;
         was_active = ui.menu.active;
-        consumed = ui_input(&ui,key,&mouse,&command);
+        consumed = ui_input(&ui,&editor,key,&mouse,&command);
         if(!consumed && !ui.menu.active && !(previous.buttons&1))
             consumed=ui_timeline(&ui,editor.timeline,editor.first_frame,editor.document->frames,&mouse,&command);
         now=clock(); ticks=(unsigned long)(now-last_tick); last_tick=now;
         flags=ui.menu.active?0:editor_tick(&editor,(unsigned)(ticks>60UL*CLOCKS_PER_SEC?60000UL:ticks*1000UL/CLOCKS_PER_SEC));
         modal = 0;
         if (consumed) { editor_finish(&editor); if(command!=CMD_PLAY) editor.playing=0; }
-        /* Restore an exposed menu before dispatching a modal command. */
-        screen_update(&screen,&editor,&ui.menu,0,&mouse,has_mouse);
+        /* Restore an exposed menu only when a dialog will cover it. */
+        if(was_active && !ui.menu.active && command_uses_modal(command))
+            screen_present(&screen,&editor,&ui,0,&mouse,has_mouse);
         if(command==CMD_EXPORT || command==CMD_EXIT || command==CMD_SAVE || command==CMD_OPEN || command==CMD_SAVE_AS || command==CMD_NEW || command==CMD_PALETTE || command==CMD_BG || command==CMD_FONT || command==CMD_HELP || command==CMD_ABOUT) editor.playing=0;
         if(selection_floating(&editor) && command>0 &&
            (command==CMD_NEW || command==CMD_OPEN || command==CMD_SAVE || command==CMD_SAVE_AS ||
@@ -214,7 +225,7 @@ int main(int argc, char **argv)
             dialog_font(); modal=1;
         } else if (command == CMD_HELP || command == CMD_ABOUT) {
             if (command == CMD_HELP)
-                dialog_message("Pix86 controls", "Tab timeline. Ins add, D duplicate, Del delete. ,/. frames, Space play. (/) timing. P E F I S M: tools. Ctrl+A select all, Ctrl+D deselect. Arrows move; Enter apply, Esc cancel. U R: undo/redo. G: grid. +/-: zoom. A/B: all colours FG/BG. [ ]: working colours. F2: save F3: open. Ctrl+\\: menu.", NULL);
+                dialog_message("Pix86 controls", "Right-click tools: flyouts. Bottom numbers: frames. Tab timeline. Ins add, D duplicate, Del delete. ,/. frames, Space play. (/) timing. P E F I S M: tools. Ctrl+A select all, Ctrl+D deselect. Arrows move; Enter apply, Esc cancel. U R: undo/redo. G: grid. +/-: zoom. A/B: all colours FG/BG. [ ]: working colours. F2: save F3: open. Ctrl+\\: menu.", NULL);
             else dialog_message("About Pix86", "Original 16-bit DOS pixel editor. Frame animation in VGA Mode 13h.", NULL);
             modal = 1;
         } else if (command > 0) flags |= editor_key(&editor, command);
@@ -228,10 +239,22 @@ int main(int argc, char **argv)
                    (mouse.x != previous.x || mouse.y != previous.y || mouse.buttons != previous.buttons))
             flags |= editor_mouse(&editor, mouse.x, mouse.y, mouse.buttons);
         if(was_playing!=editor.playing) flags|=EDIT_TIMELINE;
-        screen_update(&screen,&editor,&ui.menu,flags,&mouse,has_mouse);
+        screen_present(&screen,&editor,&ui,flags,&mouse,has_mouse);
         if(video_failed()) { video_error=1; break; }
+        if(editor.playing && ((flags&EDIT_PLAYBACK) || (!was_playing && editor.playing)))
+            last_tick=clock();
         previous = mouse;
-        delay(10);
+        if(editor.playing) {
+            now=clock(); ticks=(unsigned long)(now-last_tick);
+            loop_ms=ticks*1000UL/CLOCKS_PER_SEC;
+            duration=editor.document->duration[editor.history.active];
+            frame_elapsed=(unsigned long)editor.elapsed+loop_ms;
+            if(frame_elapsed<duration) {
+                delay_ms=duration-(unsigned)frame_elapsed;
+                if(delay_ms>10) delay_ms=10;
+                if(delay_ms) delay(delay_ms);
+            }
+        } else delay(10);
     }
     editor_finish(&editor);
     cursor_hide();

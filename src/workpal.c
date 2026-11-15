@@ -18,7 +18,7 @@ unsigned char workpal_step(unsigned char colour,int direction)
     return colours[direction<0?15:0];
 }
 int workpal_more(int x,int y)
-{ return x>=PALETTE_X && x<PALETTE_X+TOOL_WIDTH && y>=PALETTE_MORE_Y && y<PALETTE_MORE_Y+TOOL_HEIGHT; }
+{ return x>=PALETTE_X && x<PALETTE_X+6*FONT_WIDTH && y>=PALETTE_MORE_Y && y<PALETTE_MORE_Y+FONT_HEIGHT+2; }
 int workpal_full_hit(int x,int y,unsigned char *colour)
 {
     if(x<FULLPAL_X || x>=FULLPAL_X+16*FULLPAL_CELL_W || y<FULLPAL_Y || y>=FULLPAL_Y+16*FULLPAL_CELL_H) return 0;

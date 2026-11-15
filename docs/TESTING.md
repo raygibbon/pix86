@@ -1,3 +1,16 @@
+# Compact workspace verification — 2026-11-15
+
+All twelve strict host suites and twelve ASan/UBSan suites pass. Watcom application
+and native tests build with warnings as errors; all ten DOS runs pass (eight
+editor/I/O suites and VGA/VBE driver runs). UITEST exercises group ownership and
+compact navigation with real 16-bit arithmetic. The new host framebuffer suite
+compares complete images in both modes, checks overlay write bounds and cursor
+reads, and draws in the reclaimed top row. Native GUI checks compare menu/flyout
+restoration byte-for-byte and preserve a complete twelve-frame v3 file after
+selection, floating overlays, frame navigation and timeline toggling.
+[Native captures, memory, provenance and limitations](COMPACT.md).
+Older sections below record earlier feature builds.
+
 # Toolbar, selection and both display modes — 2026-11-15
 
 All eleven strict host suites and all eleven ASan/UBSan suites pass. Watcom

@@ -3,6 +3,7 @@
 #include <string.h>
 #include "editor.h"
 #include "command.h"
+#include "flyout.h"
 static Editor e;
 static unsigned short queue[4096];
 static unsigned char original[4096],masks[512],expected[4096],expected_mask[512];
@@ -76,11 +77,11 @@ static void geometry(void)
     fresh(32,32,0); editor_key(&e,CMD_SELECT);
     pointer(2,3,2); pointer(2,3,0);
     assert(e.foreground==98 && !memcmp(e.pixels,original,1024) && e.history.position==0);
-    for(tool=0;tool<TOOL_COUNT;++tool) {
-        e.tool=0; pointer(-1,-1,0);
+    for(tool=0;tool<TOOL_GROUPS;++tool) {
+        e.tool=0; e.group_tool[0]=TOOL_PENCIL; e.group_tool[1]=TOOL_SELECT; pointer(-1,-1,0);
         editor_mouse(&e,TOOL_X+2,TOOL_Y+tool*TOOL_STEP+2,1);
         editor_mouse(&e,TOOL_X+2,TOOL_Y+tool*TOOL_STEP+2,0);
-        assert(e.tool==tool);
+        assert(e.tool==e.group_tool[tool]);
         assert(toolbar_hit(TOOL_X+2,TOOL_Y+tool*TOOL_STEP+2)==tool);
     }
 }
@@ -138,7 +139,7 @@ int main(void)
         layout_set(mode?640:320,mode?480:200);
         geometry(); movement(0); movement(1);
         assert(DRAW_X+DRAW_WIDTH<UI_RIGHT_X && TOOL_X>=UI_RIGHT_X);
-        assert(TOOL_Y+5*TOOL_STEP+TOOL_HEIGHT<UI_STATUS_Y);
+        assert(TOOL_Y+TOOL_STEP+TOOL_HEIGHT<UI_STATUS_Y);
     }
     editor_dispose(&e);
     puts("PASS: selection rectangles, both layouts, floating preview, masks, clipping, cancel, atomic undo/redo and save/load.");

@@ -109,7 +109,7 @@ int menu_mouse(Menu *menu, int x, int y, unsigned buttons, int *command)
     menu->buttons = buttons;
     consumed = menu->active;
     if (!(pressed & 1)) return consumed;
-    if (y >= 0 && y < MENU_BAR_HEIGHT) {
+    if (menu->active && y >= 0 && y < MENU_BAR_HEIGHT) {
         for (i = 0; i < MENU_COUNT; ++i)
             if (x >= menu_heading_left(i) && x < menu_heading_left(i) + menu_width(i)) {
                 open_menu(menu, i); return 1;

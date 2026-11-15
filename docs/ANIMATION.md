@@ -37,6 +37,68 @@ Verification retains existing idle-write, exact overlay restoration, one startup
 clear and Escape interception regressions. Additional tests cover rectangular
 geometry, timing/wrap, structural undo, failure preservation and malformed v2.
 
+## Frame-accurate playback rendering — 2026-11-15
+
+The elapsed-time accumulator was the point where frames were skipped: its
+catch-up loop could advance several frames before the next screen update. Full
+canvas painting at every transition, plus rebuilding every timeline thumbnail,
+increased that latency and made the catch-up path more likely. Playback now
+advances by one frame per presentation; late time is discarded so rendering
+latency stretches playback instead of skipping visible frames. Existing frame
+durations remain unchanged in the document and on disk.
+
+The playback painter compares the current pixels/mask with the previous frame
+already stored in the animation, without allocating a framebuffer. It repaints
+the first presentation fully to establish a known display baseline, then only
+changed visible cells. It changes the two affected timeline selection areas and
+refreshes the active-frame/duration label without repainting thumbnail pixels.
+Packed-mask comparison uses the previous frame's mask-byte offset, separately
+from its pixel-byte offset; a regression covers transitions from frame 2 onward.
+Other UI regions retain their existing pixels. While playing, the status line
+reports `R` (last canvas/timeline render time in ms), `D` (nominal frame
+deadlines exceeded, capped at 9999; frames are still presented in sequence), and
+`F` (actual presented frames per second). Timing sampling is playback-only.
+The Mode 13h rectangle painter now calculates each scanline address once rather
+than recalculating it for every pixel and uses the Watcom far-memory fill for
+contiguous rows. The frame clock restarts after each frame has been rendered;
+the loop waits at most 10 ms toward the next deadline, and does not wait when
+rendering has already overrun it. Idle polling retains its 10 ms sleep.
+
+Measured host video-mock pixel writes for a two-frame animation with one changed
+opaque pixel, timeline open, 320×200 layout and automatic maximum timeline zoom:
+
+| Animation | Full canvas + timeline per frame | Playback diff | Fewer writes |
+| --- | ---: | ---: | ---: |
+| 16×16 | 60,367 | 1,453 | 97.6% |
+| 16×24 | 60,367 | 1,408 | 97.7% |
+| 32×32 | 60,367 | 1,388 | 97.7% |
+| 64×64 | 60,367 | 1,376 | 97.7% |
+
+These are deterministic mock pixel-write counts, not elapsed-time benchmarks;
+they compare steady-state playback (after the one-time full baseline) and include
+the full old workspace/timeline repaint versus the changed cell, two selection
+indicators and metadata update. Host playback regressions exercise all four
+shapes at their maximum timeline zoom and check full-frame equivalence,
+long-delay sequential presentation, unchanged transparent pixels, thumbnail
+preservation and timing immutability. Open Watcom application and DOS test builds
+are verified, and the native test executables pass in DOSBox 0.74-3. DOSBox-X is
+not installed in the current environment, so interactive DOSBox-X timing and
+visual verification remain outstanding.
+
+High-change benchmark fixture (75% of cells changed; grid and guides enabled):
+
+| Animation | Maximum zoom | Full draw | Playback diff at max | Playback diff at 1× |
+| --- | ---: | ---: | ---: | ---: |
+| 16×16 | 9× | 65,551 | 22,486 | 1,580 |
+| 16×24 | 6× | 65,551 | 16,870 | 1,684 |
+| 32×32 | 4× | 69,583 | 22,268 | 2,204 |
+| 64×64 | 2× | 62,415 | 16,540 | 4,700 |
+
+This separates draw work from pacing: the tables measure only renderer writes;
+the on-screen `R`/`F` values measure render time and actual presentation rate,
+while `D` reports deadline overruns. No DOSBox-X render-time measurements are
+claimed.
+
 ## Implemented and verified (2026-11-15)
 
 All planned stages above are implemented. Live/history/baseline storage uses a

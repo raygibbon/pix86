@@ -11,6 +11,8 @@
 static Editor editor;
 static unsigned short queue[4096];
 static unsigned char screen[640*480];
+static unsigned char expected[320*200];
+static unsigned long writes;
 static int clip_x,clip_y,clip_r=320,clip_b=200;
 void video_clip(int x,int y,int w,int h) { clip_x=x;clip_y=y;clip_r=x+w;clip_b=y+h; }
 void video_unclip(void) { clip_x=clip_y=0;clip_r=UI_WIDTH;clip_b=UI_HEIGHT; }
@@ -22,12 +24,12 @@ void video_rect(int x, int y, int w, int h, unsigned char colour)
     for (yy = y; yy < y + h; ++yy)
         for (xx = x; xx < x + w; ++xx)
             if (xx >= clip_x && yy >= clip_y && xx < clip_r && yy < clip_b)
-                screen[yy * UI_WIDTH + xx] = colour;
+                { screen[yy * UI_WIDTH + xx] = colour; ++writes; }
 }
 
 void video_pixel(int x,int y,unsigned char colour)
 {
-    if(x>=clip_x && y>=clip_y && x<clip_r && y<clip_b) screen[y*UI_WIDTH+x]=colour;
+    if(x>=clip_x && y>=clip_y && x<clip_r && y<clip_b) { screen[y*UI_WIDTH+x]=colour; ++writes; }
 }
 
 void video_text(int x, int y, const char *text, unsigned char colour)
@@ -184,11 +186,121 @@ static void selections(void)
     }
     layout_set(320,200); video_unclip();
 }
+static void playback_diff(unsigned width,unsigned height)
+{
+    unsigned size,offset,zoom;
+    unsigned long before,full_writes,playback_writes;
+    editor_dispose(&editor); assert(editor_init(&editor,width,queue));
+    if(width!=height) assert(editor_new_shape(&editor,width,height));
+    size=editor.history.size;
+    editor_store(&editor);
+    editor.document->frames=2;
+    memcpy(editor.document->pixels+size,editor.pixels,size);
+    memcpy(editor.document->mask+size/8,editor.mask,size/8);
+    offset=size/2;
+    editor.document->pixels[size+offset]=231;
+    editor.history.active=0; editor_restore(&editor);
+    editor.timeline=1; assert(view_fit(&editor.view,&editor.canvas,1,0));
+    zoom=(unsigned)editor.view.zoom;
+    writes=0; render_canvas(&editor); render_timeline(&editor);
+    full_writes=writes;
+    editor.history.active=1; editor_restore(&editor);
+    writes=0; render_playback_canvas(&editor,0); render_timeline_playback(&editor,0);
+    playback_writes=writes;
+    assert(playback_writes==(unsigned long)zoom*zoom+
+           2UL*((TIMELINE_CELL-2)*21-64)+12UL*FONT_WIDTH*FONT_HEIGHT);
+    printf("Playback writes %ux%u: full %lu, optimized %lu\n",
+           width,height,full_writes,playback_writes);
+    memcpy(expected,screen,sizeof(expected));
+    render_canvas(&editor); render_timeline(&editor);
+    assert(!memcmp(expected,screen,sizeof(expected)));
+    before=writes;
+    editor.document->pixels[size+offset]=editor.document->pixels[offset];
+    editor_restore(&editor);
+    render_playback_canvas(&editor,0);
+    assert(writes==before);
+    editor.document->mask[offset/8]|=(unsigned char)(1U<<(offset%8));
+    editor.mask[offset/8]|=(unsigned char)(1U<<(offset%8));
+    editor.pixels[offset]=(unsigned char)(editor.document->pixels[offset]+1);
+    writes=0; render_playback_canvas(&editor,0); assert(!writes);
+    editor.mask[offset/8]&=(unsigned char)~(1U<<(offset%8));
+    writes=0; render_playback_canvas(&editor,0);
+    assert(writes==(unsigned long)zoom*zoom);
+    editor.document->frames=3;
+    memcpy(editor.document->pixels+2*size,editor.document->pixels+size,size);
+    memcpy(editor.document->mask+2*size/8,editor.document->mask+size/8,size/8);
+    editor.document->mask[size/8+offset/8]|=(unsigned char)(1U<<(offset%8));
+    editor.history.active=2; editor_restore(&editor);
+    writes=0; render_playback_canvas(&editor,1);
+    assert(writes==(unsigned long)zoom*zoom);
+}
+static void playback_timeline(void)
+{
+    int x,y;
+    editor_dispose(&editor); assert(editor_init(&editor,16,queue));
+    editor.timeline=1; editor.document->frames=2;
+    editor.first_frame=0; editor.history.active=1;
+    for(y=TIMELINE_Y+13+11;y<TIMELINE_Y+13+19;++y)
+        for(x=DRAW_X+12;x<DRAW_X+20;++x) screen[y*UI_WIDTH+x]=231;
+    writes=0; render_timeline_playback(&editor,0);
+    assert(writes==2UL*((TIMELINE_CELL-2)*21-64)+12UL*FONT_WIDTH*FONT_HEIGHT);
+    for(y=TIMELINE_Y+13+11;y<TIMELINE_Y+13+19;++y)
+        for(x=DRAW_X+12;x<DRAW_X+20;++x) assert(screen[y*UI_WIDTH+x]==231);
+}
+static void playback_heavy(unsigned width,unsigned height,int zoom)
+{
+    unsigned size,offset,mask_offset;
+    unsigned long full_writes,playback_writes;
+    editor_dispose(&editor); assert(editor_init(&editor,width,queue));
+    if(width!=height) assert(editor_new_shape(&editor,width,height));
+    size=editor.history.size; editor_store(&editor);
+    editor.document->frames=2; editor.document->duration[1]=editor.document->duration[0];
+    memcpy(editor.document->pixels+size,editor.pixels,size);
+    memcpy(editor.document->mask+size/8,editor.mask,size/8);
+    for(offset=0;offset<size;++offset) {
+        if(offset%4) editor.document->pixels[size+offset]=(unsigned char)(offset%255+1);
+        if(offset%16==0) {
+            mask_offset=size/8+offset/8;
+            editor.document->mask[mask_offset]|=(unsigned char)(1U<<(offset%8));
+        }
+    }
+    editor.timeline=1; editor.grid=1; editor.guide=3;
+    editor.history.active=0; editor_restore(&editor);
+    assert(view_fit(&editor.view,&editor.canvas,1,zoom));
+    writes=0; render_canvas(&editor); render_timeline(&editor);
+    full_writes=writes;
+    editor.history.active=1; editor_restore(&editor);
+    writes=0; render_playback_canvas(&editor,0); render_timeline_playback(&editor,0);
+    playback_writes=writes;
+    assert(playback_writes<full_writes);
+    printf("Playback 75%% changed %ux%u zoom %d: full %lu, diff %lu\n",
+           width,height,editor.view.zoom,full_writes,playback_writes);
+    memcpy(expected,screen,sizeof(expected));
+    render_canvas(&editor); render_timeline(&editor);
+    assert(!memcmp(expected,screen,sizeof(expected)));
+    editor_dispose(&editor);
+}
 int main(void)
 {
+    unsigned shapes[4][2],i;
+    int zoom;
     test_render(16);
     test_render(32);
     test_render(64); guides(); transparency(); selections();
+    playback_diff(16,16); playback_diff(16,24); playback_diff(32,32); playback_diff(64,64);
+    shapes[0][0]=16; shapes[0][1]=16; shapes[1][0]=16; shapes[1][1]=24;
+    shapes[2][0]=32; shapes[2][1]=32; shapes[3][0]=64; shapes[3][1]=64;
+    for(i=0;i<4;++i) {
+        editor_dispose(&editor); assert(editor_init(&editor,shapes[i][0],queue));
+        if(shapes[i][0]!=shapes[i][1])
+            assert(editor_new_shape(&editor,shapes[i][0],shapes[i][1]));
+        editor.timeline=1;
+        assert(view_fit(&editor.view,&editor.canvas,1,0));
+        zoom=editor.view.zoom;
+        playback_heavy(shapes[i][0],shapes[i][1],zoom);
+        playback_heavy(shapes[i][0],shapes[i][1],1);
+    }
+    playback_timeline();
     puts("PASS: canvas rendering at every zoom, grids and all palette indices.");
     editor_dispose(&editor);
     return 0;

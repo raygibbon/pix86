@@ -60,9 +60,10 @@ static void model(void)
     editor_key(&e,CMD_REDO); assert(e.document->frames==2);
     editor_select(&e,0); editor_key(&e,CMD_PLAY);
     assert(!editor_tick(&e,99));
-    assert(editor_tick(&e,1)&EDIT_CANVAS); assert(e.history.active==1 && e.pixels[0]==255);
-    assert(editor_tick(&e,100)&EDIT_CANVAS); assert(e.history.active==0 && e.pixels[0]==201);
-    assert(!editor_tick(&e,60000)); assert(e.history.active==0);
+    assert(editor_tick(&e,1)&EDIT_PLAYBACK); assert(e.history.active==1 && e.pixels[0]==255);
+    assert(editor_tick(&e,100)&EDIT_PLAYBACK); assert(e.history.active==0 && e.pixels[0]==201);
+    assert(editor_tick(&e,60000)&EDIT_PLAYBACK); assert(e.history.active==1 && e.pixels[0]==255);
+    assert(e.playback_dropped>0);
     editor_key(&e,CMD_PLAY); assert(!e.playing);
     editor_mark_saved(&e); assert(!editor_is_dirty(&e));
     editor_key(&e,CMD_TIMELINE); assert(e.view.zoom==4);
@@ -74,7 +75,7 @@ static void model(void)
     pos=e.history.position; editor_key(&e,CMD_FRAME_ADD);
     assert(e.document->frames==4 && e.history.position==pos);
     assert(editor_new_shape(&e,16,24)); assert(e.canvas.height==24 && e.view.zoom==7);
-    editor_key(&e,CMD_TIMELINE); assert(e.view.zoom==5);
+    editor_key(&e,CMD_TIMELINE); assert(e.view.zoom==(TIMELINE_Y-DRAW_Y-2)/24);
     for(i=1;i<16;++i) editor_key(&e,CMD_FRAME_DUP);
     assert(e.document->frames==16 && e.first_frame==16-TIMELINE_SLOTS);
     editor_select(&e,0); assert(!e.first_frame);
@@ -122,12 +123,41 @@ static void files(void)
     assert(e.document->duration[1]==110);
     remove("ANIM.P86"); remove("BADANIM.P86"); editor_dispose(&e);
 }
+static void playback_sequence(void)
+{
+    unsigned size;
+    assert(editor_init(&e,16,queue));
+    edit(10);
+    editor_key(&e,CMD_FRAME_DUP); edit(20);
+    editor_key(&e,CMD_FRAME_DUP); edit(30);
+    size=e.history.size;
+    e.document->duration[0]=20;
+    e.document->duration[1]=30;
+    e.document->duration[2]=40;
+    editor_select(&e,0); editor_mark_saved(&e);
+    editor_key(&e,CMD_PLAY);
+    assert(editor_tick(&e,1000)&EDIT_PLAYBACK);
+    assert(e.history.active==1 && e.pixels[0]==20 && e.playback_dropped>0);
+    assert(e.document->duration[0]==20 && e.document->duration[1]==30 &&
+           e.document->duration[2]==40 && e.history.size==size);
+    assert(!editor_tick(&e,29) && e.history.active==1);
+    assert(editor_tick(&e,1)&EDIT_PLAYBACK);
+    assert(e.history.active==2 && e.pixels[0]==30);
+    assert(!editor_tick(&e,39) && e.history.active==2);
+    assert(editor_tick(&e,1)&EDIT_PLAYBACK);
+    assert(e.history.active==0 && e.pixels[0]==10);
+    assert(!editor_is_dirty(&e));
+    assert(e.document->duration[0]==20 && e.document->duration[1]==30 &&
+           e.document->duration[2]==40);
+    editor_key(&e,CMD_PLAY);
+    editor_dispose(&e);
+}
 int main(void)
 {
 #ifdef ALLOC_FAULTS
     failures();
 #endif
-    model(); files();
+    model(); files(); playback_sequence();
     puts("PASS: animation structure, frame history, timing, geometry, v2 validation and preservation.");
     return 0;
 }

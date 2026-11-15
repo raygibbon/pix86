@@ -8,13 +8,13 @@ mkdir -p "$ROOT/build"
 "$ROOT/build/coretest"
 "${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror \
     -I"$ROOT/src" "$ROOT/tests/testedit.c" "$ROOT/src/canvas.c" \
-    "$ROOT/src/tools.c" "$ROOT/src/history.c" "$ROOT/src/view.c" "$ROOT/src/layout.c" "$ROOT/src/select.c" "$ROOT/src/workpal.c" \
+    "$ROOT/src/tools.c" "$ROOT/src/history.c" "$ROOT/src/view.c" "$ROOT/src/layout.c" "$ROOT/src/flyout.c" "$ROOT/src/select.c" "$ROOT/src/workpal.c" \
     "$ROOT/src/editor.c" "$ROOT/src/anim.c" "$ROOT/src/keymap.c" -o "$ROOT/build/edtest"
 "$ROOT/build/edtest"
 "${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror \
     -I"$ROOT/src" "$ROOT/tests/render.c" "$ROOT/src/render.c" \
     "$ROOT/src/canvas.c" "$ROOT/src/tools.c" "$ROOT/src/history.c" \
-    "$ROOT/src/view.c" "$ROOT/src/layout.c" "$ROOT/src/select.c" "$ROOT/src/workpal.c" "$ROOT/src/editor.c" "$ROOT/src/anim.c" "$ROOT/src/region.c" "$ROOT/src/keymap.c" -o "$ROOT/build/rentest"
+    "$ROOT/src/view.c" "$ROOT/src/layout.c" "$ROOT/src/flyout.c" "$ROOT/src/select.c" "$ROOT/src/workpal.c" "$ROOT/src/editor.c" "$ROOT/src/anim.c" "$ROOT/src/region.c" "$ROOT/src/keymap.c" -o "$ROOT/build/rentest"
 "$ROOT/build/rentest"
 mkdir -p "$ROOT/build/iotest"
 "${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror -I"$ROOT/src" \
@@ -24,15 +24,15 @@ mkdir -p "$ROOT/build/iotest"
 "${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror -DIO_FAULTS \
     -I"$ROOT/src" "$ROOT/tests/testfile.c" "$ROOT/build/faultio.o" \
     "$ROOT/src/project.c" "$ROOT/src/editor.c" "$ROOT/src/anim.c" "$ROOT/src/canvas.c" \
-    "$ROOT/src/tools.c" "$ROOT/src/history.c" "$ROOT/src/view.c" "$ROOT/src/layout.c" "$ROOT/src/select.c" "$ROOT/src/workpal.c" \
+    "$ROOT/src/tools.c" "$ROOT/src/history.c" "$ROOT/src/view.c" "$ROOT/src/layout.c" "$ROOT/src/flyout.c" "$ROOT/src/select.c" "$ROOT/src/workpal.c" \
     "$ROOT/src/dlginput.c" "$ROOT/src/keymap.c" -o "$ROOT/build/filetest"
 (cd "$ROOT/build/iotest" && "$ROOT/build/filetest")
 "${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror \
-    -I"$ROOT/tests/stubs" -I"$ROOT/src" "$ROOT/tests/testui.c" \
+    -I"$ROOT/tests/stubs" -I"$ROOT/src" "$ROOT/src/ui.c" "$ROOT/tests/testui.c" \
     "$ROOT/src/textsize.c" "$ROOT/src/dlggeom.c" "$ROOT/src/menu.c" "$ROOT/src/menudraw.c" "$ROOT/src/uipaint.c" "$ROOT/src/keymap.c" \
     "$ROOT/src/dialog.c" "$ROOT/src/dlginput.c" "$ROOT/src/editor.c" "$ROOT/src/anim.c" \
     "$ROOT/src/canvas.c" "$ROOT/src/tools.c" "$ROOT/src/history.c" \
-    "$ROOT/src/view.c" "$ROOT/src/layout.c" "$ROOT/src/select.c" "$ROOT/src/workpal.c" -o "$ROOT/build/uitest"
+    "$ROOT/src/view.c" "$ROOT/src/layout.c" "$ROOT/src/flyout.c" "$ROOT/src/select.c" "$ROOT/src/workpal.c" -o "$ROOT/build/uitest"
 "$ROOT/build/uitest"
 "${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror -I"$ROOT/src" \
     "$ROOT/src/layout.c" "$ROOT/tests/testfont.c" "$ROOT/src/font.c" "$ROOT/src/textsize.c" -o "$ROOT/build/fonttest"
@@ -46,7 +46,7 @@ mkdir -p "$ROOT/build/iotest"
     "$ROOT/src/menu.c" "$ROOT/src/menudraw.c" "$ROOT/src/uipaint.c" "$ROOT/src/keymap.c" \
     "$ROOT/src/dialog.c" "$ROOT/src/dlggeom.c" "$ROOT/src/dlginput.c" \
     "$ROOT/src/editor.c" "$ROOT/src/anim.c" "$ROOT/src/canvas.c" "$ROOT/src/tools.c" \
-    "$ROOT/src/history.c" "$ROOT/src/view.c" "$ROOT/src/layout.c" "$ROOT/src/select.c" "$ROOT/src/workpal.c" "$ROOT/src/fileio.c" \
+    "$ROOT/src/history.c" "$ROOT/src/view.c" "$ROOT/src/layout.c" "$ROOT/src/flyout.c" "$ROOT/src/select.c" "$ROOT/src/workpal.c" "$ROOT/src/fileio.c" \
     "$ROOT/src/project.c" "$ROOT/src/bmp.c" "$ROOT/src/export.c" "$ROOT/src/png.c" "$ROOT/src/colour.c" -o "$ROOT/build/painttest"
 mkdir -p "$ROOT/build/painttest-files"
 (cd "$ROOT/build/painttest-files" && "$ROOT/build/painttest")
@@ -57,7 +57,7 @@ mkdir -p "$ROOT/build/painttest-files"
     -Dmalloc=fault_alloc -Dfree=fault_free -c "$ROOT/src/history.c" -o "$ROOT/build/failhist.o"
 "${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror -DALLOC_FAULTS -I"$ROOT/src" \
     "$ROOT/tests/testanim.c" "$ROOT/build/failedit.o" "$ROOT/build/failhist.o" \
-    "$ROOT/src/anim.c" "$ROOT/src/canvas.c" "$ROOT/src/tools.c" "$ROOT/src/view.c" "$ROOT/src/layout.c" "$ROOT/src/select.c" \
+    "$ROOT/src/anim.c" "$ROOT/src/canvas.c" "$ROOT/src/tools.c" "$ROOT/src/view.c" "$ROOT/src/layout.c" "$ROOT/src/flyout.c" "$ROOT/src/select.c" \
     "$ROOT/src/workpal.c" "$ROOT/src/keymap.c" "$ROOT/src/fileio.c" "$ROOT/src/project.c" \
     -o "$ROOT/build/animtest"
 mkdir -p "$ROOT/build/animtest-files"
@@ -69,7 +69,7 @@ mkdir -p "$ROOT/build/animtest-files"
 "${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror -DBMP_FAULTS -I"$ROOT/src" \
     "$ROOT/tests/testbmp.c" "$ROOT/build/faultbmp.o" "$ROOT/build/bmpio.o" \
     "$ROOT/src/export.c" "$ROOT/src/png.c" "$ROOT/src/colour.c" "$ROOT/src/anim.c" "$ROOT/src/editor.c" "$ROOT/src/canvas.c" \
-    "$ROOT/src/history.c" "$ROOT/src/view.c" "$ROOT/src/layout.c" "$ROOT/src/select.c" "$ROOT/src/tools.c" "$ROOT/src/workpal.c" \
+    "$ROOT/src/history.c" "$ROOT/src/view.c" "$ROOT/src/layout.c" "$ROOT/src/flyout.c" "$ROOT/src/select.c" "$ROOT/src/tools.c" "$ROOT/src/workpal.c" \
     "$ROOT/src/keymap.c" -o "$ROOT/build/bmptest"
 mkdir -p "$ROOT/build/bmptest-files"
 (cd "$ROOT/build/bmptest-files" && "$ROOT/build/bmptest")
@@ -78,14 +78,22 @@ mkdir -p "$ROOT/build/bmptest-files"
 "${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror -DALPHA_FAULTS -I"$ROOT/src" \
     "$ROOT/tests/tstalpha.c" "$ROOT/build/faultpng.o" "$ROOT/src/export.c" "$ROOT/src/bmp.c" "$ROOT/src/colour.c" \
     "$ROOT/src/fileio.c" "$ROOT/src/editor.c" "$ROOT/src/history.c" "$ROOT/src/anim.c" \
-    "$ROOT/src/canvas.c" "$ROOT/src/tools.c" "$ROOT/src/view.c" "$ROOT/src/layout.c" "$ROOT/src/select.c" "$ROOT/src/workpal.c" "$ROOT/src/keymap.c" \
+    "$ROOT/src/canvas.c" "$ROOT/src/tools.c" "$ROOT/src/view.c" "$ROOT/src/layout.c" "$ROOT/src/flyout.c" "$ROOT/src/select.c" "$ROOT/src/workpal.c" "$ROOT/src/keymap.c" \
     -o "$ROOT/build/alphatest"
 mkdir -p "$ROOT/build/alphatest-files"
 (cd "$ROOT/build/alphatest-files" && "$ROOT/build/alphatest")
 
 "${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror -I"$ROOT/src" \
-    "$ROOT/tests/testsel.c" "$ROOT/src/editor.c" "$ROOT/src/select.c" "$ROOT/src/layout.c" \
+    "$ROOT/tests/testsel.c" "$ROOT/src/editor.c" "$ROOT/src/select.c" "$ROOT/src/layout.c" "$ROOT/src/flyout.c" \
     "$ROOT/src/history.c" "$ROOT/src/view.c" "$ROOT/src/workpal.c" "$ROOT/src/anim.c" \
     "$ROOT/src/canvas.c" "$ROOT/src/tools.c" "$ROOT/src/keymap.c" "$ROOT/src/fileio.c" -o "$ROOT/build/seltest"
 mkdir -p "$ROOT/build/seltest-files"
 (cd "$ROOT/build/seltest-files" && "$ROOT/build/seltest")
+"${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror -I"$ROOT/src" \
+    "$ROOT/tests/compact.c" "$ROOT/src/screen.c" "$ROOT/src/render.c" "$ROOT/src/ui.c" \
+    "$ROOT/src/flyout.c" "$ROOT/src/layout.c" "$ROOT/src/view.c" "$ROOT/src/editor.c" \
+    "$ROOT/src/select.c" "$ROOT/src/history.c" "$ROOT/src/anim.c" "$ROOT/src/canvas.c" "$ROOT/src/tools.c" \
+    "$ROOT/src/workpal.c" "$ROOT/src/keymap.c" "$ROOT/src/menu.c" "$ROOT/src/menudraw.c" \
+    "$ROOT/src/uipaint.c" "$ROOT/src/font.c" "$ROOT/src/textsize.c" "$ROOT/src/cursor.c" "$ROOT/src/region.c" \
+    -o "$ROOT/build/cmptest"
+"$ROOT/build/cmptest"

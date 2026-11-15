@@ -1,5 +1,9 @@
 # Right toolbar and selection workflow
 
+The selection controls remain current; see [COMPACT.md](COMPACT.md) for the latest
+grouped toolbar, hidden menus and status-row animation layout. Screenshots below
+record the earlier six-button layout.
+
 ## Use
 
 Launch `PIX86` for classic 320×200 or `PIX86 /HIRES` for banked VBE 640×480.

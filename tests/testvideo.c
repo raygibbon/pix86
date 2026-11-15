@@ -44,6 +44,9 @@ int main(int argc, char **argv)
             video_pixel((int)colour,100,(unsigned char)colour);
             assert(video_read((int)colour,100)==colour);
         }
+        video_rect(37,103,19,4,173);
+        for(y=103;y<107;++y) for(x=37;x<56;++x)
+            assert(video_read(x,y)==173);
     }
     video_pixel(width-1,height-1,255);
     assert(video_read(width-1,height-1)==255);

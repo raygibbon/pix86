@@ -18,12 +18,14 @@
 #define EDIT_STATUS 4
 #define EDIT_STROKE 8
 #define EDIT_TIMELINE 16
+#define EDIT_PLAYBACK 64
 #define EDIT_LEFT 1
 #define EDIT_RIGHT 2
 
 typedef struct Editor {
     Canvas canvas;
     Selection selection;
+    unsigned char group_tool[2];
     unsigned char pixels[4096];
     unsigned char mask[512];
     History history;
@@ -31,6 +33,8 @@ typedef struct Editor {
     unsigned saved_width, saved_height;
     unsigned char saved_foreground, saved_background;
     unsigned first_frame, elapsed;
+    unsigned playback_previous;
+    unsigned long playback_dropped;
     int playing;
     View view;
     unsigned short *fill_queue;
