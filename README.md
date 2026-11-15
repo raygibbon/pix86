@@ -2,23 +2,21 @@
 
 A lightweight, DOS-native pixel-art and frame-by-frame animation editor for game creators.
 
-**Status:** M2.5 pixel editor with compact 6x8 text, keyboard/mouse menus, file dialogs
-dirty-region rendering and native .P86 saving/loading, targeting
-16-bit real-mode DOS.
+**Status:** working frame animation in VGA Mode 13h (320×200×256), targeting
+8086 real-mode DOS with Open Watcom.
 
-Draw on a 16×16, 32×32 or 64×64 indexed canvas with pencil, eraser, four-connected
-fill and eyedropper tools. Integer zoom, an optional grid, all 256 palette indices
-and four undoable actions support small sprite work. Canvas pixels stay in
-software memory. Save and reopen native `.P86` projects, including canvas size
-and foreground/background selections. Animation and layers are not implemented.
+Draw on 16×16, 32×32, 64×64, 16×24, 16×32 or 32×24 indexed documents.
+Pencil, eraser, fill and eyedropper share the existing Canvas tools. A collapsible
+36-pixel timeline offers frame thumbnails, navigation, add/duplicate/delete and
+looping playback. Per-frame timing defaults to 100 ms and adjusts from 20–2000 ms.
+Four undoable actions include pixel edits, frame structure and timing. Save/reopen
+`.P86` version 2 animations; existing version 1 images remain supported.
 
-![Compact Pix86 workspace in DOSBox-X at 2x display size](docs/UI.PNG)
+![Animation workspace in DOSBox-X at 2x](docs/ANIM2X.PNG)
 
-[File menu](docs/FILEMENU.PNG) · [Filename dialog](docs/DIALOG.PNG) ·
-[Confirmation](docs/CONFIRM.PNG) · [Before/after refinement](docs/REFINE.md)
-
-[All 256 colours](docs/PALETTE.PNG) · [Grid](docs/GRID.PNG) ·
-[Font at native resolution](docs/FONT.PNG)
+[Native 320×200](docs/ANIM.PNG) · [Frame menu](docs/ANMENU.PNG) ·
+[High-contrast grid](docs/ANGRID.PNG) · [Original font](docs/ANFONT.PNG) ·
+[Implementation and verification](docs/ANIMATION.md)
 
 Menus repaint only changed rows; dialogs remain unchanged while idle and restore
 only the covered editor region when closed. The cursor is saved/restored only
@@ -63,6 +61,7 @@ Choose canvas size when launching (default: 32×32):
 PIX86 16
 PIX86 32
 PIX86 64
+PIX86 16x24
 PIX86 32 /NOMOUSE
 ```
 
@@ -82,7 +81,13 @@ only `PIX86.EXE` to DOS; no runtime DLL or data assets are needed.
 | Left-click palette | Select foreground (FG) |
 | Right-click palette | Configure eraser/clear background (BG) |
 | + / = and - | Increase/decrease integer zoom within workspace limits |
-| G | Toggle subtle pixel grid (initially off, visible at zoom 2 and above) |
+| G | Toggle high-contrast pixel grid (initially off, visible at zoom ≥3) |
+| 8 / 6 | Toggle 8×8 / 16×16 guides (visible at zoom ≥2) |
+| Tab | Show/hide timeline and refit integer zoom |
+| Insert / D / Delete | Add blank / duplicate / delete active frame |
+| , / . | Previous / next frame (wraps) |
+| Space | Play/stop looping animation |
+| ( / ) | Faster / slower active frame by 10 ms |
 | A / B | All 256 colours, foreground / background |
 | [ / ] | Previous / next working foreground colour |
 | U / Ctrl+Z | Undo |
@@ -93,7 +98,7 @@ only `PIX86.EXE` to DOS; no runtime DLL or data assets are needed.
 | F2 | Save (asks for a name on an untitled canvas) |
 | Shift+F2 | Save As |
 | F3 | Open a .P86 project |
-| N | New canvas; select 16×16, 32×32 or 64×64 |
+| N | New document; choose one of six square/rectangular sizes |
 | ESC | Exit; confirm before discarding unsaved changes |
 
 Sixteen large working swatches stay visible in the sidebar. A/B opens the
@@ -103,13 +108,13 @@ FG/BG in either palette. [ and ] cycle working foreground colours. New indices
 are remembered in eight recent slots, alongside eight stable defaults. These
 selections never remap existing pixels or edit the artwork DAC palette.
 
-The grouped tool/colour sidebar leaves a 274x176 drawing region. Text uses an original crisp 6x8 bitmap font; UI colours use existing
+The sidebar leaves a 274×176 drawing region, or 274×140 with the timeline open. Text uses an original crisp 6x8 bitmap font; UI colours use existing
 palette entries so saved artwork retains its colours. The single compact status
 line shows filename, modified state, dimensions, coordinates, tool, FG/BG and
 zoom; `X--Y--` means the pointer is outside the canvas. Grid lines belong to the view, never
 the artwork. Tool rows are 10 pixels high, and menu rows are 9 pixels high.
 Grid starts off;
-G shows a subtle shaded dot grid at integer pixel boundaries. Help → Font sample
+G shows a contrast-based dashed pixel mesh at zoom ≥3; 8/6 toggle solid tile guides. Help → Font sample
 displays all supported characters.
 
 The canvas is centred, initially at the largest fitting zoom: 11× for 16×16,
@@ -117,7 +122,7 @@ The canvas is centred, initially at the largest fitting zoom: 11× for 16×16,
 outside the canvas; returning while holding the button starts a new segment in
 the same action, without drawing a bridge across the interface. Tool, zoom,
 grid, clear or history shortcuts finish a held stroke; release before starting
-a new one. Four actions are retained; older actions expire. Only actual pixel
+a new one. Four actions are retained; older actions expire. Only actual artwork/animation
 edits clear redo, so colour selection, zoom and no-op tools preserve it.
 
 ## Files and unsaved changes
@@ -144,7 +149,7 @@ recovery. See [replacement guarantees and format](docs/FILE_FORMAT.md).
 
 An asterisk at the start of the status line means the project differs from the
 saved state.
-This compares actual pixels, dimensions and saved FG/BG selections, independently
+This compares all frame pixels, counts, timings, dimensions and saved FG/BG selections, independently
 of undo-history position. Choosing another FG/BG therefore also marks a project
 modified. Undo can return to the saved artwork, including after history expiry;
 view changes alone do not affect it. Successful loading resets undo/redo and
@@ -158,7 +163,7 @@ current artwork. New starts an unnamed blank canvas. Saving/loading messages
 are acknowledged with any key. Menus display file/drawing shortcuts. Ctrl+\ opens File and closes an open
 menu when pressed again. F10 and Alt+F/E/V/R/O/H are alternatives;
 Left/Right switches headings, Up/Down selects items, Enter executes and Esc
-closes. Frame (Alt+R) contains disabled future commands. Click a heading/item
+closes. Frame (Alt+R) operates frames, playback and timing; onion skin remains disabled. Click a heading/item
 to use menus with the mouse; outside clicks close and are consumed. Release
 held buttons after closing a menu/dialog before drawing. See
 [interface design and reference review](docs/UI_DESIGN.md).
@@ -168,7 +173,7 @@ held buttons after closing a menu/dialog before drawing. See
 ```sh
 ./scripts/test.sh                     # strict C89 host suites; requires cc
 python3 tests/mzcheck.py mnt/PIX86.EXE  # executable container check
-./scripts/dostest.sh                  # build EDTEST.EXE, IOTEST.EXE UITEST.EXE and KBDTEST.EXE for DOS
+./scripts/dostest.sh                  # build EDTEST, IOTEST, UITEST, KBDTEST and ANIMTEST for DOS
 ./scripts/doscheck.sh                 # build interactive restoration harness
 ```
 
@@ -200,7 +205,7 @@ FreeDOS/MS-DOS and real VGA/mouse hardware checks remain outstanding.
 - Export sprites and animation frames in useful formats for DOS game development.
 - Keep drawing and animation logic separate from platform-specific video, input, and UI code.
 
-These are planned features, not claims of current implementation.
+Onion skinning, export and native hardware verification remain future work; the implemented subset is described above.
 
 ## DOS engineering reference: Zine
 
@@ -232,3 +237,19 @@ See [AGENTS.md](AGENTS.md) for contributor and AI coding-agent rules.
 - Compiler: Open Watcom for DOS targets.
 - First target: 16-bit VGA DOS.
 - Licence: [MIT](LICENSE) for original Pix86 code. New dependencies require a separate licence and redistribution review.
+
+## Animation limits
+
+At most 16 frames and 16,384 total pixel bytes: four frames at 64×64, up to
+16 frames at every smaller supported size. Seven preallocated far-heap document
+blocks reserve 114,968 bytes; failed initialization frees partial allocations.
+DGROUP remains below 64 KiB. See [architecture](docs/ARCHITECTURE.md) for the
+measured budget and ownership rules. All colours, including zero, are opaque.
+Onion skin, transparency, layers and PNG/GIF/sprite-sheet export are deferred.
+Playback uses elapsed DOS clock time (BIOS-resolution timing), and stops when
+menus/dialogs open or an editing command is used. Painting is blocked during play.
+
+Run `scripts/test.sh`, `scripts/build.sh`, `scripts/dostest.sh`, then
+`scripts/rundost.sh` to execute all five DOS suites. The last command requires
+DOSBox-X and a display; override its executable with `DOSBOX_X`. IOTEST and
+ANIMTEST run in an exclusively created disposable directory.

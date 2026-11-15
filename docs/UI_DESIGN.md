@@ -1,8 +1,12 @@
 # Pix86 compact DOS interface
 
-Pix86 stays in VGA Mode 13h (320x200, 256 colours) with a single-image document.
-This is an interface redesign; canvas pixels, history, file format and save
-replacement guarantees are unchanged. Animation remains planned.
+Pix86 stays in VGA Mode 13h (320x200, 256 colours), now with opaque frame
+animation. The 36-pixel collapsible timeline keeps the sidebar/status visible,
+refits integer zoom and offers nine numbered thumbnails, scrolling, navigation,
+add/duplicate/delete, playback and timing. See [ANIMATION.md](ANIMATION.md) and
+[ARCHITECTURE.md](ARCHITECTURE.md) for the current contracts and verification.
+The reference review below records the earlier original interface foundations;
+current controls supersede references below to planned/disabled animation.
 
 ## Reference review and original implementation
 
@@ -63,7 +67,7 @@ cycle working foreground colours. File Open and eyedropper selections also
 enter the recent strip, without changing any pixel index or saved file format.
 
 Canvas sizes and maximum integer zooms remain 16/32/64 and 11/5/2. Grid starts
-off, and G toggles shaded dots at exact displayed cell edges at zoom >=2.
+off, and G toggles contrasting dashed pixel boundaries at zoom >=3; 8/6 select solid tile guides at zoom >=2.
 Black/white pixels use adjacent grey indices; colour-cube pixels use a nearby
 shade. Dots reduce coverage compared with solid mesh lines. Rendering never
 changes artwork. A future timeline can reserve view space without storage changes.
@@ -81,7 +85,7 @@ open menu on the next press. F10 and Alt+F/E/V/R/O/H remain alternatives. The R
 in Frame avoids colliding with File; headings underline their mnemonic.
 Left/Right wraps headings, Up/Down wraps rows, Enter executes and Escape closes.
 Drawing shortcuts are consumed while a menu is open and retain their bindings
-when closed. Frame operations remain disabled placeholders.
+when closed. Frame operations now execute; only deferred onion skin is disabled.
 
 Dropdowns use a one-pixel border and nine-pixel rows, left-aligned command names
 and right-aligned shortcut labels. Disabled commands stay visible in muted ink
