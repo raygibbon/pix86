@@ -6,7 +6,7 @@ int view_max_zoom(const Canvas *canvas)
 {
     int horizontal, vertical;
     if (canvas == NULL || canvas->width == 0 || canvas->height == 0 ||
-        canvas->width > DRAW_WIDTH || canvas->height > DRAW_HEIGHT)
+        canvas->width > (unsigned)DRAW_WIDTH || canvas->height > (unsigned)DRAW_HEIGHT)
         return 0;
     horizontal = DRAW_WIDTH / canvas->width;
     vertical = DRAW_HEIGHT / canvas->height;
@@ -64,6 +64,6 @@ int toolbar_hit(int x, int y)
     int row;
     if (x < TOOL_X || x >= TOOL_X + TOOL_WIDTH || y < TOOL_Y) return -1;
     row = (y - TOOL_Y) / TOOL_STEP;
-    if (row >= 4 || (y - TOOL_Y) % TOOL_STEP >= TOOL_HEIGHT) return -1;
+    if (row >= 6 || (y - TOOL_Y) % TOOL_STEP >= TOOL_HEIGHT) return -1;
     return row;
 }

@@ -49,6 +49,10 @@ void video_rect(int x,int y,int w,int h,unsigned char colour)
     for(yy=y;yy<y+h;++yy) for(xx=x;xx<x+w;++xx) video_pixel(xx,yy,colour);
 }
 void video_clear(unsigned char colour) { video_rect(0,0,320,200,colour); }
+void video_request(int hires) { (void)hires; }
+int video_width(void) { return 320; }
+int video_height(void) { return 200; }
+int video_failed(void) { return 0; }
 int video_init(void) { assert(!mode); mode=1; ++initializations; return 1; }
 void video_shutdown(void) { assert(mode && current==count-1); mode=0; ++shutdowns; }
 void delay(unsigned ms) { (void)ms; }
@@ -222,8 +226,8 @@ static void palette_overlay(void)
         int y;
         editor.tool=i;screen_update(&s,&editor,&m,EDIT_UI,&mouse,0);
         y=TOOL_Y+i*TOOL_STEP;
-        assert(pixels[y*320+TOOL_X]==UI_PAPER);
-        if(i) assert(pixels[(y-TOOL_STEP)*320+TOOL_X]==UI_PANEL);
+        assert(pixels[y*320+TOOL_X]==UI_WHITE);
+        if(i) assert(pixels[(y-TOOL_STEP)*320+TOOL_X]==UI_DIM);
     }
     before=writes;
     screen_update(&s,&editor,&m,EDIT_UI,&mouse,0); assert(before==writes);
@@ -292,7 +296,7 @@ static void timeline(void)
     }
     start(); add(27); dialog_editor(&editor); dialog_font();
     assert(!memcmp(pixels,baseline,sizeof(pixels)));
-    mouse.x=DRAW_X+2*30; mouse.y=TIMELINE_Y+4; mouse.buttons=1;
+    mouse.x=DRAW_X+2*(DRAW_WIDTH/9); mouse.y=TIMELINE_Y+4; mouse.buttons=1;
     assert(ui_timeline(&ui,1,0,1,&mouse,&command) && command==CMD_FRAME_ADD);
     flags=editor_key(&editor,command); assert(editor.document->frames==2);
     assert(!ui_pointer(&ui,&mouse,1,0));
@@ -357,12 +361,27 @@ static void application(void)
     remove("PAINT.P86");
     start();add(KEY_F2);type("PAINT");add(13);add(13);
     add(CMD_PALETTE);add(KEY_END);add(13);
-    mouse_event(108,30,1);mouse_event(108,30,0);
+    mouse_event(DRAW_X+(DRAW_WIDTH-176)/2+12,30,1);mouse_event(DRAW_X+(DRAW_WIDTH-176)/2+12,30,0);
     add(KEY_F2);add('y');add(13);
     add('n');add('3');add(KEY_F3);type("PAINT");add(13);add(13);add(27);run(1);
     f=fopen("PAINT.P86","rb");assert(f);assert(file_decode(f,&image)==FILE_OK);fclose(f);
     assert(image.width==16 && image.foreground==255 && image.pixels[17]==255);
     remove("PAINT.P86");
+    remove("MOVE.P86");
+    start();
+    /* Select all, move, then try New/Open/Save: each waits for Apply/Cancel. */
+    mouse_event(DRAW_X+(DRAW_WIDTH-176)/2+12,30,1);
+    mouse_event(DRAW_X+(DRAW_WIDTH-176)/2+12,30,0);
+    add(1); add('m'); add(KEY_RIGHT);
+    add('n'); add(13); add(KEY_F3); add(27); add(KEY_F2); add(13);
+    add(KEY_MENU); add(KEY_UP); add(13); add(13); /* File Exit also waits */
+    /* Menus own arrows and Ctrl+A, then Escape closes only the menu. */
+    add(KEY_MENU); add(KEY_RIGHT); add(1); add(27);
+    add(13); add(CMD_UNDO); add(CMD_REDO); add(CMD_DESELECT);
+    add(KEY_F2); type("MOVE"); add(13); add(13); add(27); run(1);
+    f=fopen("MOVE.P86","rb"); assert(f); assert(file_decode(f,&image)==FILE_OK); fclose(f);
+    assert(image.pixels[18]==15 && !(image.mask[2]&4) && (image.mask[2]&2));
+    remove("MOVE.P86");
     remove("OUT.BMP");
     start(); add(CMD_EXPORT); add(27); add(27); run(1);
     assert(file_exists("OUT.BMP")==0);

@@ -2,6 +2,13 @@
 #define PIX86_VIDEO_H
 #define VIDEO_WIDTH 320
 #define VIDEO_HEIGHT 200
+#define VIDEO_MAX_WIDTH 640
+#define VIDEO_MAX_HEIGHT 480
+void video_request(int hires);
+int video_width(void);
+int video_height(void);
+int video_hires(void);
+int video_failed(void);
 
 void video_clip(int x, int y, int width, int height);
 void video_unclip(void);

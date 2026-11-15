@@ -6,20 +6,36 @@
 #include "cursor.h"
 #include "workpal.h"
 
+/* Original bitmap marks, independently drawn at 8 and 16 pixels. */
+static const unsigned char icons[6][8]={
+ {3,7,14,28,56,112,224,192},{0,28,62,127,254,124,56,0},
+ {16,40,68,130,124,56,16,0},{3,6,12,24,48,96,192,128},
+ {255,129,129,129,129,129,129,255},{16,56,84,146,84,56,16,0}};
+static const unsigned short large_icons[6][16]={
+ {3,7,15,30,60,120,240,480,960,1920,3840,7680,15360,28672,57344,49152},
+ {0,0,992,2032,4088,8188,16382,32767,65534,32764,16376,8176,4064,1984,896,0},
+ {256,640,1088,2080,4112,8200,16388,32770,65534,32764,16376,8176,4064,1984,896,256},
+ {15,31,62,124,248,496,992,1984,3968,7936,15872,31744,63488,61440,57344,32768},
+ {65535,32769,40961,32769,32769,32769,32769,32769,32769,32769,32769,32769,32769,32769,32769,65535},
+ {256,896,1856,3376,6424,12556,24838,65535,24838,12556,6424,3376,1856,896,256,0}};
 static void tool_row(const Editor *editor,int tool)
 {
-    static const char *labels[4]={"P Pen ","E Ers ","F Fill","I Pick"};
-    int y;
+    static const char *keys[6]={"P","E","F","I","S","M"};
+    int y,x,xx,yy,size;
+    unsigned short bits;
     unsigned char ink,paper;
-    y=TOOL_Y+tool*TOOL_STEP;
+    y=TOOL_Y+tool*TOOL_STEP; size=UI_WIDTH==640?16:8;
     paper=tool==editor->tool?UI_PAPER:UI_PANEL;
     ink=tool==editor->tool?UI_INK:UI_WHITE;
     cursor_protect(TOOL_X,y,TOOL_WIDTH,TOOL_HEIGHT);
-    video_rect(TOOL_X,y,TOOL_WIDTH,1,paper);
-    video_rect(TOOL_X,y+TOOL_HEIGHT-1,TOOL_WIDTH,1,paper);
-    video_rect(TOOL_X,y+1,1,FONT_HEIGHT,paper);
-    video_rect(TOOL_X+TOOL_WIDTH-1,y+1,1,FONT_HEIGHT,paper);
-    video_text_bg(TOOL_TEXT_X,y+TOOL_TEXT_Y,tool==TOOL_ERASER && editor->transparent_eraser?"E Alp ":labels[tool],ink,paper);
+    video_rect(TOOL_X,y,TOOL_WIDTH,TOOL_HEIGHT,tool==editor->tool?UI_WHITE:UI_DIM);
+    video_rect(TOOL_X+1,y+1,TOOL_WIDTH-2,TOOL_HEIGHT-2,paper);
+    x=TOOL_X+(TOOL_WIDTH-size)/2;
+    for(yy=0;yy<size;++yy) {
+        bits=size==16?large_icons[tool][yy]:icons[tool][yy];
+        for(xx=0;xx<size;++xx) if(bits & (1U<<(size-1-xx))) video_pixel(x+xx,y+2+yy,ink);
+    }
+    video_text_bg(TOOL_X+(TOOL_WIDTH-FONT_WIDTH)/2,y+size+3,keys[tool],ink,paper);
 }
 static void swatch(const Editor *e,int slot)
 {
@@ -36,7 +52,7 @@ static void swatch(const Editor *e,int slot)
 static void current_colour(unsigned char colour,int y,char name)
 {
     char text[5];
-    cursor_protect(PALETTE_LABEL_X,y-1,TOOL_WIDTH,SWATCH_HEIGHT);
+    cursor_protect(PALETTE_LABEL_X,y-1,UI_LEFT_WIDTH-2,SWATCH_HEIGHT);
     sprintf(text,"%c%03u",name,(unsigned)colour);
     video_text_bg(PALETTE_LABEL_X,y,text,UI_WHITE,UI_PANEL);
     video_rect(SWATCH_X,y-1,SWATCH_WIDTH,SWATCH_HEIGHT,UI_WHITE);
@@ -46,9 +62,9 @@ void render_ui(const Editor *editor)
 {
     int i;
     video_rect(0,UI_MENU_HEIGHT,UI_LEFT_WIDTH,UI_STATUS_Y-UI_MENU_HEIGHT,UI_PANEL);
-    video_text(PALETTE_LABEL_X,TOOL_TITLE_Y,"Tools",UI_WHITE);
-    video_rect(1,TOOL_TITLE_Y+FONT_HEIGHT+1,TOOL_WIDTH+1,1,UI_DIM);
-    for(i=0;i<4;++i) tool_row(editor,i);
+    video_rect(UI_RIGHT_X,UI_MENU_HEIGHT,UI_WIDTH-UI_RIGHT_X,UI_STATUS_Y-UI_MENU_HEIGHT,UI_PANEL);
+    video_text(TOOL_X,TOOL_TITLE_Y,UI_WIDTH==640?"Tools":"T",UI_WHITE);
+    for(i=0;i<TOOL_COUNT;++i) tool_row(editor,i);
     video_text(PALETTE_LABEL_X,PALETTE_TITLE_Y,"Colour",UI_WHITE);
     current_colour(editor->foreground,FG_Y,'F');
     current_colour(editor->background,BG_Y,'B');
@@ -92,10 +108,12 @@ static void canvas_cell(const Editor *editor,int x,int y)
 {
     int sx,sy,zoom;
     unsigned char colour,grid;
+    int transparent,xx,yy,left,top,right,bottom;
+    const Selection *selection;
     zoom=editor->view.zoom;
     sx=editor->view.x+x*zoom; sy=editor->view.y+y*zoom;
-    colour=editor->canvas.pixels[(unsigned)y*editor->canvas.width+x];
-    if(canvas_transparent(&editor->canvas,(unsigned)x,(unsigned)y)) { preview_cell(editor,sx,sy,zoom); colour=preview_colour(editor,sx,sy); }
+    selection_sample(editor,x,y,&colour,&transparent);
+    if(transparent) { preview_cell(editor,sx,sy,zoom); colour=preview_colour(editor,sx,sy); }
     else video_rect(sx,sy,zoom,zoom,colour);
     grid=grid_colour(colour,0);
     if(editor->grid && zoom>=3) {
@@ -109,6 +127,18 @@ static void canvas_cell(const Editor *editor,int x,int y)
         if(((editor->guide&1) && (y+1)%8==0) || ((editor->guide&2) && (y+1)%16==0))
             video_rect(sx,sy+zoom-1,zoom,1,grid);
     }
+    selection=&editor->selection;
+    if(selection->state) {
+        left=selection->x+selection->dx; top=selection->y+selection->dy;
+        right=left+selection->w-1; bottom=top+selection->h-1;
+        if(x>=left && x<=right && y>=top && y<=bottom &&
+           (x==left || x==right || y==top || y==bottom)) {
+            for(yy=0;yy<zoom;++yy) for(xx=0;xx<zoom;++xx)
+                if((x==left && xx==0) || (x==right && xx==zoom-1) ||
+                   (y==top && yy==0) || (y==bottom && yy==zoom-1))
+                    video_pixel(sx+xx,sy+yy,((sx+xx+sy+yy)/2)&1?15:0);
+        }
+    }
 }
 
 void render_canvas(const Editor *editor)
@@ -121,7 +151,7 @@ void render_canvas(const Editor *editor)
     {
         Rect area,art,parts[4];
         int n,i;
-        area.x=DRAW_X-1; area.y=DRAW_Y-1; area.w=UI_WIDTH-DRAW_X+1; area.h=UI_STATUS_Y-DRAW_Y+1;
+        area.x=DRAW_X-1; area.y=DRAW_Y-1; area.w=DRAW_WIDTH+3; area.h=UI_STATUS_Y-DRAW_Y+1;
         art.x=view->x-1; art.y=view->y-1;
         art.w=(int)view->width*zoom+2; art.h=(int)view->height*zoom+2;
         n=rect_subtract(&area,&art,parts);
@@ -147,7 +177,15 @@ void render_status_text(const Editor *editor, int mouse_x, int mouse_y, int has_
 {
     char coords[12];
     int x, y;
-    static const char *names[4] = {"Pen", "Ers", "Fil", "Pck"};
+    static const char *names[6] = {"Pen", "Ers", "Fil", "Pck", "Sel", "Mov"};
+    const Selection *selection;
+    selection=&editor->selection;
+    if(selection_floating(editor)) {
+        sprintf(text,"MOVE DX:%+d DY:%+d Enter:Apply Esc:Cancel",selection->dx,selection->dy); return;
+    }
+    if(selection->state) {
+        sprintf(text,"SELECT X:%02d Y:%02d W:%02d H:%02d",selection->x,selection->y,selection->w,selection->h); return;
+    }
     if (has_mouse && view_map(&editor->view, mouse_x, mouse_y, &x, &y))
         sprintf(coords, "X%02dY%02d", x, y);
     else strcpy(coords, "X--Y--");
@@ -212,11 +250,11 @@ void render_timeline(const Editor *e)
     char label[20];
     static const char *controls[9]={"<",">","+","Dup","Del","Play","<<",">>","X"};
     if(!e->timeline) return;
-    cursor_protect(DRAW_X-1,TIMELINE_Y,UI_WIDTH-DRAW_X+1,TIMELINE_HEIGHT);
-    video_rect(DRAW_X-1,TIMELINE_Y,UI_WIDTH-DRAW_X+1,TIMELINE_HEIGHT,UI_PANEL);
-    video_rect(DRAW_X-1,TIMELINE_Y,UI_WIDTH-DRAW_X+1,1,UI_DIM);
+    cursor_protect(DRAW_X-1,TIMELINE_Y,DRAW_WIDTH+3,TIMELINE_HEIGHT);
+    video_rect(DRAW_X-1,TIMELINE_Y,DRAW_WIDTH+3,TIMELINE_HEIGHT,UI_PANEL);
+    video_rect(DRAW_X-1,TIMELINE_Y,DRAW_WIDTH+3,1,UI_DIM);
     for(slot=0;slot<9;++slot) {
-        x=DRAW_X+(int)slot*30;
+        x=DRAW_X+(int)slot*((DRAW_WIDTH)/9);
         video_text_bg(x,TIMELINE_Y+2,slot==5 && e->playing?"Stop":controls[slot],UI_WHITE,UI_PANEL);
     }
     for(slot=0;slot<TIMELINE_SLOTS;++slot) {

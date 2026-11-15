@@ -76,7 +76,7 @@ static void model(void)
     assert(editor_new_shape(&e,16,24)); assert(e.canvas.height==24 && e.view.zoom==7);
     editor_key(&e,CMD_TIMELINE); assert(e.view.zoom==5);
     for(i=1;i<16;++i) editor_key(&e,CMD_FRAME_DUP);
-    assert(e.document->frames==16 && e.first_frame==7);
+    assert(e.document->frames==16 && e.first_frame==16-TIMELINE_SLOTS);
     editor_select(&e,0); assert(!e.first_frame);
     for(i=1;i<16;++i) editor_key(&e,CMD_FRAME_DELETE);
     editor_key(&e,CMD_FRAME_DELETE); assert(e.document->frames==1);

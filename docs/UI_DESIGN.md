@@ -193,3 +193,29 @@ Clear, while alpha eraser changes the tool mode. Index zero is ordinary black.
 Grid G is off by default, continuous neutral grey at >=3x; 8 and 6 independently
 toggle 8/16 guides at >=2x. Checkerboard works with grid disabled. Preview painting
 uses clipped dirty regions and fixed artwork palette indices, never DAC changes.
+
+## Right-hand tools and floating selection
+
+The latest workspace supersedes the earlier left-tool geometry: palette controls
+remain left, while six right-hand buttons expose P/E/F/I/S/M with original icons.
+Classic buttons are 20×22 with 8×8 marks; enhanced buttons are 40×32 with separate
+16×16 marks. `layout.h` shares their drawing/hit metrics and reserves the drawing
+width. Larger palette cell heights use enhanced space without stretching text.
+The original fixed artwork DAC palette is unchanged.
+
+S drags a clipped, static dotted marquee. Ctrl+A works with every tool; dragging
+inside an active selection or M captures a floating move. Release keeps it pending;
+arrows nudge by one artwork pixel, Enter commits and Escape cancels/deselects.
+Switching tools while floating is blocked with the status instruction remaining
+visible. New/Open/Save/Export/File Exit show an Apply/Cancel reminder; no pending move is
+silently saved or discarded. Menus own keyboard/pointer events before canvas input.
+Delete clears a selection; with none it retains the existing frame-delete shortcut.
+The Edit menu exposes Select all, Deselect and Move selection.
+
+[Aseprite selecting](https://www.aseprite.org/docs/selecting/) and
+[move workflow](https://www.aseprite.org/docs/move-selection/) were reviewed only
+for user-facing interaction ideas: rectangle, dragging, arrows and background-aware
+clearing. Pix86 deliberately keeps explicit Enter/Escape, static borders and its
+own S/M bindings, without transforms, rotation or a context bar. No icons, code,
+fonts or bundled assets were copied. TDE remains the existing documented theme
+reference; see [selection screenshots](SELECTION.md).

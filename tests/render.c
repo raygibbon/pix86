@@ -10,10 +10,10 @@
 
 static Editor editor;
 static unsigned short queue[4096];
-static unsigned char screen[64000];
+static unsigned char screen[640*480];
 static int clip_x,clip_y,clip_r=320,clip_b=200;
 void video_clip(int x,int y,int w,int h) { clip_x=x;clip_y=y;clip_r=x+w;clip_b=y+h; }
-void video_unclip(void) { clip_x=clip_y=0;clip_r=320;clip_b=200; }
+void video_unclip(void) { clip_x=clip_y=0;clip_r=UI_WIDTH;clip_b=UI_HEIGHT; }
 void cursor_protect(int x,int y,int w,int h) { (void)x;(void)y;(void)w;(void)h; }
 
 void video_rect(int x, int y, int w, int h, unsigned char colour)
@@ -22,12 +22,12 @@ void video_rect(int x, int y, int w, int h, unsigned char colour)
     for (yy = y; yy < y + h; ++yy)
         for (xx = x; xx < x + w; ++xx)
             if (xx >= clip_x && yy >= clip_y && xx < clip_r && yy < clip_b)
-                screen[yy * 320 + xx] = colour;
+                screen[yy * UI_WIDTH + xx] = colour;
 }
 
 void video_pixel(int x,int y,unsigned char colour)
 {
-    if(x>=clip_x && y>=clip_y && x<clip_r && y<clip_b) screen[y*320+x]=colour;
+    if(x>=clip_x && y>=clip_y && x<clip_r && y<clip_b) screen[y*UI_WIDTH+x]=colour;
 }
 
 void video_text(int x, int y, const char *text, unsigned char colour)
@@ -151,11 +151,44 @@ static void transparency(void)
     assert(editor.guide==3 && !editor_is_dirty(&editor));
     editor_key(&editor,CMD_GUIDE8); assert(editor.guide==2);
 }
+static void selections(void)
+{
+    int mode,z,sx,sy,x,y,seen_black,seen_white;
+    for(mode=0;mode<2;++mode) {
+        layout_set(mode?640:320,mode?480:200); video_unclip();
+        assert(editor_new_document(&editor,32,32,0,141));
+        memset(editor.pixels,8,1024); editor.pixels[33]=0; editor.tool=TOOL_PENCIL;
+        render_ui(&editor);
+        assert(screen[TOOL_Y*UI_WIDTH+TOOL_X]==UI_WHITE);
+        editor_key(&editor,CMD_SELECT_ALL);
+        for(z=1;view_fit(&editor.view,&editor.canvas,0,z);++z) {
+            render_canvas(&editor); sx=editor.view.x; sy=editor.view.y;
+            seen_black=seen_white=0;
+            for(x=sx;x<sx+32*z;++x) {
+                if(screen[sy*UI_WIDTH+x]==0) seen_black=1;
+                if(screen[sy*UI_WIDTH+x]==15) seen_white=1;
+            }
+            assert(seen_black && seen_white);
+        }
+        view_fit(&editor.view,&editor.canvas,0,0); z=editor.view.zoom;
+        editor_key(&editor,CMD_MOVE); editor_key(&editor,KEY_RIGHT);
+        render_canvas(&editor); sx=editor.view.x; sy=editor.view.y;
+        assert(screen[(sy+z+1)*UI_WIDTH+sx+2*z+1]==0);
+        /* Pure selection redraw touches only the dirty canvas footprint. */
+        for(y=0;y<UI_HEIGHT;++y) for(x=UI_RIGHT_X;x<UI_WIDTH;++x)
+            screen[y*UI_WIDTH+x]=231;
+        editor_key(&editor,KEY_DOWN); render_stroke(&editor);
+        for(y=0;y<UI_HEIGHT;++y) for(x=UI_RIGHT_X;x<UI_WIDTH;++x)
+            assert(screen[y*UI_WIDTH+x]==231);
+        editor_key(&editor,CMD_EXIT);
+    }
+    layout_set(320,200); video_unclip();
+}
 int main(void)
 {
     test_render(16);
     test_render(32);
-    test_render(64); guides(); transparency();
+    test_render(64); guides(); transparency(); selections();
     puts("PASS: canvas rendering at every zoom, grids and all palette indices.");
     editor_dispose(&editor);
     return 0;

@@ -3,10 +3,13 @@
 A lightweight, DOS-native pixel-art and frame-by-frame animation editor for game creators.
 
 **Status:** working frame animation in VGA Mode 13h (320×200×256), targeting
-8086 real-mode DOS with Open Watcom.
+8086 real-mode DOS with Open Watcom. Optional `/HIRES` uses banked VBE
+640×480×256, with Mode 13h fallback.
 
 Draw on 16×16, 32×32, 64×64, 16×24, 16×32 or 32×24 indexed documents.
-Pencil, eraser, fill and eyedropper share the existing Canvas tools. A collapsible
+Pencil, eraser, fill, eyedropper, rectangular selection and move use an original
+right-hand icon toolbar. Select all with Ctrl+A, drag or nudge with arrows, then
+Enter to apply or Escape to cancel; one undo restores the complete move. A collapsible
 36-pixel timeline offers frame thumbnails, navigation, add/duplicate/delete and
 looping playback. Per-frame timing defaults to 100 ms and adjusts from 20–2000 ms.
 Four undoable actions include pixel edits, frame structure and timing. Export a current frame, numbered frames or horizontal/vertical/grid sprite sheets
@@ -85,10 +88,15 @@ only `PIX86.EXE` to DOS; no runtime DLL or data assets are needed.
 | Left-click palette | Select foreground (FG) |
 | Right-click palette | Configure eraser/clear background (BG) |
 | + / = and - | Increase/decrease integer zoom within workspace limits |
-| G | Toggle high-contrast pixel grid (initially off, visible at zoom ≥3) |
+| S / M | Rectangular selection / float the current selection |
+| Ctrl+A / Ctrl+D | Select all / deselect (cancel a pending move) |
+| Arrows (selection active) | Move one artwork pixel; begin floating if needed |
+| Enter / Escape (floating) | Apply one atomic edit / cancel without changing artwork |
+| Delete (selection active) | Clear selected pixels in one undo action |
+| G | Toggle neutral pixel grid (initially off, visible at zoom ≥3) |
 | 8 / 6 | Toggle 8×8 / 16×16 guides (visible at zoom ≥2) |
 | Tab | Show/hide timeline and refit integer zoom |
-| Insert / D / Delete | Add blank / duplicate / delete active frame |
+| Insert / D / Delete (no selection) | Add blank / duplicate / delete active frame |
 | , / . | Previous / next frame (wraps) |
 | Space | Play/stop looping animation |
 | ( / ) | Faster / slower active frame by 10 ms |
@@ -96,7 +104,7 @@ only `PIX86.EXE` to DOS; no runtime DLL or data assets are needed.
 | [ / ] | Previous / next working foreground colour |
 | U / Ctrl+Z | Undo |
 | R / Ctrl+Y | Redo |
-| C | Clear to BG, undoable |
+| C | Clear using document blank policy, undoable |
 | Ctrl+\ (primary), F10 / Alt+F,E,V,R,O,H | Menu bar / File, Edit, View, Frame, Options, Help |
 | Arrows / Enter / Esc (menu open) | Navigate / execute / close menu |
 | F2 | Save (asks for a name on an untitled canvas) |
@@ -104,7 +112,7 @@ only `PIX86.EXE` to DOS; no runtime DLL or data assets are needed.
 | File → Export | Native-size BMP/PNG: current frame, numbered frames or sprite sheet |
 | F3 | Open a .P86 project |
 | N | New document; choose one of six square/rectangular sizes |
-| ESC | Exit; confirm before discarding unsaved changes |
+| ESC | Cancel/deselect first; otherwise Exit with unsaved-changes confirmation |
 
 Sixteen large working swatches stay visible in the sidebar. A/B opens the
 full 256-colour picker for foreground/background; arrows and Enter choose an
@@ -255,8 +263,8 @@ Playback uses elapsed DOS clock time (BIOS-resolution timing), and stops when
 menus/dialogs open or an editing command is used. Painting is blocked during play.
 
 Run `scripts/test.sh`, `scripts/build.sh`, `scripts/dostest.sh`, then
-`scripts/rundost.sh` to execute all seven DOS suites. The last command requires
-DOSBox-X and a display; override its executable with `DOSBOX_X`. IOTEST, BMPTEST, ALPHTEST and
+`scripts/rundost.sh` to execute eight editor/I/O suites and two video-driver runs. The last command requires
+DOSBox-X and a display; override its executable with `DOSBOX_X`. IOTEST, BMPTEST, ALPHTEST, SELTEST and
 ANIMTEST run in an exclusively created disposable directory.
 
 ## BMP and PNG export
@@ -272,3 +280,20 @@ state, all 256 indices and opaque index zero. Unused BMP sheet cells use BG; PNG
 
 See [format, screenshots, streaming limits and test evidence](docs/EXPORT.md).
 `BMPTEST` checks output in DOS; optional `BMPVIEW` displays small exported BMPs.
+
+## Selection and display modes
+
+[Workflow, screenshots, memory and verification](docs/SELECTION.md).
+The working palette remains left; six original tool icons now sit right. Classic
+320×200 has 8×8 marks in compact buttons; `/HIRES` uses independently drawn 16×16
+marks and taller palette swatches. Both retain native 6×8 text, integer canvas
+zoom and the same artwork indices. Enhanced mode requires banked VBE 1.2 mode
+101h; unavailable hardware falls back to classic. No full-screen RAM buffer,
+extender or image-format change is added.
+
+A floating move leaves project pixels and dirty state unchanged until Enter.
+Other tools, frame commands and file operations require Apply/Cancel first.
+Transparent holes composite using mask bits; real index-zero black moves normally.
+Source pixels clear to transparency or BG according to document blank policy.
+Moves beyond artwork edges clip; committed off-canvas pixels can be recovered by
+Undo. Selection itself is transient and never saved or exported.

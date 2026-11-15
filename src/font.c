@@ -1,5 +1,6 @@
 #include "font.h"
 #include "video.h"
+#include "layout.h"
 /* Original hand-drawn Pix86 5-column ink in a 6x8 cell. ASCII 32..126.
    No ROM font, reference font, scaling, antialiasing or generated font import.
    Refined open counters and single-pixel punctuation; unchanged 6x8 advance.
@@ -108,18 +109,18 @@ static void text_draw(int x, int y, long right, long bottom, const char *text,
     long pen, px, py;
     int row, col, bit;
     unsigned code;
-    if(!text || y >= VIDEO_HEIGHT || y <= -FONT_HEIGHT || right <= x || bottom <= y) return;
+    if(!text || y >= UI_HEIGHT || y <= -FONT_HEIGHT || right <= x || bottom <= y) return;
     pen=x;
-    while(*text && pen < VIDEO_WIDTH && pen < right) {
+    while(*text && pen < UI_WIDTH && pen < right) {
         code=(unsigned char)*text++;
         if(code<32 || code>126) code='?';
         if(pen > -FONT_WIDTH) for(row=0; row<FONT_HEIGHT; ++row) {
             py=(long)y+row;
-            if(py<0 || py>=VIDEO_HEIGHT || py>=bottom) continue;
+            if(py<0 || py>=UI_HEIGHT || py>=bottom) continue;
             for(col=0; col<FONT_WIDTH; ++col) {
                 px=pen+col;
                 bit=col<5 && (glyphs[code-32][row] & (16U>>col));
-                if(px>=0 && px<VIDEO_WIDTH && px<right && (bit || opaque))
+                if(px>=0 && px<UI_WIDTH && px<right && (bit || opaque))
                     video_pixel((int)px,(int)py,bit?ink:paper);
             }
         }
@@ -127,9 +128,9 @@ static void text_draw(int x, int y, long right, long bottom, const char *text,
     }
 }
 void video_text(int x,int y,const char *text,unsigned char colour)
-{ text_draw(x,y,VIDEO_WIDTH,VIDEO_HEIGHT,text,colour,0,0); }
+{ text_draw(x,y,UI_WIDTH,UI_HEIGHT,text,colour,0,0); }
 void video_text_bg(int x,int y,const char *text,unsigned char ink,unsigned char paper)
-{ text_draw(x,y,VIDEO_WIDTH,VIDEO_HEIGHT,text,ink,paper,1); }
+{ text_draw(x,y,UI_WIDTH,UI_HEIGHT,text,ink,paper,1); }
 void video_text_box(int x,int y,int width,int height,const char *text,
                     unsigned char ink,unsigned char paper)
 {

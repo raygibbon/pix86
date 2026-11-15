@@ -6,12 +6,23 @@ DOSBOX_X=${DOSBOX_X:-dosbox-x}
 SCRATCH=$(mktemp -d "$ROOT/mnt/DTXXXXXX")
 NAME=$(basename "$SCRATCH")
 mkdir -p "$ROOT/build/dos-results"
+cat > "$SCRATCH/RUNTEST.BAT" <<'DOS'
+@echo off
+..\EDTEST > ED.TXT
+..\IOTEST > IO.TXT
+..\UITEST > UI.TXT
+..\KBDTEST > KBD.TXT
+..\ANIMTEST > ANIM.TXT
+..\BMPTEST > BMP.TXT
+..\ALPHTEST > ALPHA.TXT
+..\SELTEST > SEL.TXT
+..\VIDTEST > VGA.TXT
+..\VIDTEST HIRES > VBE.TXT
+exit
+DOS
 "$DOSBOX_X" -conf "$ROOT/tests/dosbox.conf" \
-    -c "mount c $ROOT/mnt" -c 'c:' -c "cd $NAME" \
-    -c '..\EDTEST > ED.TXT' -c '..\IOTEST > IO.TXT' \
-    -c '..\UITEST > UI.TXT' -c '..\KBDTEST > KBD.TXT' \
-    -c '..\ANIMTEST > ANIM.TXT' -c '..\BMPTEST > BMP.TXT' -c '..\ALPHTEST > ALPHA.TXT' -c exit
-for suite in ED IO UI KBD ANIM BMP ALPHA; do
+    -c "mount c $ROOT/mnt" -c 'c:' -c "cd $NAME" -c RUNTEST.BAT
+for suite in ED IO UI KBD ANIM BMP ALPHA SEL VGA VBE; do
     cp "$SCRATCH/$suite.TXT" "$ROOT/build/dos-results/$suite.TXT"
     rg '^PASS:' "$SCRATCH/$suite.TXT"
 done

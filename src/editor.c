@@ -25,6 +25,7 @@ void editor_dispose(Editor *e)
 int editor_new_shape(Editor *e,unsigned w,unsigned h)
 {
     if(!anim_dimensions(w,h)) return 0;
+    selection_reset(e);
     e->playing=0; e->elapsed=e->first_frame=0;
     e->dragging=e->segment_valid=0; e->previous_buttons=0;
     e->foreground=15; e->background=0;
@@ -101,6 +102,8 @@ unsigned editor_mouse(Editor *editor, int x, int y, unsigned buttons)
     pressed = buttons & ~editor->previous_buttons;
     editor->previous_buttons = buttons;
     flags = EDIT_STATUS;
+    if(selection_floating(editor) || editor->selection.state==SEL_RECT)
+        return selection_mouse(editor,x,y,buttons,pressed);
     inside = view_map(&editor->view, x, y, &cx, &cy);
     if (editor->dragging) {
         if (inside) {
@@ -131,9 +134,16 @@ unsigned editor_mouse(Editor *editor, int x, int y, unsigned buttons)
     }
     tool = toolbar_hit(x, y);
     if ((pressed & EDIT_LEFT) && tool >= 0) {
+        editor_finish(editor);
         editor->tool = tool;
+        if(tool==TOOL_MOVE) return flags|editor_key(editor,CMD_MOVE);
         return flags | EDIT_UI;
     }
+    if((pressed&EDIT_LEFT) && ((editor->selection.state==SEL_ACTIVE && inside &&
+        cx>=editor->selection.x && cy>=editor->selection.y &&
+        cx<editor->selection.x+editor->selection.w && cy<editor->selection.y+editor->selection.h) ||
+        editor->tool==TOOL_SELECT || editor->tool==TOOL_MOVE))
+        return flags|selection_mouse(editor,x,y,buttons,pressed);
     if (!inside)
         return flags;
     if ((pressed & EDIT_RIGHT) ||
@@ -168,11 +178,15 @@ unsigned editor_mouse(Editor *editor, int x, int y, unsigned buttons)
 unsigned editor_key(Editor *editor, int key)
 {
     int zoom, tool;
+    unsigned selection_flags;
     key = keyboard_command(key);
+    if(selection_key(editor,key,&selection_flags)) return selection_flags;
     if(key>=CMD_SELECT_FRAME && key<CMD_SELECT_FRAME+ANIM_FRAMES)
         return editor_select(editor,(unsigned)(key-CMD_SELECT_FRAME));
-    if(key>=CMD_FRAME_ADD && key<=CMD_SCROLL_RIGHT)
-        return editor_frame_command(editor,key);
+    if(key>=CMD_FRAME_ADD && key<=CMD_SCROLL_RIGHT) {
+        selection_reset(editor);
+        return editor_frame_command(editor,key)|EDIT_CANVAS;
+    }
     editor->playing=0;
 
     tool = -1;
@@ -180,6 +194,8 @@ unsigned editor_key(Editor *editor, int key)
     if (key == 'e') tool = TOOL_ERASER;
     if (key == 'f') tool = TOOL_FILL;
     if (key == 'i') tool = TOOL_PICK;
+    if(key==CMD_SELECT) tool=TOOL_SELECT;
+    if(key==CMD_MOVE) tool=TOOL_MOVE;
     if (tool >= 0) {
         editor_finish(editor);
         editor->tool = tool;
@@ -212,15 +228,6 @@ unsigned editor_key(Editor *editor, int key)
     }
     if(key==CMD_PREVIEW_LINK || key==CMD_CHECKER) {
         editor_finish(editor);
-        if(key==CMD_TRANS_BLANK || key==CMD_TRANS_ERASE) {
-        editor_finish(editor);
-        if(key==CMD_TRANS_BLANK) {
-            editor->document->transparent=!editor->document->transparent;
-            editor->transparent_eraser=editor->document->transparent;
-            history_commit(&editor->history,&editor->canvas);
-        } else editor->transparent_eraser=!editor->transparent_eraser;
-        return EDIT_UI|EDIT_STATUS|EDIT_TIMELINE;
-    }
     if(key==CMD_PREVIEW_LINK) editor->preview_link=!editor->preview_link;
         else editor->checker=!editor->checker;
         return EDIT_CANVAS|EDIT_STATUS;
@@ -234,6 +241,7 @@ unsigned editor_key(Editor *editor, int key)
     }
     if (key == CMD_UNDO || key == CMD_REDO) {
         editor_finish(editor);
+        selection_reset(editor);
         if (key == CMD_UNDO)
             history_undo(&editor->history, &editor->canvas);
         else
@@ -288,6 +296,7 @@ int editor_load(Editor *e,const P86Image *im)
     frames=im->frames?im->frames:1;
     if(frames>ANIM_FRAMES || frames>ANIM_PIXELS/(im->width*im->height)) return 0;
     for(i=0;i<frames;++i) if(im->frames && (im->duration[i]<20 || im->duration[i]>2000)) return 0;
+    selection_reset(e);
     editor_finish(e); e->playing=0; e->elapsed=e->first_frame=0;
     anim_copy(e->document,im,sizeof(P86Image));
     e->document->frames=frames; e->document->version=3;
@@ -316,6 +325,8 @@ static void follow(Editor *e)
 unsigned editor_select(Editor *e,unsigned frame)
 {
     if(frame>=e->document->frames) return 0;
+    if(selection_floating(e)) return EDIT_STATUS;
+    selection_reset(e);
     editor_finish(e); e->playing=0; e->elapsed=0;
     editor_store(e);
     e->history.active=frame;
