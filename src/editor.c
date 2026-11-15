@@ -161,8 +161,8 @@ unsigned editor_key(Editor *editor, int key)
     }
     if(key==CMD_GUIDE8 || key==CMD_GUIDE16) {
         editor_finish(editor);
-        zoom=key==CMD_GUIDE8?8:16;
-        editor->guide=editor->guide==zoom?0:zoom;
+        zoom=key==CMD_GUIDE8?1:2;
+        editor->guide^=zoom;
         return EDIT_CANVAS | EDIT_STATUS;
     }
     if (key == 'g') {

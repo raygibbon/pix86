@@ -57,37 +57,35 @@ void render_ui(const Editor *editor)
 }
 /* Palette-derived luminance selects black/white without changing the DAC.
    Fine mesh is dashed; tile boundaries are solid and two-tone. */
-static unsigned char grid_colour(unsigned char colour)
+static unsigned char grid_colour(unsigned char colour,int strong)
 {
-    unsigned n,r,g,b;
-    if(colour<16) return colour<8?15:0;
-    n=colour-16; r=n%6; g=n/6%6; b=n/36;
-    return 3*r+6*g+b<25?15:0;
+    unsigned n,level,grey;
+    if(colour<16) level=colour;
+    else { n=colour-16; level=(3*(n%6)+6*(n/6%6)+n/36%6)*3/10; }
+    grey=level<8?level+(strong?5:3):level-(strong?5:3);
+    if(grey<3) grey=3;
+    if(grey>12) grey=12;
+    return (unsigned char)grey;
 }
 static void canvas_cell(const Editor *editor,int x,int y)
 {
-    int sx,sy,zoom,i;
+    int sx,sy,zoom;
     unsigned char colour,grid;
     zoom=editor->view.zoom;
     sx=editor->view.x+x*zoom; sy=editor->view.y+y*zoom;
     colour=editor->canvas.pixels[(unsigned)y*editor->canvas.width+x];
     video_rect(sx,sy,zoom,zoom,colour);
-    grid=grid_colour(colour);
+    grid=grid_colour(colour,0);
     if(editor->grid && zoom>=3) {
-        for(i=0;i<zoom;++i) if(i%2) {
-            video_pixel(sx+zoom-1,sy+i,grid);
-            video_pixel(sx+i,sy+zoom-1,grid);
-        }
+        video_rect(sx+zoom-1,sy,1,zoom,grid);
+        video_rect(sx,sy+zoom-1,zoom,1,grid);
     }
     if(editor->guide && zoom>=2) {
-        if((x+1)%editor->guide==0) {
+        grid=grid_colour(colour,1);
+        if(((editor->guide&1) && (x+1)%8==0) || ((editor->guide&2) && (x+1)%16==0))
             video_rect(sx+zoom-1,sy,1,zoom,grid);
-            for(i=0;i<zoom;i+=2) video_pixel(sx+zoom-2,sy+i,grid?0:15);
-        }
-        if((y+1)%editor->guide==0) {
+        if(((editor->guide&1) && (y+1)%8==0) || ((editor->guide&2) && (y+1)%16==0))
             video_rect(sx,sy+zoom-1,zoom,1,grid);
-            for(i=0;i<zoom;i+=2) video_pixel(sx+i,sy+zoom-2,grid?0:15);
-        }
     }
 }
 
