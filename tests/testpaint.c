@@ -314,6 +314,7 @@ static void export_overlay(void)
     ExportOptions o;
     char path[FILE_PATH_MAX];
     start(); clean_baseline(&s,&m,&mouse);
+    memset(&o,0,sizeof(o));
     o.mode=EXPORT_CURRENT; o.layout=SHEET_HORIZONTAL; o.columns=4;
     dialog_editor(&editor);
     checking_idle=1;

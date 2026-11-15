@@ -122,20 +122,28 @@ int file_encode(FILE *stream, const P86Image *image)
     unsigned char header[P86_HEADER_SIZE],timing[2];
     unsigned size,frames,i,payload;
     int v2;
+    unsigned version;
     if(!stream || !image) return FILE_WRITE_ERROR;
-    v2=image->frames!=0; frames=v2?image->frames:1;
+    version=image->version?image->version:(image->frames?2:1);
+    if(version<1 || version>3) return FILE_VERSION;
+    v2=version>=2; frames=v2?image->frames:1;
+    if(!frames) return FILE_LENGTH;
+    if(version==3 && image->transparent>1) return FILE_HEADER;
+    if(version<3 && image->transparent) return FILE_HEADER;
     if(!(v2?anim_dimensions(image->width,image->height):dimensions(image->width,image->height))) return FILE_DIMENSIONS;
     size=image->width*image->height;
     if(frames>ANIM_FRAMES || frames>ANIM_PIXELS/size) return FILE_LENGTH;
     for(i=0;v2 && i<frames;++i)
         if(image->duration[i]<20 || image->duration[i]>2000) return FILE_HEADER;
-    payload=frames*(size+(v2?2:0));
+    if(version<3) for(i=0;i<frames*size/8;++i) if(image->mask[i]) return FILE_HEADER;
+    payload=frames*(size+(v2?2:0)+(version==3?size/8:0));
     memset(header,0,sizeof(header)); memcpy(header,"P86\032",4);
-    put16(header+4,v2?2:1); put16(header+6,P86_HEADER_SIZE);
+    put16(header+4,version); put16(header+6,P86_HEADER_SIZE);
     put16(header+8,image->width); put16(header+10,image->height);
     header[12]=image->foreground; header[13]=image->background;
     put16(header+16,payload);
     if(v2) put16(header+20,frames);
+    if(version==3) header[22]=image->transparent;
     if(fwrite(header,1,sizeof(header),stream)!=sizeof(header)) return FILE_WRITE_ERROR;
     for(i=0;i<frames;++i) {
         if(v2) {
@@ -143,6 +151,7 @@ int file_encode(FILE *stream, const P86Image *image)
             if(fwrite(timing,1,2,stream)!=2) return FILE_WRITE_ERROR;
         }
         if(fwrite(image->pixels+i*size,1,size,stream)!=size) return FILE_WRITE_ERROR;
+        if(version==3 && fwrite(image->mask+i*size/8,1,size/8,stream)!=size/8) return FILE_WRITE_ERROR;
     }
     return ferror(stream)?FILE_WRITE_ERROR:FILE_OK;
 }
@@ -155,22 +164,27 @@ int file_decode(FILE *stream,P86Image *image)
         return ferror(stream)?FILE_READ_ERROR:FILE_LENGTH;
     if(memcmp(header,"P86\032",4)) return FILE_SIGNATURE;
     version=get16(header+4);
-    if(version!=1 && version!=2) return FILE_VERSION;
-    if(get16(header+6)!=P86_HEADER_SIZE || get16(header+14) || get16(header+22)) return FILE_HEADER;
+    if(version!=1 && version!=2 && version!=3) return FILE_VERSION;
+    if(get16(header+6)!=P86_HEADER_SIZE || get16(header+14) || header[23] || (version==3?header[22]>1:header[22]!=0)) return FILE_HEADER;
     if(version==1 && get32(header+20)) return FILE_HEADER;
     width=get16(header+8); height=get16(header+10);
     if(!(version==1?dimensions(width,height):anim_dimensions(width,height))) return FILE_DIMENSIONS;
     size=width*height; frames=version==1?1:get16(header+20);
     if(!frames || frames>ANIM_FRAMES || frames>ANIM_PIXELS/size) return FILE_LENGTH;
-    if(get32(header+16)!=(unsigned long)frames*(size+(version==2?2:0))) return FILE_LENGTH;
+    if(get32(header+16)!=(unsigned long)frames*(size+(version>=2?2:0)+(version==3?size/8:0))) return FILE_LENGTH;
+    memset(image->mask,0,sizeof(image->mask));
+    image->transparent=version==3?header[22]:0;
+    image->version=(unsigned char)version;
     for(i=0;i<frames;++i) {
         image->duration[i]=ANIM_DEFAULT_MS;
-        if(version==2) {
+        if(version>=2) {
             if(fread(timing,1,2,stream)!=2) return ferror(stream)?FILE_READ_ERROR:FILE_LENGTH;
             image->duration[i]=get16(timing);
             if(image->duration[i]<20 || image->duration[i]>2000) return FILE_HEADER;
         }
         if(fread(image->pixels+i*size,1,size,stream)!=size)
+            return ferror(stream)?FILE_READ_ERROR:FILE_LENGTH;
+        if(version==3 && fread(image->mask+i*size/8,1,size/8,stream)!=size/8)
             return ferror(stream)?FILE_READ_ERROR:FILE_LENGTH;
     }
     if(fgetc(stream)!=EOF) return FILE_LENGTH;
@@ -328,8 +342,8 @@ const char *file_message(int status)
         "Cannot open/create file", "Cannot read project file", "Cannot write: disk full or I/O error",
         "Not a Pix86 file", "Unsupported P86 version", "Unsupported canvas size",
         "Wrong/truncated file length", "Invalid P86 header", "Cannot replace file",
-        "Restore failed: keep recovery files"
+        "Restore failed: keep recovery files", "Not enough memory", "BMP transparency requires Flatten"
     };
-    if (status < FILE_OK || status > FILE_RECOVERY) return "File error";
+    if (status < FILE_OK || status > FILE_ALPHA_POLICY) return "File error";
     return messages[status];
 }

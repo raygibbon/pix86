@@ -66,8 +66,8 @@ static void test_render(unsigned side)
         sx=editor.view.x; sy=editor.view.y;
         assert(screen[sy*320+sx]==0);
         if(zoom>=3) {
-            assert(screen[(sy+1)*320+sx+zoom-1]==15); /* black -> white contrast */
-            assert(screen[(sy+zoom)*320+sx+zoom-1]==(unsigned char)side);
+            assert(screen[(sy+1)*320+sx+zoom-1]==3); /* subdued grey on black */
+            assert(screen[(sy+zoom)*320+sx+zoom-1]>=3 && screen[(sy+zoom)*320+sx+zoom-1]<=12);
         }
         for(y=0;y<side;++y) for(x=0;x<side;++x)
             assert(editor.canvas.pixels[y*side+x]==(unsigned char)(y*side+x));
@@ -98,7 +98,7 @@ static void test_render(unsigned side)
     editor.grid = 1;
     editor.canvas.pixels[0]=15;
     render_canvas(&editor);
-    if(zoom>=3) assert(screen[(editor.view.y+1)*320+editor.view.x+zoom-1]==0);
+    if(zoom>=3) assert(screen[(editor.view.y+1)*320+editor.view.x+zoom-1]==12);
     assert(editor.canvas.pixels[0]==15);
     render_canvas(&editor);
     editor.foreground = 255;

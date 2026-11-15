@@ -8,6 +8,7 @@
 #define DIALOG_CONFIRM 1
 #define DIALOG_NEW 2
 #define DIALOG_MESSAGE 3
+#define EXPORT_DIALOG_BODY "Format\nFrames\nLayout\nColumns\nAlpha\nBackground"
 #define DIALOG_COLUMNS 40
 #define DIALOG_FILE_HINT "DOS 8.3 path; default .P86"
 #define DIALOG_NEW_CHOICES "1 16x16 2 32x32 3 64x64\n4 16x24 5 16x32 6 32x24"
@@ -30,6 +31,7 @@ int dialog_export(const char *initial,char *path,ExportOptions *options);
 int dialog_filename(const char *title,const char *initial,char *output);
 int dialog_confirm(const char *title,const char *question);
 int dialog_new_size(unsigned current);
+int dialog_colour(const char *title,unsigned char *colour);
 int dialog_palette(unsigned char *colour,int *background);
 void dialog_font(void);
 void dialog_message(const char *title,const char *message,const FileReport *report);

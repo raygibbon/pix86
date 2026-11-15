@@ -6,11 +6,14 @@ typedef struct Canvas {
     unsigned width;
     unsigned height;
     unsigned char *pixels;
+    unsigned char *mask; /* optional packed bits: 1 = transparent */
 } Canvas;
 
 /* Canvases are capped at 32767 bytes for safe 16-bit near objects. */
 int canvas_init(Canvas *canvas, unsigned width, unsigned height,
                 unsigned char *storage, unsigned capacity);
+int canvas_transparent(const Canvas *canvas,unsigned x,unsigned y);
+void canvas_mask_set(Canvas *canvas,unsigned x,unsigned y,int transparent);
 int canvas_set(Canvas *canvas, unsigned x, unsigned y, unsigned char colour);
 void canvas_clear(Canvas *canvas, unsigned char colour);
 int canvas_get(const Canvas *canvas, unsigned x, unsigned y,

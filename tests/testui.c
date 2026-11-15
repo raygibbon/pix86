@@ -228,29 +228,32 @@ static void exports(void)
     ExportOptions o;
     DialogLayout l;
     char path[FILE_PATH_MAX];
-    o.mode=EXPORT_CURRENT; o.layout=SHEET_HORIZONTAL; o.columns=4;
+    memset(&o,0,sizeof(o)); o.columns=4; o.flatten=1;
     strcpy(path,"unchanged");
     start(); add(9,0,0,0); add(KEY_RIGHT,0,0,0); add(27,0,0,0);
     assert(!dialog_export("PLAYER.BMP",path,&o));
-    assert(o.mode==EXPORT_CURRENT && !strcmp(path,"unchanged"));
+    assert(o.format==EXPORT_BMP && !strcmp(path,"unchanged"));
     start(); add(-1,0,0,0); add(-1,0,0,0);
-    add(9,0,0,0); add(KEY_RIGHT,0,0,0); add(KEY_RIGHT,0,0,0);
-    add(9,0,0,0); add(KEY_RIGHT,0,0,0); add(KEY_RIGHT,0,0,0);
+    add(9,0,0,0); add(KEY_RIGHT,0,0,0); /* PNG and automatic .PNG */
+    add(9,0,0,0); add(KEY_RIGHT,0,0,0); add(KEY_RIGHT,0,0,0); /* sheet */
+    add(9,0,0,0); add(KEY_RIGHT,0,0,0); add(KEY_RIGHT,0,0,0); /* grid */
     add(9,0,0,0); add(KEY_LEFT,0,0,0); add(13,0,0,0);
     assert(dialog_export("PLAYER.BMP",path,&o));
-    assert(o.mode==EXPORT_SHEET && o.layout==SHEET_GRID && o.columns==3 && !strcmp(path,"PLAYER.BMP"));
-    o.mode=EXPORT_CURRENT; o.layout=SHEET_HORIZONTAL; o.columns=4;
-    start(); add(9,0,0,0); add(9,0,0,0); add(9,0,0,0); add(13,0,0,0);
-    assert(!dialog_export("PLAYER.BMP",path,&o)); /* disabled fields skipped to Cancel */
-    dialog_layout(&l,DIALOG_FILE,"Export BMP","Mode\nLayout\nColumns");
-    start(); add(-1,l.body.x+10,l.body.y+2,1); add(-1,0,0,0);
-    add(-1,l.body.x+10,l.body.y+2,1); add(-1,0,0,0);
+    assert(o.format==EXPORT_PNG && !o.flatten && o.mode==EXPORT_SHEET && o.layout==SHEET_GRID && o.columns==3 && !strcmp(path,"PLAYER.PNG"));
+    memset(&o,0,sizeof(o)); o.columns=4; o.flatten=1;
+    start(); add(9,0,0,0); add(9,0,0,0); add(9,0,0,0); /* skips layout/cols/alpha to BG */
+    add(KEY_END,0,0,0); add(9,0,0,0); add(9,0,0,0); add(13,0,0,0);
+    assert(!dialog_export("PLAYER.BMP",path,&o));
+    dialog_layout(&l,DIALOG_FILE,"Export image",EXPORT_DIALOG_BODY);
+    start(); add(-1,l.body.x+10,l.body.y+2,1); add(-1,0,0,0); /* PNG */
     add(-1,l.body.x+10,l.body.y+FONT_HEIGHT+2,1); add(-1,0,0,0);
     add(-1,l.body.x+10,l.body.y+FONT_HEIGHT+2,1); add(-1,0,0,0);
     add(-1,l.body.x+10,l.body.y+2*FONT_HEIGHT+2,1); add(-1,0,0,0);
+    add(-1,l.body.x+10,l.body.y+2*FONT_HEIGHT+2,1); add(-1,0,0,0);
+    add(-1,l.body.x+10,l.body.y+3*FONT_HEIGHT+2,1); add(-1,0,0,0);
     add(-1,l.accept.x+2,l.accept.y+2,1);
     assert(dialog_export("MOUSE.BMP",path,&o));
-    assert(o.mode==EXPORT_SHEET && o.layout==SHEET_GRID && o.columns==5);
+    assert(o.format==EXPORT_PNG && o.mode==EXPORT_SHEET && o.layout==SHEET_GRID && o.columns==5);
 }
 int main(void)
 {

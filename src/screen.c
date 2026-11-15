@@ -36,7 +36,7 @@ void screen_init(Screen *s,const Editor *e,const MouseState *mouse,int has_mouse
     int i;
     workpal_remember(e->foreground); workpal_remember(e->background);
     for(i=0;i<16;++i) s->working[i]=workpal_colour(i);
-    menu_init(&s->menu); s->tool=e->tool; s->foreground=e->foreground; s->background=e->background;
+    menu_init(&s->menu); s->tool=e->tool; s->alpha=e->transparent_eraser; s->foreground=e->foreground; s->background=e->background;
     s->status[0]=s->filename[0]='\0';
     cursor_hide(); video_unclip(); video_clear(UI_DESK);
     render_ui(e); render_canvas(e); render_timeline(e); menu_draw_bar(&s->menu);
@@ -48,12 +48,13 @@ void screen_update(Screen *s,const Editor *e,const Menu *m,unsigned flags,const 
     int n,i;
     if(s->foreground!=e->foreground) workpal_remember(e->foreground);
     if(s->background!=e->background) workpal_remember(e->background);
+    if(s->background!=e->background && e->preview_link) flags|=EDIT_CANVAS;
     menu_bounds(&s->menu,&old); menu_bounds(m,&next);
     if(s->menu.active && (!m->active || m->heading!=s->menu.heading)) {
         n=rect_subtract(&old,&next,parts);
         for(i=0;i<n;++i) render_restore(e,&parts[i]);
     }
-    if(flags&EDIT_UI) render_ui_change(e,s->tool,s->foreground,s->background,s->working);
+    if(flags&EDIT_UI) render_ui_change(e,s->tool,s->foreground,s->background,s->working,s->alpha);
     if(flags&EDIT_CANVAS) {
         cursor_protect(DRAW_X-1,DRAW_Y-1,UI_WIDTH-DRAW_X+1,UI_STATUS_Y-DRAW_Y+1); render_canvas(e);
     } else if(flags&EDIT_STROKE) {
@@ -65,6 +66,6 @@ void screen_update(Screen *s,const Editor *e,const Menu *m,unsigned flags,const 
     menu_draw_change(m,&s->menu);
     status(s,e,m,mouse,has_mouse);
     for(i=0;i<16;++i) s->working[i]=workpal_colour(i);
-    s->menu=*m; s->tool=e->tool; s->foreground=e->foreground; s->background=e->background;
+    s->menu=*m; s->tool=e->tool; s->alpha=e->transparent_eraser; s->foreground=e->foreground; s->background=e->background;
     if(has_mouse) cursor_show(mouse->x,mouse->y);
 }

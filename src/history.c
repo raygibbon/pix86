@@ -24,10 +24,13 @@ static int matches(const History *h,const Canvas *c)
 static void capture(History *h,const Canvas *c)
 {
     anim_copy(h->document->pixels+h->active*h->size,c->pixels,h->size);
+    if(c->mask) anim_copy(h->document->mask+h->active*h->size/8,c->mask,h->size/8);
+    else anim_set(h->document->mask+h->active*h->size/8,0,h->size/8);
 }
 static int equal(const Animation ANIM_FAR *a,const Animation ANIM_FAR *b,unsigned size)
 {
-    return a->frames==b->frames &&
+    return a->frames==b->frames && a->transparent==b->transparent &&
+        !anim_compare(a->mask,b->mask,a->frames*size/8) &&
         !anim_compare(a->duration,b->duration,a->frames*sizeof(unsigned)) &&
         !anim_compare(a->pixels,b->pixels,a->frames*size);
 }
@@ -71,6 +74,7 @@ static void restore(History *h,Canvas *c)
     anim_copy(h->document,h->states[h->position],sizeof(Animation));
     h->active=h->selected[h->position];
     anim_copy(c->pixels,h->document->pixels+h->active*h->size,h->size);
+    if(c->mask) anim_copy(c->mask,h->document->mask+h->active*h->size/8,h->size/8);
 }
 int history_undo(History *h,Canvas *c)
 {

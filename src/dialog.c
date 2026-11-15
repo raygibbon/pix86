@@ -193,14 +193,15 @@ static void full_cell(int index,int selected)
                FULLPAL_Y+index/16*FULLPAL_CELL_H+inset,
                FULLPAL_CELL_W-2*inset,FULLPAL_CELL_H-2*inset,(unsigned char)index);
 }
-static void full_value(int index,int background)
+static void full_value(int index,int background,const char *title)
 {
     char text[26];
-    sprintf(text,"%s %03d  Tab changes FG/BG",background?"BG":"FG",index);
+    if(title) sprintf(text,"Index %03d                ",index);
+    else sprintf(text,"%s %03d  Tab changes FG/BG",background?"BG":"FG",index);
     cursor_protect(74,158,172,FONT_HEIGHT);
     video_text_bg(74,158,text,UI_INK,UI_PAPER);
 }
-int dialog_palette(unsigned char *colour,int *background)
+static int palette(unsigned char *colour,int *background,const char *title)
 {
     DialogLayout l;
     MouseState m;
@@ -209,11 +210,11 @@ int dialog_palette(unsigned char *colour,int *background)
     l.box.x=66; l.box.y=18; l.box.w=188; l.box.h=164;
     protect(&l.box); ui_border(&l.box,UI_INK);
     video_rect(67,19,186,162,UI_PAPER);
-    video_text_bg(74,22,"All 256 colours",UI_INK,UI_PAPER);
-    video_text_bg(74,32,"Left:FG  Right:BG",UI_INK,UI_PAPER);
+    video_text_bg(74,22,title?title:"All 256 colours",UI_INK,UI_PAPER);
+    video_text_bg(74,32,title?"Left/right: choose":"Left:FG  Right:BG",UI_INK,UI_PAPER);
     selected=*colour; target=*background;
     for(i=0;i<256;++i) full_cell(i,i==selected);
-    full_value(selected,target);
+    full_value(selected,target,title);
     video_text_bg(74,170,"Arrows Enter:OK Esc:cancel",UI_INK,UI_PAPER);
     mouse_poll(&m); previous_buttons=m.buttons;
     for(;;) {
@@ -227,7 +228,7 @@ int dialog_palette(unsigned char *colour,int *background)
             if(!hit(&l.box,&m)) return finish(&l,0);
         }
         if(key==13) { *colour=(unsigned char)selected; *background=target; return finish(&l,1); }
-        if(key==9 || key==KEY_SHIFT_TAB) target=!target;
+        if(!title && (key==9 || key==KEY_SHIFT_TAB)) target=!target;
         if(key==KEY_LEFT) selected=(selected+255)&255;
         if(key==KEY_RIGHT) selected=(selected+1)&255;
         if(key==KEY_UP) selected=(selected+240)&255;
@@ -235,9 +236,13 @@ int dialog_palette(unsigned char *colour,int *background)
         if(key==KEY_HOME) selected=0;
         if(key==KEY_END) selected=255;
         if(selected!=previous) { full_cell(previous,0); full_cell(selected,1); }
-        if(selected!=previous || target!=oldtarget) full_value(selected,target);
+        if(selected!=previous || target!=oldtarget) full_value(selected,target,title);
     }
 }
+int dialog_palette(unsigned char *colour,int *background)
+{ return palette(colour,background,NULL); }
+int dialog_colour(const char *title,unsigned char *colour)
+{ int target; target=0; return palette(colour,&target,title); }
 void dialog_font(void)
 {
     char body[280];
@@ -253,8 +258,9 @@ void dialog_font(void)
 
 static int export_focus(int focus,const ExportOptions *o)
 {
-    return (focus!=2 || o->mode==EXPORT_SHEET) &&
-        (focus!=3 || (o->mode==EXPORT_SHEET && o->layout==SHEET_GRID));
+    return (focus!=3 || o->mode==EXPORT_SHEET) &&
+        (focus!=4 || (o->mode==EXPORT_SHEET && o->layout==SHEET_GRID)) &&
+        (focus!=5 || o->format==EXPORT_PNG) && (focus!=6 || o->flatten);
 }
 static void export_rows(const DialogLayout *l,const ExportOptions *o,int focus)
 {
@@ -264,15 +270,27 @@ static void export_rows(const DialogLayout *l,const ExportOptions *o,int focus)
     Rect row;
     int i,enabled;
     for(i=0;i<EXPORT_OPTION_ROWS;++i) {
-        if(!i) sprintf(text,"Mode:    %-23s",modes[o->mode]);
-        else if(i==1) sprintf(text,"Layout:  %-23s",layouts[o->layout]);
-        else sprintf(text,"Columns: %-23u",o->columns);
+        if(i==0) sprintf(text,"Format:  %-23s",o->format==EXPORT_PNG?"PNG":"BMP");
+        else if(i==1) sprintf(text,"Frames:  %-23s",modes[o->mode]);
+        else if(i==2) sprintf(text,"Layout:  %-23s",layouts[o->layout]);
+        else if(i==3) sprintf(text,"Columns: %-23u",o->columns);
+        else if(i==4) sprintf(text,"Alpha:   %-23s",o->format==EXPORT_BMP?"Flatten (BMP)":o->flatten?"Flatten":"Preserve");
+        else sprintf(text,"BG index %-23u",o->background);
         row=l->body; row.y+=i*EXPORT_ROW_HEIGHT; row.h=EXPORT_ROW_HEIGHT;
-        enabled=export_focus(i+1,o);
-        protect(&row);
+        enabled=export_focus(i+1,o); protect(&row);
         video_text_box(row.x,row.y,row.w,row.h,text,
-            !enabled?UI_DIM:focus==i+1?UI_WHITE:UI_INK,
-            focus==i+1?UI_SELECT:UI_PAPER);
+            !enabled?UI_DIM:focus==i+1?UI_WHITE:UI_INK,focus==i+1?UI_SELECT:UI_PAPER);
+        if(i==5 && enabled) video_rect(row.x+27*FONT_WIDTH,row.y,4*FONT_WIDTH-1,FONT_HEIGHT,(unsigned char)o->background);
+    }
+}
+static void export_suffix(DialogInput *input,int format)
+{
+    char *dot;
+    dot=strrchr(input->text,'.');
+    if(dot && (!strcmp(dot,".BMP") || !strcmp(dot,".PNG") || !strcmp(dot,".bmp") || !strcmp(dot,".png"))) {
+        strcpy(dot,format==EXPORT_PNG?".PNG":".BMP");
+        input->length=(unsigned)strlen(input->text);
+        if(input->cursor>input->length) input->cursor=input->length;
     }
 }
 int dialog_export(const char *initial,char *path,ExportOptions *options)
@@ -284,41 +302,45 @@ int dialog_export(const char *initial,char *path,ExportOptions *options)
     unsigned offset,position;
     int key,focus,prior,direction,row;
     o=*options; focus=0; offset=0;
-    dialog_layout(&l,DIALOG_FILE,"Export BMP","Mode\nLayout\nColumns");
+    dialog_layout(&l,DIALOG_FILE,"Export image",EXPORT_DIALOG_BODY);
     dialog_input(&input,initial);
-    begin(&l,"Export BMP","Mode\nLayout\nColumns","Tab focus  Enter export",&m);
+    begin(&l,"Export image",EXPORT_DIALOG_BODY,"Tab focus  Enter export",&m);
     export_rows(&l,&o,focus); field(&l,&input,&offset,1);
     ui_button(&l.accept,"Export",0); ui_button(&l.cancel,"Cancel",0);
     for(;;) {
         key=event(&m); prior=focus; before=input; old=o; direction=0;
         if(key==-2) {
             if(hit(&l.cancel,&m)) return finish(&l,0);
-            if(hit(&l.accept,&m)) { key=13; focus=4; }
+            if(hit(&l.accept,&m)) { key=13; focus=7; }
             else if(hit(&l.field,&m)) {
                 position=offset+(unsigned)(m.x-l.field.x)/FONT_WIDTH;
-                input.cursor=position<input.length?position:input.length;
-                input.replace=0; focus=0;
+                input.cursor=position<input.length?position:input.length; input.replace=0; focus=0;
             } else if(hit(&l.body,&m)) {
                 row=(m.y-l.body.y)/EXPORT_ROW_HEIGHT+1;
                 if(export_focus(row,&o)) { focus=row; direction=1; }
             }
         }
-        if(key==27 || (key==13 && focus==5)) return finish(&l,0);
+        if(key==27 || (key==13 && focus==8)) return finish(&l,0);
         if(key==13) { strcpy(path,input.text); *options=o; return finish(&l,1); }
         if(key==9 || key==KEY_SHIFT_TAB) {
-            do { focus=(focus+(key==9?1:5))%6; } while(!export_focus(focus,&o));
+            do { focus=(focus+(key==9?1:8))%9; } while(!export_focus(focus,&o));
         } else if(focus==0) (void)dialog_edit(&input,key);
-        else if(focus>=1 && focus<=3) {
+        else if(focus>=1 && focus<=6) {
             if(key==KEY_LEFT || key==KEY_DOWN || key=='-') direction=-1;
             if(key==KEY_RIGHT || key==KEY_UP || key=='+' || key==' ') direction=1;
         }
         if(direction) {
-            if(focus==1) o.mode=(o.mode+3+direction)%3;
-            if(focus==2) o.layout=(o.layout+3+direction)%3;
-            if(focus==3) o.columns=(unsigned)((int)o.columns+15+direction)%16+1;
+            if(focus==1) { o.format=!o.format; o.flatten=o.format==EXPORT_BMP; export_suffix(&input,o.format); }
+            if(focus==2) o.mode=(o.mode+3+direction)%3;
+            if(focus==3) o.layout=(o.layout+3+direction)%3;
+            if(focus==4) o.columns=(unsigned)((int)o.columns+15+direction)%16+1;
+            if(focus==5) o.flatten=!o.flatten;
+            if(focus==6) o.background=(o.background+(direction<0?255:1))%256;
         }
+        if(focus==6 && key==KEY_HOME) o.background=0;
+        if(focus==6 && key==KEY_END) o.background=255;
         if(prior!=focus || memcmp(&old,&o,sizeof(o))) export_rows(&l,&o,focus);
         if(prior!=focus || before.cursor!=input.cursor || before.replace!=input.replace || strcmp(before.text,input.text)) field(&l,&input,&offset,focus==0);
-        if(prior!=focus) { ui_button(&l.accept,"Export",focus==4); ui_button(&l.cancel,"Cancel",focus==5); }
+        if(prior!=focus) { ui_button(&l.accept,"Export",focus==7); ui_button(&l.cancel,"Cancel",focus==8); }
     }
 }

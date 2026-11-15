@@ -87,6 +87,7 @@ static void export_command(void)
     char *dot;
     int status;
     editor_finish(&editor); editor.playing=0; refresh_editor(EDIT_STATUS|EDIT_TIMELINE);
+    memset(&options,0,sizeof(options)); options.flatten=1; options.background=editor.background;
     options.mode=EXPORT_CURRENT; options.layout=SHEET_HORIZONTAL; options.columns=4;
     strcpy(initial,project.filename[0]?project.filename:"UNTITLED.BMP");
     dot=strrchr(initial,'.'); if(dot) strcpy(dot,".BMP");
@@ -94,13 +95,13 @@ static void export_command(void)
     editor_image(&editor,&scratch);
     status=export_run(&scratch,editor.history.active,path,&options,0,project.filename,&report);
     if(status==FILE_EXISTS) {
-        sprintf(message,"Replace existing BMP file(s)?\n%s",report.path);
+        sprintf(message,"Replace existing image file(s)?\n%s",report.path);
         if(!dialog_confirm("Overwrite export?",message)) return;
         status=export_run(&scratch,editor.history.active,path,&options,1,project.filename,&report);
     }
     sprintf(message,"%u of %u file(s) exported.\n%s\n%s",report.completed,report.total,
         status==FILE_OK?"Export complete":file_message(status),report.path);
-    dialog_message(status==FILE_OK?"BMP exported":"Export stopped",message,
+    dialog_message(status==FILE_OK?"Image exported":"Export stopped",message,
         status==FILE_OK?NULL:&report.recovery);
 }
 
@@ -177,10 +178,18 @@ int main(int argc, char **argv)
             background=command==CMD_BG;
             colour=background?editor.background:editor.foreground;
             if(dialog_palette(&colour,&background)) {
-                if(background) editor.background=colour;
+                if(background) flags|=editor_background(&editor,colour);
                 else editor.foreground=colour;
                 flags|=EDIT_UI|EDIT_STATUS;
             }
+            modal=1;
+        } else if(command==CMD_PREVIEW) {
+            editor_finish(&editor); editor.playing=0; colour=editor.preview_colour;
+            if(dialog_colour("Preview background",&colour)) { editor.preview_colour=colour; editor.preview_link=0; flags|=EDIT_CANVAS|EDIT_STATUS; }
+            modal=1;
+        } else if(command==CMD_FILL_BG) {
+            editor_finish(&editor); editor.playing=0;
+            if(dialog_confirm("Fill frame with BG?","Replace this frame's artwork?")) flags|=editor_key(&editor,CMD_FILL_BG);
             modal=1;
         } else if(command==CMD_COLOUR_PREV || command==CMD_COLOUR_NEXT) {
             editor_finish(&editor);
