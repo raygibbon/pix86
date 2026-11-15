@@ -100,13 +100,23 @@ only changed cells and frame indicators. Timeline thumbnails are repainted only
 when their visible content changes; structural timeline changes repaint the
 timeline. Timeline collapse repaints its complete old footprint, including the
 right/bottom margins. No screen buffer or widget framework is added.
-playback compares the new active frame to the stored previous frame and paints
-only cells whose visible colour or transparency changed. The profile harness
-and measured tradeoffs are recorded in [PERFORMANCE.md](PERFORMANCE.md). Its timeline update
-changes the old/new selection backgrounds and metadata while preserving the
-already-painted thumbnails. Other UI regions are not redrawn. Playback diagnostics
-sample render time, overdue frame deadlines and displayed FPS only while playing;
-no framebuffer allocation is added. Stopped/idle polling writes no pixels.
+Playback compares the new active frame to the stored previous frame and selects
+changed cells, same-colour/opacity spans, or complete artwork-row scanlines.
+The last path uses one 640-byte indexed line, never a whole-artwork framebuffer.
+Dense texture benefits from contiguous VGA/VBE copies; flat colour and checker
+runs use fills. Grid, guide and selection overlays retain the cell compositor.
+Cursor protection covers actual writes, including unchanged artwork within a
+complete-row copy. Menus, toolbars, palettes and unrelated workspace do not
+repaint on frame transitions. The first transition also uses the diff path.
+The thresholds, memory measurements and native evidence are recorded in
+[PERFORMANCE.md](PERFORMANCE.md).
+
+`timer.c` provides read-only AT/8254 timing with an XT/coarse fallback. It owns
+only timer sampling, not animation state, durations or interrupt handlers.
+Presentation diagnostics include all drawing through cursor restoration and
+exclude waiting. `main.c` retains fractional poll time and counts drawing time
+toward deadlines; the sequencer still displays every frame in order. Stopped
+polling retains the existing DOS delay and writes no pixels.
 Canvas edits outside playback also refresh the compact panel thumbnails. Font
 diagnostics use a bounded 280-byte automatic string; normal control buffers
 remain bounded.
@@ -150,9 +160,9 @@ canvas is 4096 bytes; fill queue 8192; near file scratch 18,474. No large automa
 images or large frame arrays live in DGROUP. Smaller documents retain this fixed
 bounded reservation so editing/history do not allocate during an operation.
 
-The current linked map reports DGROUP 43,344 bytes including the stack (22,192
-bytes below 64 KiB), near code 65,320 bytes (216 bytes below 64 KiB).
-`PIX86.EXE` is 71,554 bytes; seven far blocks reserve another 129,318 bytes.
+The current linked map reports DGROUP 43,280 bytes including the stack (22,256
+bytes below 64 KiB), near code 60,830 bytes (4,706 bytes below 64 KiB).
+`PIX86.EXE` is 66,382 bytes; seven far blocks reserve another 129,318 bytes.
 PSP/environment, heap bookkeeping, stdio and loader overhead are additional.
 Initialization on insufficient conventional memory fails with a diagnostic.
 Up to 16 frames are allowed for every shape except 64×64 (four). Packed transparency is implemented; onion skin and layers remain deferred.

@@ -1,3 +1,13 @@
+Current adaptive-rendering verification: twelve strict C89 host suites and twelve
+ASan/UBSan suites pass; the release/profile and DOS test builds pass with Open
+Watcom `-0 -ms`. `scripts/rundost.sh` now executes eleven DOS cases, adding
+TIMETEST's 200,000 monotonic samples and clock comparison. VIDTEST verifies
+indexed scanline clipping and bank-crossing copies in both display modes.
+The forced-strategy host matrix compares complete framebuffer images, including
+mixed masks, grids/guides and cursor restoration. Native application playback in
+both modes reports F30/30 on the dense 64×64 fixture, and saving reproduces the
+source bytes. See [native timings and full matrix](PERFORMANCE.md).
+
 # Compact workspace verification — 2026-11-15
 
 All twelve strict host suites and twelve ASan/UBSan suites pass. Watcom application
