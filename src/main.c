@@ -87,6 +87,7 @@ static void export_command(void)
     char *dot;
     int status;
     editor_finish(&editor); editor.playing=0; refresh_editor(EDIT_STATUS|EDIT_TIMELINE);
+    memset(&options,0,sizeof(options)); options.flatten=1; options.background=editor.background;
     options.mode=EXPORT_CURRENT; options.layout=SHEET_HORIZONTAL; options.columns=4;
     strcpy(initial,project.filename[0]?project.filename:"UNTITLED.BMP");
     dot=strrchr(initial,'.'); if(dot) strcpy(dot,".BMP");

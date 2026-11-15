@@ -342,8 +342,8 @@ const char *file_message(int status)
         "Cannot open/create file", "Cannot read project file", "Cannot write: disk full or I/O error",
         "Not a Pix86 file", "Unsupported P86 version", "Unsupported canvas size",
         "Wrong/truncated file length", "Invalid P86 header", "Cannot replace file",
-        "Restore failed: keep recovery files"
+        "Restore failed: keep recovery files", "Not enough memory", "BMP transparency requires Flatten"
     };
-    if (status < FILE_OK || status > FILE_RECOVERY) return "File error";
+    if (status < FILE_OK || status > FILE_ALPHA_POLICY) return "File error";
     return messages[status];
 }

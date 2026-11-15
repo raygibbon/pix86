@@ -1,13 +1,15 @@
 #ifndef PIX86_EXPORT_H
 #define PIX86_EXPORT_H
 #include "fileio.h"
+#define EXPORT_BMP 0
+#define EXPORT_PNG 1
 #define EXPORT_CURRENT 0
 #define EXPORT_ALL 1
 #define EXPORT_SHEET 2
 #define SHEET_HORIZONTAL 0
 #define SHEET_VERTICAL 1
 #define SHEET_GRID 2
-typedef struct ExportOptions { int mode,layout; unsigned columns; } ExportOptions;
+typedef struct ExportOptions { int mode,layout; unsigned columns; int format,flatten; unsigned background; } ExportOptions;
 typedef struct ExportReport {
     unsigned completed,total;
     char path[FILE_PATH_MAX];

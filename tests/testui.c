@@ -228,6 +228,7 @@ static void exports(void)
     ExportOptions o;
     DialogLayout l;
     char path[FILE_PATH_MAX];
+    memset(&o,0,sizeof(o));
     o.mode=EXPORT_CURRENT; o.layout=SHEET_HORIZONTAL; o.columns=4;
     strcpy(path,"unchanged");
     start(); add(9,0,0,0); add(KEY_RIGHT,0,0,0); add(27,0,0,0);
@@ -239,6 +240,7 @@ static void exports(void)
     add(9,0,0,0); add(KEY_LEFT,0,0,0); add(13,0,0,0);
     assert(dialog_export("PLAYER.BMP",path,&o));
     assert(o.mode==EXPORT_SHEET && o.layout==SHEET_GRID && o.columns==3 && !strcmp(path,"PLAYER.BMP"));
+    memset(&o,0,sizeof(o));
     o.mode=EXPORT_CURRENT; o.layout=SHEET_HORIZONTAL; o.columns=4;
     start(); add(9,0,0,0); add(9,0,0,0); add(9,0,0,0); add(13,0,0,0);
     assert(!dialog_export("PLAYER.BMP",path,&o)); /* disabled fields skipped to Cancel */
