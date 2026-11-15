@@ -1,6 +1,6 @@
 # Pix86 compact DOS interface
 
-Pix86 stays in VGA Mode 13h (320x200, 256 colours), now with opaque frame
+Pix86 stays in VGA Mode 13h (320x200, 256 colours), now with masked frame
 animation. The 36-pixel collapsible timeline keeps the sidebar/status visible,
 refits integer zoom and offers nine numbered thumbnails, scrolling, navigation,
 add/duplicate/delete, playback and timing. See [ANIMATION.md](ANIMATION.md) and
@@ -67,7 +67,7 @@ cycle working foreground colours. File Open and eyedropper selections also
 enter the recent strip, without changing any pixel index or saved file format.
 
 Canvas sizes and maximum integer zooms remain 16/32/64 and 11/5/2. Grid starts
-off, and G toggles contrasting dashed pixel boundaries at zoom >=3; 8/6 select solid tile guides at zoom >=2.
+off, and G toggles continuous neutral grey pixel boundaries at zoom >=3; 8/6 select solid tile guides at zoom >=2.
 Black/white pixels use adjacent grey indices; colour-cube pixels use a nearby
 shade. Dots reduce coverage compared with solid mesh lines. Rendering never
 changes artwork. A future timeline can reserve view space without storage changes.
@@ -174,3 +174,22 @@ by Tab/Shift+Tab. Arrows/space or fresh mouse clicks change values. Enter export
 Escape cancels, and idle polling paints nothing. After modal restoration and
 result/overwrite prompts, held buttons remain consumed. The menu stays nine
 pixels high. [Export details and captures](EXPORT.md).
+
+## Background and transparency controls
+
+New canvas offers T Transparent (default on every opening) and O Opaque,
+selectable by letter or mouse. Size keys 1..6 create using the selected mode;
+Enter/Create confirms and Escape/Cancel leaves the document alone. Opaque fills
+the actual canvas with current BG; Transparent starts with every mask bit set.
+The initial app document is also transparent. Core `editor_new_shape` remains an
+explicit opaque bootstrap for low-level compatibility; application creation uses
+`editor_new_document` with the selected mode and current BG.
+
+B and right palette clicks select BG without recolouring existing pixels.
+Edit → Fill frame with BG requires confirmation and is undoable. Options offers
+Preview colour, Link preview to BG, Checkerboard, Transparent blanks and Alpha
+eraser (T). Preview options are view-only; blank policy affects future blanks and
+Clear, while alpha eraser changes the tool mode. Index zero is ordinary black.
+Grid G is off by default, continuous neutral grey at >=3x; 8 and 6 independently
+toggle 8/16 guides at >=2x. Checkerboard works with grid disabled. Preview painting
+uses clipped dirty regions and fixed artwork palette indices, never DAC changes.

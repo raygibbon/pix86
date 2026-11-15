@@ -102,8 +102,8 @@ rename will succeed on failing media.
 ## Version 2: opaque frame animation
 
 Version 1 above remains unchanged and is decoded as exactly one opaque square
-image, with an application default duration of 100 ms. New application saves
-use version 2, including single-frame and rectangular documents. A low-level
+image, with an application default duration of 100 ms. Historical application saves
+used version 2, including single-frame and rectangular documents. A low-level
 legacy writer remains available for generating independent version 1 fixtures.
 
 Version 2 uses the same 24-byte little-endian header, signature, FG/BG and zero
@@ -132,3 +132,25 @@ Native v1/v2 semantics are unchanged by image export. Both remain opaque indexed
 formats. [BMP export](EXPORT.md) produces separate 8-bit BI_RGB files with the
 same indices and the fixed DAC palette converted to RGB bytes. Export does not
 mark a native project saved and does not include animation timing or alpha.
+
+## Version 3: independent transparency masks
+
+Application saves now use version 3, including opaque documents. The 24-byte
+header retains v2 dimensions, count, FG/BG and validation. Offset 4 is 3;
+offset 22 is the default blank-frame transparency policy (0 opaque, 1 transparent);
+offset 23 must be zero. This policy does not reinterpret existing pixel indices.
+Each frame stores u16 duration, width*height index bytes, then width*height/8
+mask bytes. Bit (pixel offset % 8), least significant first, is 1 for transparent.
+Indices remain row-major, unscaled and unchanged under transparent pixels.
+Payload length is count*(2+width*height+width*height/8), with no trailing bytes.
+All supported shapes are divisible by eight. Maximum v3 length is 18488 bytes
+(16 frames of 32x32). Unsupported policy, reserved fields, lengths, dimensions,
+counts, durations, truncation and trailing data are rejected before application.
+
+Versions 1 and 2 load with every mask bit clear and opaque blank-frame policy;
+index zero stays opaque. Saving that loaded document as v3 preserves appearance.
+New sprites default to transparent masks; choosing Opaque fills actual indices
+with the selected BG and clears the mask. Preview colour/checker/link, current
+eraser mode, selected frame and view controls are not stored. Masks and blank
+policy participate in undo/redo and exact saved-state comparisons. Existing
+checked TMP/BAK transactions apply unchanged. See [export semantics](EXPORT.md).

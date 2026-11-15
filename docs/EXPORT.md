@@ -1,4 +1,4 @@
-# Indexed BMP and animation export
+# Indexed BMP, RGBA PNG and animation export
 
 File → Export opens one compact modal with a destination field, mode, sheet
 layout and grid column count. Tab/Shift+Tab moves focus; arrows change options.
@@ -8,7 +8,7 @@ are dimmed and skipped. Idle polling does not paint. Overlays consume held click
 before drawing resumes. Export stops playback without changing the selected frame.
 
 - Current frame writes the selected artwork frame at its native dimensions.
-- All frames writes one BMP per frame, in animation order, starting at 0001.
+- All frames writes one image per frame, in animation order, starting at 0001.
 - Sprite sheet places frames left-to-right then top-to-bottom. Horizontal uses
   one row; vertical one column; grid allows 1..16 columns.
 
@@ -19,8 +19,8 @@ frames. Timings remain in the native project; BMP does not store animation timin
 
 ## Destination names and replacement
 
-Destinations must be DOS 8.3 paths with `.BMP` (supplied when omitted). Explicit
-non-BMP extensions, device names and invalid paths are rejected. Numbered mode
+Destinations must be DOS 8.3 paths with `.BMP` or `.PNG` matching the selected format
+(supplied when omitted). Explicit mismatched extensions, device names and invalid paths are rejected. Numbered mode
 uses the first **up to four** stem characters and four digits: `PLY.BMP` gives
 `PLY0001.BMP`, `PLY0002.BMP`; `PLAYER.BMP` gives `PLAY0001.BMP`, etc. The directory
 is preserved. The dialog result reports the actual final/failed destination.
@@ -128,3 +128,33 @@ unchanged. Stationary export-dialog captures one second apart are identical.
 Native FreeDOS/MS-DOS, physical disks/VGA/mouse hardware and a physically full
 disk remain untested. Disk-full is injected at the fwrite boundary. PNG/GIF,
 alpha, custom palettes, spacing options and animation timing export are absent.
+
+## Transparency and streaming PNG
+
+The dialog adds Format, Alpha and Background rows. BMP always shows deliberate
+Flatten; PNG defaults to Preserve and can select Flatten. Background is a palette
+index used only for flattening. Irrelevant rows are dimmed and skipped. Switching
+format updates a recognized filename extension. Every mode supports both formats.
+
+BMP retains indexed bytes for opaque pixels and replaces transparent pixels with
+the selected flatten index. Its palette is the fixed VGA DAC palette converted
+by (component*255+31)/63. Normal indexed BMP has no alpha. The low-level exporter
+rejects masked BMP Preserve rather than silently losing transparency. Unused BMP
+sheet cells use the flatten background. PNG Preserve emits RGBA with alpha 0 or
+255 from the independent mask; hidden index RGB is retained. Unused PNG sheet
+cells are transparent (their RGB is document BG). PNG Flatten uses the chosen
+background and alpha 255. Preview/checker/grid/onion/UI are never export inputs.
+
+`png.c` is an original ANSI C writer, independent of DOS graphics/input. It uses
+RGBA8, filter 0, stored DEFLATE blocks, bounded IDAT chunks, computed CRC32 and
+Adler32. Buffers hold at most 32 RGBA pixels (128 bytes); no complete row or sheet
+allocation is required. Output size/dimension arithmetic is checked before writing;
+all writes are bounded across 64 KiB segment boundaries. Stored compression is
+intentionally larger than compressed PNG but needs no third-party library.
+
+Specifications consulted, without importing source or assets:
+[W3C PNG](https://www.w3.org/TR/png-3/),
+[zlib RFC 1950](https://www.rfc-editor.org/rfc/rfc1950.html), and
+[DEFLATE RFC 1951](https://www.rfc-editor.org/rfc/rfc1951.html).
+The existing Microsoft BMP specification citations above remain authoritative for
+BMP. No new dependencies, attribution or redistribution obligations are introduced.

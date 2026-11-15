@@ -1,3 +1,13 @@
+# Transparency and PNG verification — 2026-11-15
+
+All ten strict host and ASan/UBSan suites pass. Watcom build and DOS test build
+pass; all seven native test programs pass under DOSBox-X. ALPHTEST adds v3 masks,
+legacy opacity, BG/alpha tools, streaming RGBA PNG and failure checks. The native
+visual exercise and independent Pillow/zlib comparisons cover save/reopen,
+preview isolation and all export layouts. See [results, memory, screenshots and
+limits](TRANSP.md). `tests/pngcheck.py` is an optional host-only Pillow check;
+it adds no application dependency. Earlier measurements below are historical.
+
 # Pix86 verification
 
 ## BMP export — 2026-11-15
