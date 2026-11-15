@@ -1,6 +1,7 @@
 #ifndef PIX86_EDITOR_H
 #define PIX86_EDITOR_H
 #include "canvas.h"
+#include "select.h"
 #include "history.h"
 #include "view.h"
 #include "fileio.h"
@@ -8,6 +9,10 @@
 #define TOOL_ERASER 1
 #define TOOL_FILL 2
 #define TOOL_PICK 3
+#define TOOL_SELECT 4
+#define TOOL_MOVE 5
+#define TOOL_COUNT 6
+#define EDIT_SELECTION 32
 #define EDIT_UI 1
 #define EDIT_CANVAS 2
 #define EDIT_STATUS 4
@@ -18,6 +23,7 @@
 
 typedef struct Editor {
     Canvas canvas;
+    Selection selection;
     unsigned char pixels[4096];
     unsigned char mask[512];
     History history;

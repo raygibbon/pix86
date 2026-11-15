@@ -4,6 +4,11 @@
 /* Stable logical commands. Character values preserve the small original API;
    shortcut aliases are translated only by keyboard_command in keymap.c. */
 #define CMD_NONE 0
+#define CMD_SELECT_ALL 670
+#define CMD_DESELECT 671
+#define CMD_SELECT 672
+#define CMD_MOVE 673
+#define CMD_APPLY 674
 #define CMD_NEW 'n'
 #define CMD_OPEN KEY_F3
 #define CMD_SAVE KEY_F2

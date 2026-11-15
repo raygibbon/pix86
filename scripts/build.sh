@@ -24,10 +24,10 @@ rm -f PIX86.EXE "$ROOT/mnt/PIX86.EXE"
 # Exclusive create/stat/fdopen are Watcom CRT extensions, isolated in fileio.
 wcc -bt=dos -ms -0 -ze -wx -we -w4 -os "$ROOT/src/fileio.c"
 wcl -bt=dos -ms -0 -za -wx -we -w4 -os -k4096 \
-    "$ROOT/src/main.c" "$ROOT/src/ui.c" "$ROOT/src/video.c" "$ROOT/src/font.c" "$ROOT/src/textsize.c" "$ROOT/src/mouse.c" \
+    "$ROOT/src/main.c" "$ROOT/src/ui.c" "$ROOT/src/video.c" "$ROOT/src/videovga.c" "$ROOT/src/videovbe.c" "$ROOT/src/font.c" "$ROOT/src/textsize.c" "$ROOT/src/mouse.c" \
     "$ROOT/src/keyboard.c" "$ROOT/src/keymap.c" \
     "$ROOT/src/menu.c" "$ROOT/src/menudraw.c" "$ROOT/src/uipaint.c" "$ROOT/src/canvas.c" "$ROOT/src/cursor.c" \
-    "$ROOT/src/tools.c" "$ROOT/src/history.c" "$ROOT/src/view.c" "$ROOT/src/workpal.c" \
+    "$ROOT/src/tools.c" "$ROOT/src/history.c" "$ROOT/src/view.c" "$ROOT/src/layout.c" "$ROOT/src/select.c" "$ROOT/src/workpal.c" \
     "$ROOT/src/editor.c" "$ROOT/src/anim.c" "$ROOT/src/render.c" "$ROOT/src/region.c" "$ROOT/src/screen.c" \
     fileio.o "$ROOT/src/project.c" "$ROOT/src/bmp.c" "$ROOT/src/export.c" "$ROOT/src/png.c" "$ROOT/src/colour.c" \
     "$ROOT/src/dialog.c" "$ROOT/src/dlginput.c" "$ROOT/src/dlggeom.c" \

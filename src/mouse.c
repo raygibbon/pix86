@@ -1,6 +1,7 @@
 #include <dos.h>
 #include <i86.h>
 #include "mouse.h"
+#include "video.h"
 
 static int available;
 
@@ -18,19 +19,18 @@ int mouse_init(void)
     if (r.w.ax != 0xffff)
         return 0;
     available = 1;
-    /* Reset leaves driver cursor hidden. We draw our own cursor. Mode 13h
-       mouse X coordinates use a 640-wide virtual space (two units/pixel). */
+    /* Mouse X uses a 640-unit virtual space in both display modes. */
     r.w.ax = 7;
     r.w.cx = 0;
     r.w.dx = 639;
     int86(0x33, &r, &r);
     r.w.ax = 8;
     r.w.cx = 0;
-    r.w.dx = 199;
+    r.w.dx = (unsigned short)(video_height() - 1);
     int86(0x33, &r, &r);
     r.w.ax = 4;
     r.w.cx = 320;
-    r.w.dx = 100;
+    r.w.dx = (unsigned short)(video_height() / 2);
     int86(0x33, &r, &r);
     return 1;
 }
@@ -44,10 +44,10 @@ void mouse_poll(MouseState *state)
         return;
     r.w.ax = 3;
     int86(0x33, &r, &r);
-    state->x = r.w.cx / 2;
+    state->x = (int)((long)r.w.cx * video_width() / 640);
     state->y = r.w.dx;
-    if (state->x > 319) state->x = 319;
-    if (state->y > 199) state->y = 199;
+    if (state->x >= video_width()) state->x = video_width() - 1;
+    if (state->y >= video_height()) state->y = video_height() - 1;
     state->buttons = r.w.bx & (MOUSE_LEFT | MOUSE_RIGHT);
 }
 

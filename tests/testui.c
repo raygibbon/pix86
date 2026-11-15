@@ -99,7 +99,7 @@ static void menus(void)
         menu_key(&menu, 27, &command); assert(!menu.active && !command);
     }
     assert(keyboard_menu('f') == -1);
-    for (h = 0; h < 4; ++h) {
+    for (h = 0; h < TOOL_COUNT; ++h) {
         assert(toolbar_hit(TOOL_X, TOOL_Y+h*TOOL_STEP) == h);
         assert(toolbar_hit(TOOL_X, TOOL_Y+h*TOOL_STEP+TOOL_HEIGHT) == -1);
     }

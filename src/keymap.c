@@ -35,6 +35,13 @@ int keyboard_command(int key)
 {
     if(key>=CMD_SELECT_FRAME && key<CMD_SELECT_FRAME+16) return key;
     if(key>=0 && key<=255) key=tolower((unsigned char)key);
+    if(key==1) return CMD_SELECT_ALL;
+    if(key==4) return CMD_DESELECT;
+    if(key==13) return CMD_APPLY;
+    if(key=='s') return CMD_SELECT;
+    if(key=='m') return CMD_MOVE;
+    if(key==KEY_LEFT || key==KEY_RIGHT || key==KEY_UP || key==KEY_DOWN) return key;
+    if(key>=CMD_SELECT_ALL && key<=CMD_APPLY) return key;
     if(key=='t') return CMD_TRANS_ERASE;
     if(key=='u') return CMD_UNDO;
     if(key=='r') return CMD_REDO;

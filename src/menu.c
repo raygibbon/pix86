@@ -3,11 +3,12 @@
 #include <ctype.h>
 #include <string.h>
 static const char *titles[MENU_COUNT] = {"File", "Edit", "View", "Frame", "Options", "Help"};
-static const int counts[MENU_COUNT] = {6, 4, 6, 9, 8, 3};
+static const int counts[MENU_COUNT] = {6, 7, 6, 9, 8, 3};
 static const MenuItem items[MENU_COUNT][10] = {
     {{"New", "N", CMD_NEW}, {"Open", "F3", CMD_OPEN}, {"Save", "F2", CMD_SAVE},
      {"Save As", "Shift-F2", CMD_SAVE_AS}, {"Export", "", CMD_EXPORT}, {"Exit", "Esc", CMD_EXIT}},
-    {{"Undo", "Ctrl-Z", CMD_UNDO}, {"Redo", "Ctrl-Y", CMD_REDO}, {"Clear", "C", CMD_CLEAR}, {"Fill frame with BG", "", CMD_FILL_BG}},
+    {{"Undo", "Ctrl-Z", CMD_UNDO}, {"Redo", "Ctrl-Y", CMD_REDO}, {"Clear", "C", CMD_CLEAR}, {"Fill frame with BG", "", CMD_FILL_BG},
+     {"Select all", "Ctrl-A", CMD_SELECT_ALL}, {"Deselect", "Ctrl-D", CMD_DESELECT}, {"Move selection", "M", CMD_MOVE}},
     {{"Zoom in", "+", CMD_ZOOM_IN}, {"Zoom out", "-", CMD_ZOOM_OUT}, {"Grid", "G", CMD_GRID}, {"8x8 guides", "8", CMD_GUIDE8}, {"16x16 guides", "6", CMD_GUIDE16}, {"Timeline", "Tab", CMD_TIMELINE}},
     {{"Add blank", "Ins", CMD_FRAME_ADD}, {"Duplicate", "D", CMD_FRAME_DUP},
      {"Delete", "Del", CMD_FRAME_DELETE}, {"Previous", ",", CMD_FRAME_PREV},
