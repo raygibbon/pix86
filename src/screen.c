@@ -1,6 +1,6 @@
 #include <string.h>
 #include <stdio.h>
-#include <time.h>
+#include "timer.h"
 #include "screen.h"
 #include "cursor.h"
 #include "video.h"
@@ -15,11 +15,16 @@ static void status(Screen *s,const Editor *e,const MouseState *mouse,int has_mou
     PROFILE_COUNT(status_calls);
     if(e->playing) {
         unsigned long render_ms,dropped;
-        unsigned fps;
+        unsigned fps,target;
         render_ms=s->playback_render_ms>999?999:s->playback_render_ms;
         dropped=s->playback_dropped>9999UL?9999UL:s->playback_dropped;
         fps=s->playback_fps>99?99:s->playback_fps;
-        sprintf(performance,"R%3lums D%4lu F%2u",render_ms,dropped,fps);
+        target=(1000U+e->document->duration[e->history.active]/2)/
+               e->document->duration[e->history.active];
+        if(target>99) target=99;
+        sprintf(performance,"R%3lums D%4lu F%2u/%2u",render_ms,dropped,fps,target);
+        if(!s->playback_active) memcpy(performance,"R --ms",6);
+        else if(!timer_precise() && !render_ms) memcpy(performance,"R<55ms",6);
         memset(text,' ',UI_STATUS_CHARS); text[UI_STATUS_CHARS]='\0';
         memcpy(text,performance,strlen(performance));
         sprintf(colours,"F%03u B%03u",(unsigned)e->foreground,(unsigned)e->background);
@@ -56,6 +61,7 @@ void screen_init(Screen *s,const Editor *e,const MouseState *mouse,int has_mouse
     workpal_remember(e->foreground); workpal_remember(e->background);
     for(i=0;i<16;++i) s->working[i]=workpal_colour(i);
     s->flyout.group=s->flyout.hover=-1; s->nav_count=0; s->first_frame=e->first_frame;
+    timer_precise();
     s->playback_active=0; s->playback_render_ms=s->playback_fps=0; s->playing=e->playing;
     s->playback_dropped=s->playback_window=s->playback_frames=0;
     s->timeline=e->timeline;
@@ -71,7 +77,7 @@ static void update(Screen *s,const Editor *e,const Menu *m,const Flyout *flyout,
 {
     Rect old,next,parts[4];
     int n,i,active,playback_render,first_playback,timeline_rebuild;
-    clock_t render_start,render_end;
+    unsigned long render_start,render_end;
     unsigned long elapsed,now;
     PROFILE_START(screen_start);
     timeline_rebuild=s->nav_count!=e->document->frames ||
@@ -88,6 +94,7 @@ static void update(Screen *s,const Editor *e,const Menu *m,const Flyout *flyout,
     playback_render=(flags&EDIT_PLAYBACK) &&
                     !(flags&(EDIT_CANVAS|EDIT_STROKE|EDIT_SELECTION));
     first_playback=playback_render && !s->playback_active;
+    render_start=playback_render?timer_now():0;
     if(s->flyout.group>=0 && s->flyout.group!=flyout->group) {
         flyout_bounds(s->flyout.group,&old); render_restore(e,&old);
     }
@@ -104,39 +111,17 @@ static void update(Screen *s,const Editor *e,const Menu *m,const Flyout *flyout,
     for(i=0;i<TOOL_GROUPS;++i)
         if(s->groups[i]!=e->group_tool[i] || s->active_group!=active) render_group(e,i);
     if(playback_render) {
-        render_start=clock();
-        if(first_playback) render_canvas(e);
-        else render_playback_canvas(e,e->playback_previous);
-        if(first_playback || s->first_frame!=e->first_frame) render_timeline(e);
+        render_playback_canvas(e,e->playback_previous);
+        if(timeline_rebuild) render_timeline(e);
         else render_timeline_playback(e,e->playback_previous);
-        render_end=clock();
-        s->playback_dropped=e->playback_dropped;
-        if(first_playback) {
-            s->playback_active=1; s->playback_window=(unsigned long)render_end;
-            s->playback_frames=0; s->playback_fps=0;
-        }
-        if(render_start!=(clock_t)-1 && render_end!=(clock_t)-1) {
-            elapsed=(unsigned long)render_end-(unsigned long)render_start;
-            s->playback_render_ms=(unsigned)((elapsed*1000UL)/CLOCKS_PER_SEC);
-            now=(unsigned long)render_end;
-            ++s->playback_frames;
-            elapsed=now-s->playback_window;
-            if(elapsed>=CLOCKS_PER_SEC) {
-                s->playback_fps=(unsigned)((s->playback_frames*CLOCKS_PER_SEC)/elapsed);
-                s->playback_window=now; s->playback_frames=0;
-            }
-        }
     } else if(flags&EDIT_CANVAS) {
-        cursor_protect(DRAW_X-1,DRAW_Y-1,DRAW_WIDTH+3,UI_STATUS_Y-DRAW_Y+1);
         if((flags&EDIT_FRAME_SWITCH) && !timeline_rebuild)
             render_playback_canvas(e,s->nav_active);
-        else render_canvas(e);
-    } else if(flags&EDIT_STROKE) {
-        cursor_protect(e->view.x+e->dirty_x0*e->view.zoom,e->view.y+e->dirty_y0*e->view.zoom,
-                       (e->dirty_x1-e->dirty_x0+1)*e->view.zoom,(e->dirty_y1-e->dirty_y0+1)*e->view.zoom);
-        render_cells(e);
-    } else if(flags&EDIT_CELLS) {
-        cursor_protect(DRAW_X-1,DRAW_Y-1,DRAW_WIDTH+3,UI_STATUS_Y-DRAW_Y+1);
+        else {
+            cursor_protect(DRAW_X-1,DRAW_Y-1,DRAW_WIDTH+3,UI_STATUS_Y-DRAW_Y+1);
+            render_canvas(e);
+        }
+    } else if(flags&(EDIT_STROKE|EDIT_CELLS)) {
         render_cells(e);
     } else if(flags&EDIT_SELECTION) {
         cursor_protect(e->view.x+e->dirty_x0*e->view.zoom,e->view.y+e->dirty_y0*e->view.zoom,
@@ -159,6 +144,25 @@ static void update(Screen *s,const Editor *e,const Menu *m,const Flyout *flyout,
     s->first_frame=e->first_frame; s->timeline=e->timeline;
     s->menu=*m; s->tool=e->tool; s->alpha=e->transparent_eraser; s->foreground=e->foreground; s->background=e->background;
     if(has_mouse) cursor_show(mouse->x,mouse->y);
+    if(playback_render) {
+        render_end=timer_now();
+        s->playback_dropped=e->playback_dropped;
+        if(first_playback) {
+            s->playback_active=1; s->playback_window=render_start;
+            s->playback_frames=0; s->playback_fps=0;
+        }
+        {
+            elapsed=(unsigned long)render_end-(unsigned long)render_start;
+            s->playback_render_ms=(unsigned)((elapsed+1192UL)/1193UL);
+            now=(unsigned long)render_end;
+            ++s->playback_frames;
+            elapsed=now-s->playback_window;
+            if(elapsed>=TIMER_HZ) {
+                s->playback_fps=(unsigned)((s->playback_frames*TIMER_HZ+elapsed/2)/elapsed);
+                s->playback_window=now; s->playback_frames=0;
+            }
+        }
+    }
     PROFILE_STOP(screen,screen_start);
 }
 

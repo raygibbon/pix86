@@ -18,11 +18,12 @@ cat > "$SCRATCH/RUNTEST.BAT" <<'DOS'
 ..\SELTEST.EXE > SEL.TXT
 ..\VIDTEST.EXE > VGA.TXT
 ..\VIDTEST.EXE HIRES > VBE.TXT
+..\TIMETEST.EXE > TIME.TXT
 exit
 DOS
 "$DOSBOX_X" -conf "$ROOT/tests/dosbox.conf" \
     -c "mount c $ROOT/mnt" -c 'c:' -c "cd $NAME" -c RUNTEST.BAT
-for suite in ED IO UI KBD ANIM BMP ALPHA SEL VGA VBE; do
+for suite in ED IO UI KBD ANIM BMP ALPHA SEL VGA VBE TIME; do
     cp "$SCRATCH/$suite.TXT" "$ROOT/build/dos-results/$suite.TXT"
     rg '^PASS:' "$SCRATCH/$suite.TXT"
 done

@@ -6,6 +6,7 @@ typedef struct ProfileStats {
     unsigned long framebuffer_pixel_writes;
     unsigned long rectangles,scanlines;
     unsigned long canvas_full,canvas_partial,canvas_cells,canvas_compares;
+    unsigned long playback_cell_draws,playback_span_draws,playback_full_draws;
     unsigned long ui_full,ui_controls,ui_groups,ui_flyouts,ui_menus;
     unsigned long timeline_full,timeline_partial,overlay_restores;
     unsigned long vbe_bank_switches,mouse_polls,status_calls,status_chars;
@@ -14,6 +15,8 @@ typedef struct ProfileStats {
 } ProfileStats;
 
 extern ProfileStats pix86_profile;
+/* Harness only: 0 adaptive, 1 cells, 2 spans, 3 complete artwork. */
+extern unsigned pix86_render_strategy;
 unsigned long profile_now(void);
 void profile_record(unsigned long *total,unsigned long *samples,
                     unsigned long *maximum,unsigned long start);

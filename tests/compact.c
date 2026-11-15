@@ -39,6 +39,7 @@ void video_rect(int x,int y,int w,int h,unsigned char c)
     for(yy=y;yy<y+h;++yy) for(xx=x;xx<x+w;++xx) video_pixel(xx,yy,c);
 }
 void video_clear(unsigned char c) { ++clears; video_rect(0,0,UI_WIDTH,UI_HEIGHT,c); }
+int video_hires(void) { return 0; }
 static unsigned event(int key,int x,int y,unsigned buttons)
 {
     int command,consumed,was_active;
@@ -182,4 +183,10 @@ int main(void)
     editor_dispose(&e);
     puts("PASS: hidden menus, precise overlay restoration, flyout ownership, floating selection and compact frames in both modes.");
     return 0;
+}
+
+void video_span(int x,int y,const unsigned char *pixels,int count)
+{
+    int i;
+    for(i=0;i<count;++i) video_pixel(x+i,y,pixels[i]);
 }

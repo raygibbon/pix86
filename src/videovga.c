@@ -3,6 +3,7 @@
 #include "video.h"
 #include "videoint.h"
 
+extern void __far *_fmemcpy(void __far *,const void __far *,size_t);
 extern void __far *_fmemset(void __far *,int,size_t);
 
 static unsigned char __far *vga = (unsigned char __far *)0xa0000000UL;
@@ -37,4 +38,9 @@ void videovga_rect(int x, int y, int width, int height, unsigned char colour)
         row=vga+row_offset;
         _fmemset(row,(int)colour,(size_t)width);
     }
+}
+
+void videovga_span(int x,int y,const unsigned char *pixels,int count)
+{
+    _fmemcpy(vga+(unsigned)y*VIDEO_WIDTH+(unsigned)x,pixels,(size_t)count);
 }

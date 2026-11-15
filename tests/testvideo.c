@@ -15,6 +15,7 @@ int main(int argc, char **argv)
 {
     int before, hires, hires_active, width, height, x, y;
     unsigned colour;
+    unsigned char row[640];
     (void)argv;
     before = current_mode();
     hires = argc > 1;
@@ -48,6 +49,20 @@ int main(int argc, char **argv)
         for(y=103;y<107;++y) for(x=37;x<56;++x)
             assert(video_read(x,y)==173);
     }
+    for(x=0;x<width;++x) row[x]=(unsigned char)x;
+    /* VBE row 102 crosses the 64 KiB bank boundary at x=256. */
+    video_span(0,102,row,width);
+    for(x=0;x<width;++x) assert(video_read(x,102)==(unsigned char)x);
+    video_rect(0,103,width,1,201);
+    video_clip(4,103,8,1);
+    video_span(0,103,row,20);
+    video_unclip();
+    for(x=0;x<20;++x)
+        assert(video_read(x,103)==(x>=4 && x<12?(unsigned char)x:201));
+    video_span(-4,104,row,12);
+    for(x=0;x<8;++x) assert(video_read(x,104)==row[x+4]);
+    video_span(width-4,height-1,row,20);
+    for(x=0;x<4;++x) assert(video_read(width-4+x,height-1)==row[x]);
     video_pixel(width-1,height-1,255);
     assert(video_read(width-1,height-1)==255);
     video_pixel(3,4,98);
