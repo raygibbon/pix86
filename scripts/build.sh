@@ -22,8 +22,8 @@ cd "$ROOT/build"
 # Never leave a stale release executable after a failed compile/link.
 rm -f PIX86.EXE "$ROOT/mnt/PIX86.EXE"
 # Exclusive create/stat/fdopen are Watcom CRT extensions, isolated in fileio.
-wcc -bt=dos -ms -0 -ze -wx -w4 -os "$ROOT/src/fileio.c"
-wcl -bt=dos -ms -0 -za -wx -w4 -os -k4096 \
+wcc -bt=dos -ms -0 -ze -wx -we -w4 -os "$ROOT/src/fileio.c"
+wcl -bt=dos -ms -0 -za -wx -we -w4 -os -k4096 \
     "$ROOT/src/main.c" "$ROOT/src/ui.c" "$ROOT/src/video.c" "$ROOT/src/font.c" "$ROOT/src/textsize.c" "$ROOT/src/mouse.c" \
     "$ROOT/src/keyboard.c" "$ROOT/src/keymap.c" \
     "$ROOT/src/menu.c" "$ROOT/src/menudraw.c" "$ROOT/src/uipaint.c" "$ROOT/src/canvas.c" "$ROOT/src/cursor.c" \

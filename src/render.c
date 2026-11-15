@@ -101,7 +101,7 @@ void render_canvas(const Editor *editor)
     {
         Rect area,art,parts[4];
         int n,i;
-        area.x=DRAW_X-1; area.y=DRAW_Y-1; area.w=DRAW_WIDTH+2; area.h=DRAW_HEIGHT+2;
+        area.x=DRAW_X-1; area.y=DRAW_Y-1; area.w=UI_WIDTH-DRAW_X+1; area.h=UI_STATUS_Y-DRAW_Y+1;
         art.x=view->x-1; art.y=view->y-1;
         art.w=(int)view->width*zoom+2; art.h=(int)view->height*zoom+2;
         n=rect_subtract(&area,&art,parts);
@@ -163,7 +163,7 @@ void render_restore(const Editor *editor,const Rect *r)
     for(i=0;i<n;++i) video_rect(parts[i].x,parts[i].y,parts[i].w,parts[i].h,UI_DESK);
     if(r->x<UI_LEFT_WIDTH || r->x+r->w>UI_RIGHT_X) render_ui(editor);
     if(rect_overlap(r,&art)) render_canvas(editor);
-    render_timeline(editor);
+    if(editor->timeline && r->y+r->h>TIMELINE_Y && r->x+r->w>DRAW_X-1) render_timeline(editor);
     video_unclip();
 }
 void render_ui_change(const Editor *editor,int tool,unsigned char fg,unsigned char bg,

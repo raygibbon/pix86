@@ -29,6 +29,13 @@ extern int _fmemcmp(const void __far *,const void __far *,size_t);
 #define ANIM_FRAMES 16
 #define ANIM_PIXELS 16384
 #define ANIM_DEFAULT_MS 100
+typedef struct Animation {
+    unsigned width,height;
+    unsigned char foreground,background;
+    unsigned char pixels[ANIM_PIXELS];
+    unsigned frames;
+    unsigned duration[ANIM_FRAMES];
+} Animation;
 /* Opaque indexed images. Zero is an ordinary colour. */
 int anim_dimensions(unsigned width,unsigned height);
 #endif

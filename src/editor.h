@@ -20,7 +20,7 @@ typedef struct Editor {
     Canvas canvas;
     unsigned char pixels[4096];
     History history;
-    P86Image ANIM_FAR *document, ANIM_FAR *saved;
+    Animation ANIM_FAR *document, ANIM_FAR *saved;
     unsigned saved_width, saved_height;
     unsigned char saved_foreground, saved_background;
     unsigned first_frame, elapsed;
@@ -33,7 +33,8 @@ typedef struct Editor {
     unsigned previous_buttons;
 } Editor;
 
-/* Supported square sizes: 16,32,64; fill_queue has 4096 entries. */
+/* Init a fresh object; dispose before reinitializing. New/Open reuse its storage.
+   fill_queue has 4096 entries. Dimensions are checked by anim_dimensions. */
 int editor_init(Editor *editor, unsigned side, unsigned short *fill_queue);
 void editor_dispose(Editor *editor);
 int editor_new_shape(Editor *editor,unsigned width,unsigned height);

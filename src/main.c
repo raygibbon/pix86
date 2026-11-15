@@ -87,7 +87,7 @@ int main(int argc, char **argv)
     int command, consumed, was_active, modal;
     UiState ui;
     unsigned char colour;
-    int background;
+    int background, was_playing;
     clock_t last_tick,now;
     unsigned long ticks;
     side = height = 32;
@@ -130,12 +130,13 @@ int main(int argc, char **argv)
     for (;;) {
         key = keyboard_poll();
         mouse_poll(&mouse);
+        was_playing=editor.playing;
         was_active = ui.menu.active;
         consumed = ui_input(&ui,key,&mouse,&command);
         if(!consumed && !ui.menu.active && !(previous.buttons&1))
             consumed=ui_timeline(&ui,editor.timeline,editor.first_frame,editor.document->frames,&mouse,&command);
         now=clock(); ticks=(unsigned long)(now-last_tick); last_tick=now;
-        flags=ui.menu.active?0:editor_tick(&editor,(unsigned)(ticks>60*CLOCKS_PER_SEC?60000UL:ticks*1000UL/CLOCKS_PER_SEC));
+        flags=ui.menu.active?0:editor_tick(&editor,(unsigned)(ticks>60UL*CLOCKS_PER_SEC?60000UL:ticks*1000UL/CLOCKS_PER_SEC));
         modal = 0;
         if (consumed) { editor_finish(&editor); if(command!=CMD_PLAY) editor.playing=0; }
         /* Restore an exposed menu before dispatching a modal command. */
@@ -177,6 +178,7 @@ int main(int argc, char **argv)
         else if (has_mouse &&
                    (mouse.x != previous.x || mouse.y != previous.y || mouse.buttons != previous.buttons))
             flags |= editor_mouse(&editor, mouse.x, mouse.y, mouse.buttons);
+        if(was_playing!=editor.playing) flags|=EDIT_TIMELINE;
         screen_update(&screen,&editor,&ui.menu,flags,&mouse,has_mouse);
         previous = mouse;
         delay(10);

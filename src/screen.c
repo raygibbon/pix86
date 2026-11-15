@@ -55,7 +55,7 @@ void screen_update(Screen *s,const Editor *e,const Menu *m,unsigned flags,const 
     }
     if(flags&EDIT_UI) render_ui_change(e,s->tool,s->foreground,s->background,s->working);
     if(flags&EDIT_CANVAS) {
-        cursor_protect(DRAW_X-1,DRAW_Y-1,DRAW_WIDTH+2,DRAW_HEIGHT+2); render_canvas(e);
+        cursor_protect(DRAW_X-1,DRAW_Y-1,UI_WIDTH-DRAW_X+1,UI_STATUS_Y-DRAW_Y+1); render_canvas(e);
     } else if(flags&EDIT_STROKE) {
         cursor_protect(e->view.x+e->dirty_x0*e->view.zoom,e->view.y+e->dirty_y0*e->view.zoom,
                        (e->dirty_x1-e->dirty_x0+1)*e->view.zoom,(e->dirty_y1-e->dirty_y0+1)*e->view.zoom);

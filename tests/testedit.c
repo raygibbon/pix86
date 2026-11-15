@@ -311,5 +311,6 @@ int main(void)
     test_history();
     test_interactions();
     puts("PASS: M2 pixels, zoom, lines, fill, history, palette and editor gestures.");
+    editor_dispose(&editor);
     return 0;
 }

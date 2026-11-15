@@ -358,5 +358,6 @@ int main(void)
     remove("SUB/PLAYER.P86"); remove("BAD.P86"); remove("GOOD.P86");
     remove("SAVED.P86"); remove("COLLIDE.P86");
     puts("PASS: P86 roundtrips, validation, replacement, dirty state and dialogs.");
+    editor_dispose(&editor);
     return 0;
 }

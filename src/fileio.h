@@ -5,13 +5,7 @@
 #define FILE_PATH_MAX 80
 #define P86_HEADER_SIZE 24
 
-typedef struct P86Image {
-    unsigned width, height;
-    unsigned char foreground, background;
-    unsigned char pixels[ANIM_PIXELS];
-    unsigned frames;
-    unsigned duration[ANIM_FRAMES];
-} P86Image;
+typedef Animation P86Image;
 
 typedef struct FileReport {
     char temporary[FILE_PATH_MAX];

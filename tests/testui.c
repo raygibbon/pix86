@@ -193,6 +193,9 @@ static void dialogs(void)
     start(); add(KEY_RIGHT,0,0,0); add(13,0,0,0); assert(dialog_new_size(16)==32);
     start(); add(-1,newlayout.body.x+17*FONT_WIDTH,newlayout.body.y+2,1); add(-1,newlayout.body.x+17*FONT_WIDTH,newlayout.body.y+2,0); add_button(DIALOG_NEW,"New canvas",DIALOG_NEW_CHOICES,1); assert(dialog_new_size(16)==64);
     start(); add(27,0,0,0); assert(!dialog_new_size(32));
+    start(); add('4',0,0,0); assert(dialog_new_size(32)==16*256+24);
+    start(); add('5',0,0,0); assert(dialog_new_size(32)==16*256+32);
+    start(); add('6',0,0,0); assert(dialog_new_size(32)==32*256+24);
     memset(&report,0,sizeof(report));
     memset(report.backup,'B',FILE_PATH_MAX-1); memset(report.temporary,'T',FILE_PATH_MAX-1);
     start(); add(13,0,0,0); dialog_message("Recovery", "Retain backup and temporary", &report);
@@ -224,5 +227,6 @@ int main(void)
 {
     keys(); menus(); inputs(); dialogs(); palettes();
     puts("PASS: menus, keyboard/mouse dialogs, cursor editing and drawing handoff.");
+    editor_dispose(&editor);
     return 0;
 }

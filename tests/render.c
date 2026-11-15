@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "editor.h"
+#include "command.h"
 #include "render.h"
 #include "video.h"
 #include "theme.h"
@@ -108,11 +109,31 @@ static void test_render(unsigned side)
     if(zoom>=3) assert(screen[(sy+1)*320+sx+zoom-1] != 255);
 }
 
+static void guides(void)
+{
+    unsigned char before[4096];
+    int sx,sy,z;
+    unsigned i;
+    editor_dispose(&editor); assert(editor_init(&editor,32,queue));
+    for(i=0;i<1024;++i) editor.pixels[i]=(unsigned char)i;
+    memcpy(before,editor.pixels,1024); z=editor.view.zoom;
+    editor_key(&editor,CMD_GUIDE8); render_canvas(&editor);
+    sx=editor.view.x+8*z-1; sy=editor.view.y;
+    assert(screen[sy*320+sx]!=editor.pixels[7]);
+    assert(screen[(sy+1)*320+sx]!=editor.pixels[7]);
+    assert(!memcmp(before,editor.pixels,1024));
+    editor_key(&editor,CMD_GUIDE16); render_canvas(&editor);
+    sx=editor.view.x+16*z-1;
+    assert(screen[sy*320+sx]!=editor.pixels[15]);
+    assert(!memcmp(before,editor.pixels,1024));
+}
+
 int main(void)
 {
     test_render(16);
     test_render(32);
-    test_render(64);
+    test_render(64); guides();
     puts("PASS: canvas rendering at every zoom, grids and all palette indices.");
+    editor_dispose(&editor);
     return 0;
 }

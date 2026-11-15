@@ -12,13 +12,13 @@ static Project project;
 static unsigned char raw[16450];
 #ifdef ALLOC_FAULTS
 static int fail_at,allocation,live;
-void *fault_alloc(size_t size)
+void ANIM_FAR *fault_alloc(size_t size)
 {
-    void *p;
+    void ANIM_FAR *p;
     if(++allocation==fail_at) return NULL;
-    p=malloc(size); if(p) ++live; return p;
+    p=anim_alloc(size); if(p) ++live; return p;
 }
-void fault_free(void *p) { if(p) --live; free(p); }
+void fault_free(void ANIM_FAR *p) { if(p) --live; anim_free(p); }
 static void failures(void)
 {
     int i;
@@ -86,7 +86,7 @@ static int decode(unsigned length)
 {
     FILE *f;
     int result;
-    f=tmpfile(); assert(f);
+    f=tmpfile(); assert(f!=NULL);
     assert(fwrite(raw,1,length,f)==length); rewind(f);
     result=file_decode(f,&im); assert(!fclose(f)); return result;
 }
@@ -98,7 +98,7 @@ static void files(void)
     assert(editor_new_shape(&e,16,24));
     edit(252); editor_key(&e,CMD_FRAME_DUP); edit(1); editor_key(&e,CMD_SLOWER);
     editor_image(&e,&im);
-    f=tmpfile(); assert(f); assert(file_encode(f,&im)==FILE_OK);
+    f=tmpfile(); assert(f!=NULL); assert(file_encode(f,&im)==FILE_OK);
     rewind(f); length=(unsigned)fread(raw,1,sizeof(raw),f); assert(!fclose(f));
     assert(length==24+2*(384+2)); assert(raw[4]==2 && raw[20]==2);
     for(i=0;i<length;++i) assert(decode(i)==FILE_LENGTH);
@@ -113,7 +113,7 @@ static void files(void)
     project_init(&project,&e,&im);
     remove("ANIM.P86"); assert(project_save(&project,"ANIM",0)==FILE_OK);
     assert(!editor_is_dirty(&e)); edit(55);
-    f=fopen("BADANIM.P86","wb"); assert(f); assert(fwrite(raw,1,length-1,f)==length-1); assert(!fclose(f));
+    f=fopen("BADANIM.P86","wb"); assert(f!=NULL); assert(fwrite(raw,1,length-1,f)==length-1); assert(!fclose(f));
     i=e.history.position;
     assert(project_open(&project,"BADANIM")==FILE_LENGTH);
     assert(e.pixels[0]==55 && editor_is_dirty(&e) && e.history.position==i && !strcmp(project.filename,"ANIM.P86"));

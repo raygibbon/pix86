@@ -75,7 +75,11 @@ int menu_key(Menu *menu, int key, int *command)
     }
     heading = keyboard_menu(key);
     if (heading >= 0) { open_menu(menu, heading); return 1; }
-    if (key == KEY_F10) { menu->active = !menu->active; menu->item = 0; return 1; }
+    if (key == KEY_F10) {
+        if(menu->active) menu->active=0;
+        else open_menu(menu,menu->heading);
+        return 1;
+    }
     if (!menu->active) return 0;
     if (key == 27) menu->active = 0;
     if (key == KEY_LEFT || key == KEY_RIGHT)
