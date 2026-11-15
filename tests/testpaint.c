@@ -14,8 +14,10 @@
 static Editor editor;
 static unsigned short queue[4096];
 static unsigned char pixels[64000],baseline[64000];
+static unsigned char rendered_reference[64000];
 static Rect clip={0,0,320,200},watch;
 static unsigned long writes,reads,outside;
+static unsigned long rectangles,scanlines;
 static unsigned clears,black_boxes,interior_fills;
 static int watching,mode,shutdowns,initializations;
 static Rect dialog_box;
@@ -43,6 +45,7 @@ unsigned char video_read(int x,int y)
 void video_rect(int x,int y,int w,int h,unsigned char colour)
 {
     int xx,yy;
+    ++rectangles; scanlines+=(unsigned long)h;
     if(x==0 && y==0 && w==320 && h==200) ++clears;
     if(w>100 && h>20 && colour==UI_INK) ++black_boxes;
     if(x==dialog_box.x+1 && y==dialog_box.y+1 && w==dialog_box.w-2 && h==dialog_box.h-2) ++interior_fills;
@@ -75,6 +78,16 @@ static void start(void)
 {
     cursor_hide(); count=0; current=-1; checking_idle=0; onpoll=NULL;
     watching=0; outside=0; writes=reads=0; clears=black_boxes=interior_fills=0;
+    rectangles=scanlines=0;
+}
+static void reset_write_metrics(void)
+{ writes=reads=rectangles=scanlines=0; }
+static void performance_result(const char *name,unsigned long old_writes,
+                               unsigned long old_rectangles,unsigned long old_scanlines)
+{
+    printf("Measured %s: %lu pixel writes, %lu rectangles, %lu scanlines\n",
+           name,writes-old_writes,rectangles-old_rectangles,
+           scanlines-old_scanlines);
 }
 static void add(int key)
 {
@@ -370,6 +383,109 @@ static void playback_render(void)
     assert(!(editor_key(&editor,CMD_PLAY)&EDIT_CANVAS));
     screen_present(&s,&editor,&ui,EDIT_TIMELINE,&mouse,0);
 }
+static void performance_results(void)
+{
+    Screen s; Menu m; MouseState mouse;
+    unsigned long old_writes,old_rectangles,old_scanlines;
+    unsigned flags,zoom;
+    int x0,y0,x1,y1;
+
+    start(); clean_baseline(&s,&m,&mouse); reset_write_metrics();
+    zoom=editor.view.zoom;
+    flags=editor_mouse(&editor,editor.view.x+2*(int)zoom+1,
+                       editor.view.y+2*(int)zoom+1,EDIT_LEFT);
+    screen_update(&s,&editor,&m,flags,&mouse,0);
+    performance_result("single pixel",0,0,0);
+    memcpy(rendered_reference,pixels,sizeof(pixels));
+    render_canvas(&editor);
+    assert(!memcmp(rendered_reference,pixels,sizeof(pixels)));
+
+    start(); clean_baseline(&s,&m,&mouse);
+    zoom=editor.view.zoom;
+    x0=editor.view.x+2*(int)zoom+1; y0=editor.view.y+2*(int)zoom+1;
+    x1=editor.view.x+12*(int)zoom+1; y1=editor.view.y+12*(int)zoom+1;
+    flags=editor_mouse(&editor,x0,y0,EDIT_LEFT);
+    screen_update(&s,&editor,&m,flags,&mouse,0);
+    reset_write_metrics();
+    flags=editor_mouse(&editor,x1,y1,EDIT_LEFT);
+    screen_update(&s,&editor,&m,flags,&mouse,0);
+    performance_result("diagonal stroke segment",0,0,0);
+    memcpy(rendered_reference,pixels,sizeof(pixels));
+    render_canvas(&editor);
+    assert(!memcmp(rendered_reference,pixels,sizeof(pixels)));
+
+    start(); clean_baseline(&s,&m,&mouse); editor.tool=TOOL_FILL;
+    reset_write_metrics();
+    flags=editor_mouse(&editor,editor.view.x+1,editor.view.y+1,EDIT_LEFT);
+    screen_update(&s,&editor,&m,flags,&mouse,0);
+    performance_result("full-canvas flood fill",0,0,0);
+    memcpy(rendered_reference,pixels,sizeof(pixels));
+    render_canvas(&editor);
+    assert(!memcmp(rendered_reference,pixels,sizeof(pixels)));
+
+    start(); clean_baseline(&s,&m,&mouse);
+    memset(editor.pixels,0,256);
+    {
+        int x,y;
+        for(y=5;y<9;++y) for(x=5;x<9;++x) editor.pixels[y*16+x]=231;
+    }
+    editor_store(&editor); render_canvas(&editor); editor.tool=TOOL_FILL;
+    editor.foreground=201; reset_write_metrics();
+    zoom=editor.view.zoom;
+    flags=editor_mouse(&editor,editor.view.x+5*(int)zoom+1,
+                       editor.view.y+5*(int)zoom+1,EDIT_LEFT);
+    screen_update(&s,&editor,&m,flags,&mouse,0);
+    performance_result("16-cell flood fill",0,0,0);
+    memcpy(rendered_reference,pixels,sizeof(pixels));
+    render_canvas(&editor);
+    assert(!memcmp(rendered_reference,pixels,sizeof(pixels)));
+
+    start(); clean_baseline(&s,&m,&mouse);
+    flags=editor_key(&editor,CMD_FRAME_ADD);
+    screen_update(&s,&editor,&m,flags,&mouse,0);
+    reset_write_metrics();
+    flags=editor_key(&editor,CMD_FRAME_NEXT);
+    screen_update(&s,&editor,&m,flags,&mouse,0);
+    performance_result("frame navigation",0,0,0);
+
+    start(); editor_dispose(&editor); assert(editor_init(&editor,16,queue));
+    editor_store(&editor); editor.document->frames=2;
+    memcpy(editor.document->pixels+editor.history.size,editor.pixels,editor.history.size);
+    editor.document->pixels[editor.history.size]=201;
+    menu_init(&m); mouse.x=mouse.y=mouse.buttons=0;
+    assert(view_fit(&editor.view,&editor.canvas,0,0));
+    screen_init(&s,&editor,&mouse,0); reset_write_metrics();
+    flags=editor_key(&editor,CMD_FRAME_NEXT);
+    screen_update(&s,&editor,&m,flags,&mouse,0);
+    performance_result("sparse frame navigation",0,0,0);
+    memcpy(rendered_reference,pixels,sizeof(pixels));
+    render_canvas(&editor);
+    assert(!memcmp(rendered_reference,pixels,sizeof(pixels)));
+
+    start(); clean_baseline(&s,&m,&mouse);
+    editor.timeline=1;
+    assert(view_fit(&editor.view,&editor.canvas,1,0));
+    screen_init(&s,&editor,&mouse,0); reset_write_metrics();
+    zoom=editor.view.zoom;
+    flags=editor_mouse(&editor,editor.view.x+2*(int)zoom+1,
+                       editor.view.y+2*(int)zoom+1,EDIT_LEFT);
+    screen_update(&s,&editor,&m,flags,&mouse,0);
+    performance_result("stroke with timeline visible",0,0,0);
+    memcpy(rendered_reference,pixels,sizeof(pixels));
+    render_canvas(&editor);
+    render_timeline(&editor);
+    assert(!memcmp(rendered_reference,pixels,sizeof(pixels)));
+
+    start(); clean_baseline(&s,&m,&mouse);
+    editor_key(&editor,'e'); reset_write_metrics();
+    old_writes=writes; old_rectangles=rectangles; old_scanlines=scanlines;
+    screen_update(&s,&editor,&m,EDIT_UI,&mouse,0);
+    performance_result("tool change",old_writes,old_rectangles,old_scanlines);
+    editor.foreground=201; reset_write_metrics();
+    old_writes=writes; old_rectangles=rectangles; old_scanlines=scanlines;
+    screen_update(&s,&editor,&m,EDIT_UI,&mouse,0);
+    performance_result("foreground colour change",old_writes,old_rectangles,old_scanlines);
+}
 static void type(const char *text) { while(*text) add((unsigned char)*text++); }
 static void run(int mouse)
 {
@@ -424,7 +540,7 @@ static void application(void)
 }
 int main(void)
 {
-    geometry(); menus(); dialogs(); palette_overlay(); routing_status(); timeline(); export_overlay(); background_preview(); playback_render(); application();
+    geometry(); menus(); dialogs(); palette_overlay(); routing_status(); timeline(); export_overlay(); background_preview(); playback_render(); performance_results(); application();
     puts("PASS: dirty rectangles, idle stability, exact overlay/cursor restoration, one startup clear and deliberate exits/file workflow.");
     editor_dispose(&editor);
     return 0;

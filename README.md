@@ -266,7 +266,7 @@ Playback uses elapsed DOS clock time (BIOS-resolution timing), and stops when
 menus/dialogs open or an editing command is used. Painting is blocked during play.
 Every frame is presented in order; a slow render lengthens playback rather than
 skipping frames. The in-play status reports render time, overdue frame deadlines
-and displayed FPS.
+and displayed FPS. [Rendering audit, write counts and DOSBox measurements](docs/PERFORMANCE.md).
 
 Run `scripts/test.sh`, `scripts/build.sh`, `scripts/dostest.sh`, then
 `scripts/rundost.sh` to execute eight editor/I/O suites and two video-driver runs. The last command requires

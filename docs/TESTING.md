@@ -33,6 +33,17 @@ it adds no application dependency. Earlier measurements below are historical.
 
 # Pix86 verification
 
+## General editor rendering performance
+
+On `perf/general-ui-rendering`, the strict host framebuffer tests and the
+Open Watcom small-model application, DOS regression suite, and profiling harness
+were built. DOSBox 0.74-3 exercised the profiling harness in VGA 320×200 and
+VBE 640×480 modes. Eight-render timings, deterministic before/after framebuffer
+write counts, timer limitations, and the operations covered are documented in
+[PERFORMANCE.md](PERFORMANCE.md). DOSBox-X and physical DOS hardware were not
+available for this run; precise input-arrival latency cannot be inferred from
+DOS `clock()`'s approximately 55 ms effective resolution.
+
 ## BMP export — 2026-11-15
 
 Nine strict C89 host suites and all nine ASan/UBSan suites pass. Watcom builds

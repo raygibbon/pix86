@@ -93,7 +93,7 @@ unsigned editor_background(Editor *e,unsigned char colour)
 {
     int changed;
     changed=e->background!=colour; e->background=colour;
-    return EDIT_UI|EDIT_STATUS|(changed && e->preview_link?EDIT_CANVAS:0);
+    return EDIT_UI|EDIT_STATUS|(changed && e->preview_link?(EDIT_CANVAS|EDIT_THUMBNAIL):0);
 }
 
 unsigned editor_mouse(Editor *editor, int x, int y, unsigned buttons)
@@ -102,6 +102,7 @@ unsigned editor_mouse(Editor *editor, int x, int y, unsigned buttons)
     unsigned pressed, changed, flags;
     unsigned char index;
     if(editor->playing) { editor->previous_buttons=buttons; return 0; }
+    editor->dirty_count=0;
     pressed = buttons & ~editor->previous_buttons;
     editor->previous_buttons = buttons;
     flags = EDIT_STATUS;
@@ -114,11 +115,13 @@ unsigned editor_mouse(Editor *editor, int x, int y, unsigned buttons)
                 editor->last_x = cx;
                 editor->last_y = cy;
             }
-            changed=tools_stroke(&editor->canvas,editor->last_x,editor->last_y,cx,cy,
-                                 editor->stroke_colour,editor->stroke_transparent);
+            changed=tools_stroke_collect(&editor->canvas,editor->last_x,editor->last_y,cx,cy,
+                                         editor->stroke_colour,editor->stroke_transparent,
+                                         editor->fill_queue);
             if (changed) {
+                editor->dirty_count=changed;
                 stroke_bounds(editor, editor->last_x, editor->last_y, cx, cy);
-                flags |= EDIT_STROKE;
+                flags |= EDIT_STROKE|EDIT_THUMBNAIL;
             }
             editor->last_x = cx;
             editor->last_y = cy;
@@ -155,10 +158,12 @@ unsigned editor_mouse(Editor *editor, int x, int y, unsigned buttons)
     if (!(pressed & EDIT_LEFT))
         return flags;
     if (editor->tool == TOOL_FILL) {
-        if (tools_fill(&editor->canvas, (unsigned)cx, (unsigned)cy,
-                       editor->foreground, editor->fill_queue)) {
+        changed=tools_fill(&editor->canvas,(unsigned)cx,(unsigned)cy,
+                           editor->foreground,editor->fill_queue);
+        if(changed) {
+            editor->dirty_count=changed;
             history_commit(&editor->history, &editor->canvas);
-            flags |= EDIT_CANVAS;
+            flags |= EDIT_CELLS|EDIT_THUMBNAIL;
         }
     } else {
         editor->dragging = editor->segment_valid = 1;
@@ -167,9 +172,13 @@ unsigned editor_mouse(Editor *editor, int x, int y, unsigned buttons)
         editor->stroke_colour = editor->tool == TOOL_ERASER ?
                                 editor->background : editor->foreground;
         editor->stroke_transparent=editor->tool==TOOL_ERASER && editor->transparent_eraser;
-        if (tools_stroke(&editor->canvas, cx, cy, cx, cy, editor->stroke_colour,editor->stroke_transparent)) {
+        changed=tools_stroke_collect(&editor->canvas,cx,cy,cx,cy,
+                                     editor->stroke_colour,editor->stroke_transparent,
+                                     editor->fill_queue);
+        if (changed) {
+            editor->dirty_count=changed;
             stroke_bounds(editor, cx, cy, cx, cy);
-            flags |= EDIT_STROKE;
+            flags |= EDIT_STROKE|EDIT_THUMBNAIL;
         }
     }
     return flags;
@@ -231,14 +240,14 @@ unsigned editor_key(Editor *editor, int key)
         editor_finish(editor);
     if(key==CMD_PREVIEW_LINK) editor->preview_link=!editor->preview_link;
         else editor->checker=!editor->checker;
-        return EDIT_CANVAS|EDIT_STATUS;
+        return EDIT_CANVAS|EDIT_STATUS|EDIT_THUMBNAIL;
     }
     if (key == 'c' || key==CMD_FILL_BG) {
         editor_finish(editor);
         if(key==CMD_CLEAR && editor->document->transparent) memset(editor->mask,255,editor->history.size/8);
         else canvas_clear(&editor->canvas, editor->background);
         history_commit(&editor->history, &editor->canvas);
-        return EDIT_CANVAS | EDIT_STATUS;
+        return EDIT_CANVAS|EDIT_STATUS|EDIT_THUMBNAIL;
     }
     if (key == CMD_UNDO || key == CMD_REDO) {
         editor_finish(editor);
@@ -248,7 +257,7 @@ unsigned editor_key(Editor *editor, int key)
         else
             history_redo(&editor->history, &editor->canvas);
         follow(editor);
-        return EDIT_CANVAS | EDIT_STATUS | EDIT_TIMELINE;
+        return EDIT_CANVAS | EDIT_STATUS | EDIT_TIMELINE | EDIT_THUMBNAIL;
     }
     if (key == CMD_ZOOM_IN || key == CMD_ZOOM_OUT) {
         editor_finish(editor);
@@ -332,7 +341,7 @@ unsigned editor_select(Editor *e,unsigned frame)
     editor_store(e);
     e->history.active=frame;
     editor_restore(e);
-    follow(e); return EDIT_CANVAS|EDIT_STATUS|EDIT_TIMELINE;
+    follow(e); return EDIT_CANVAS|EDIT_STATUS|EDIT_TIMELINE|EDIT_FRAME_SWITCH;
 }
 static unsigned editor_frame_command(Editor *e,int key)
 {

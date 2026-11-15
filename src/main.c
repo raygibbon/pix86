@@ -14,6 +14,7 @@
 #include "screen.h"
 #include "ui.h"
 #include "workpal.h"
+#include "profile.h"
 
 /* No large automatic objects or full-screen buffers in the small model. */
 static Editor editor;
@@ -170,6 +171,7 @@ int main(int argc, char **argv)
     previous = mouse;
     last_tick=clock();
     for (;;) {
+        PROFILE_START(input_start);
         key = keyboard_poll();
         mouse_poll(&mouse);
         was_playing=editor.playing;
@@ -240,6 +242,7 @@ int main(int argc, char **argv)
             flags |= editor_mouse(&editor, mouse.x, mouse.y, mouse.buttons);
         if(was_playing!=editor.playing) flags|=EDIT_TIMELINE;
         screen_present(&screen,&editor,&ui,flags,&mouse,has_mouse);
+        PROFILE_STOP(input,input_start);
         if(video_failed()) { video_error=1; break; }
         if(editor.playing && ((flags&EDIT_PLAYBACK) || (!was_playing && editor.playing)))
             last_tick=clock();
@@ -261,6 +264,7 @@ int main(int argc, char **argv)
     mouse_shutdown();
     video_shutdown();
     editor_dispose(&editor);
+    profile_report();
     puts(video_error?"PIX86: display bank operation failed; returned to text mode.":"PIX86: returned to DOS text mode.");
     return video_error?1:0;
 }

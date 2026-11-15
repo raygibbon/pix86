@@ -129,7 +129,7 @@ int selection_key(Editor *e,int key,unsigned *flags)
     }
     if(key==CMD_APPLY && selection_floating(e)) {
         begin_damage(e); damage(e,s->x,s->y,s->w,s->h); apply(e);
-        *flags=end_damage(e)|EDIT_TIMELINE; return 1;
+        *flags=end_damage(e)|EDIT_TIMELINE|EDIT_THUMBNAIL; return 1;
     }
     if(selection_floating(e)) { *flags=EDIT_STATUS; return 1; }
     if(key==CMD_FRAME_DELETE && s->state==SEL_ACTIVE) {
@@ -139,7 +139,8 @@ int selection_key(Editor *e,int key,unsigned *flags)
                 if(e->document->transparent) canvas_mask_set(&e->canvas,x,y,1);
                 else canvas_set(&e->canvas,x,y,e->background);
             }
-        history_commit(&e->history,&e->canvas); *flags=end_damage(e)|EDIT_TIMELINE; return 1;
+        history_commit(&e->history,&e->canvas);
+        *flags=end_damage(e)|EDIT_TIMELINE|EDIT_THUMBNAIL; return 1;
     }
     return 0;
 }
