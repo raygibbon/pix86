@@ -242,6 +242,6 @@ void dialog_font(void)
         body[n++]=(char)code;
         if((code-31)%32==0) body[n++]='\n';
     }
-    strcpy(body+n,"\nABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz\n0O 1Il ! : ; . , ' ` \\ /\nPLAYER01.P86  mixed_Case-09\nTools File Edit View Options");
+    strcpy(body+n,"\nABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz\na e o p m rn  0O 1Il\n! : ; . , ' ` \\ /\nPLAYER01.P86  mixed_Case-09\nTools File Edit View Options");
     dialog_message("Original 6x8 font",body,NULL);
 }

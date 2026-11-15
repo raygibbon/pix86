@@ -8,7 +8,7 @@
 #define MENU_ROW_HEIGHT (FONT_HEIGHT + 1)
 #define MENU_ROW_TOP (MENU_BAR_HEIGHT + 1)
 
-typedef struct Menu { int active, heading, item; unsigned buttons; } Menu;
+typedef struct Menu { int active, heading, item; unsigned buttons; unsigned char remember[MENU_COUNT]; } Menu;
 typedef struct MenuItem { const char *label, *shortcut; int command; } MenuItem;
 void menu_init(Menu *menu);
 /* Nonzero consumes the event. command is zero unless an item activates. */

@@ -1,5 +1,7 @@
 #include "menu.h"
 #include "keyboard.h"
+#include <ctype.h>
+#include <string.h>
 static const char *titles[MENU_COUNT] = {"File", "Edit", "View", "Frame", "Options", "Help"};
 static const int counts[MENU_COUNT] = {5, 3, 3, 3, 3, 3};
 static const MenuItem items[MENU_COUNT][5] = {
@@ -11,7 +13,7 @@ static const MenuItem items[MENU_COUNT][5] = {
     {{"Colours", "A", CMD_PALETTE}, {"Background", "B", CMD_BG}, {"Grid", "G", CMD_GRID}},
     {{"Controls", "", CMD_HELP}, {"About", "", CMD_ABOUT}, {"Font sample", "", CMD_FONT}}
 };
-int menu_width(int heading) { return font_width(titles[heading])+8; }
+int menu_width(int heading) { return font_width(titles[heading])+10; }
 int menu_heading_left(int heading)
 {
     int x,i; x=0;
@@ -26,7 +28,7 @@ int menu_drop_width(int heading)
         w=font_width(items[heading][i].label); if(w>names) names=w;
         w=font_width(items[heading][i].shortcut); if(w>shortcuts) shortcuts=w;
     }
-    w=names+shortcuts+8+(shortcuts?FONT_WIDTH:0);
+    w=names+shortcuts+12+(shortcuts?2*FONT_WIDTH:0);
     return w<menu_width(heading)?menu_width(heading):w;
 }
 int menu_left(int heading)
@@ -47,15 +49,17 @@ void menu_init(Menu *menu)
 {
     menu->active = menu->heading = menu->item = 0;
     menu->buttons = 0;
+    memset(menu->remember,0,sizeof(menu->remember));
 }
 static void open_menu(Menu *menu, int heading)
 {
-    menu->active = 1; menu->heading = heading; menu->item = 0;
+    if(menu->active) menu->remember[menu->heading]=(unsigned char)menu->item;
+    menu->active = 1; menu->heading = heading; menu->item = menu->remember[heading];
 }
 static void activate(Menu *menu, int *command)
 {
     *command = items[menu->heading][menu->item].command;
-    if (*command) menu->active = 0;
+    if (*command) { menu->remember[menu->heading]=(unsigned char)menu->item; menu->active = 0; }
 }
 int menu_key(Menu *menu, int key, int *command)
 {
@@ -75,6 +79,16 @@ int menu_key(Menu *menu, int key, int *command)
         open_menu(menu, (menu->heading + (key == KEY_LEFT ? 5 : 1)) % MENU_COUNT);
     if (key == KEY_UP || key == KEY_DOWN)
         menu->item = (menu->item + counts[menu->heading] + (key == KEY_UP ? -1 : 1)) % counts[menu->heading];
+    if(key>=32 && key<=126) {
+        int i;
+        for(i=1;i<=counts[menu->heading];++i) {
+            int row; row=(menu->item+i)%counts[menu->heading];
+            if(tolower((unsigned char)items[menu->heading][row].label[0])==tolower(key)) {
+                menu->item=row; break;
+            }
+        }
+    }
+    menu->remember[menu->heading]=(unsigned char)menu->item;
     if (key == 13) activate(menu, command);
     return 1;
 }
