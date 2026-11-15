@@ -32,6 +32,7 @@ int editor_new_shape(Editor *e,unsigned w,unsigned h)
     e->canvas.mask=e->mask;
     canvas_clear(&e->canvas,0);
     anim_set(e->document,0,sizeof(P86Image));
+    e->document->version=3;
     e->document->width=w; e->document->height=h;
     e->document->frames=1; e->document->duration[0]=ANIM_DEFAULT_MS;
     e->history.active=0;
@@ -277,7 +278,7 @@ int editor_load(Editor *e,const P86Image *im)
     for(i=0;i<frames;++i) if(im->frames && (im->duration[i]<20 || im->duration[i]>2000)) return 0;
     editor_finish(e); e->playing=0; e->elapsed=e->first_frame=0;
     anim_copy(e->document,im,sizeof(P86Image));
-    e->document->frames=frames;
+    e->document->frames=frames; e->document->version=3;
     if(!im->frames) e->document->duration[0]=ANIM_DEFAULT_MS;
     canvas_init(&e->canvas,im->width,im->height,e->pixels,sizeof(e->pixels));
     e->canvas.mask=e->mask;

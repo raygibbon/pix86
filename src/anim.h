@@ -35,6 +35,7 @@ typedef struct Animation {
     unsigned char foreground,background;
     unsigned char pixels[ANIM_PIXELS];
     unsigned char mask[ANIM_MASK_BYTES];
+    unsigned char version; /* codec hint: 0 infers legacy v1/v2; editor saves v3 */
     unsigned char transparent; /* explicit transparent blank-frame policy */
     unsigned frames;
     unsigned duration[ANIM_FRAMES];
