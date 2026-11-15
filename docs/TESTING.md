@@ -1,5 +1,27 @@
 # Pix86 verification
 
+## BMP export — 2026-11-15
+
+Nine strict C89 host suites and all nine ASan/UBSan suites pass. Watcom builds
+pass with zero warnings/errors. EDTEST, IOTEST, UITEST, KBDTEST, ANIMTEST and
+BMPTEST execute in DOSBox-X. BMPTEST independently decodes headers, all palette
+entries and every pixel; it covers sheet/batch ordering, odd-width padding,
+outputs above 64 KiB, overflow bounds, overwrite/preflight, injected short
+write/flush/close failures, partial batches and unchanged dirty state. Existing
+IOTEST rollback faults still pass through the shared file transaction.
+
+Actual native UI acceptance exports current/all/horizontal/vertical/grid from
+a three-frame project, exercises overwrite/cancel, verifies exact pixels with
+Pillow and compares the untouched native file. ImageMagick opens the BMP3 files;
+the independent DOS BMPVIEW diagnostic displays one in Mode 13h. Idle modal
+captures match after one second; paint tests assert zero idle writes and exact
+restoration. [Full results, dimensions, memory and screenshots](EXPORT.md).
+
+Repeat with scripts/test.sh, scripts/build.sh, scripts/dostest.sh and
+scripts/rundost.sh. BMPTEST also needs a disposable directory; rundost.sh creates
+one. Optional external check: python3 tests/bmpcheck.py build/bmptest-files
+(requires Pillow as a test tool only).
+
 ## Animation workspace — 2026-11-15
 
 Current branch starts from main 6229285. `scripts/test.sh` passes eight strict

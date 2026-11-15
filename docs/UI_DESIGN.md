@@ -164,3 +164,13 @@ The all-colour popup shares existing modal polling, input ownership and covered
 rectangle restoration. It paints once, then repaints only changed cells/value
 text. Both pointer buttons and dismissal are consumed before drawing resumes.
 The working palette is UI state, not a new artwork palette or remapping table.
+
+## BMP export modal
+
+File → Export adds an original compact modal with a shared bounded filename
+field and three option rows: mode, sheet layout and grid columns. Relevant
+rows use the existing flat selected-row style; disabled rows are dim and skipped
+by Tab/Shift+Tab. Arrows/space or fresh mouse clicks change values. Enter exports,
+Escape cancels, and idle polling paints nothing. After modal restoration and
+result/overwrite prompts, held buttons remain consumed. The menu stays nine
+pixels high. [Export details and captures](EXPORT.md).

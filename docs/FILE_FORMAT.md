@@ -125,3 +125,10 @@ frames are filled with the current background index. No transparency key,
 alpha, per-frame palette, onion skin, layers or export data is defined. Playback
 loops in record order; the selected frame and playing/view state are not stored.
 The fixed DAC semantics and TMP/BAK recovery transaction above apply unchanged.
+
+## BMP export
+
+Native v1/v2 semantics are unchanged by image export. Both remain opaque indexed
+formats. [BMP export](EXPORT.md) produces separate 8-bit BI_RGB files with the
+same indices and the fixed DAC palette converted to RGB bytes. Export does not
+mark a native project saved and does not include animation timing or alpha.

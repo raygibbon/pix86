@@ -111,8 +111,18 @@ for independent compatibility fixtures; application saves use version 2.
 `project.c` captures into one near scratch image, preserving the checked exclusive
 TMP creation, fwrite/flush/close checks, approved replacement, BAK rollback and
 retained-recovery reporting. Failed reads/writes leave artwork, filename and saved
-baseline intact. The codec's failed scratch contents are unspecified. There are
-no per-frame filesystem operations or external format/export dependencies.
+baseline intact. The codec's failed scratch contents are unspecified. The native path remains independent from exported images.
+
+`bmp.c` streams original uncompressed 8-bit BMP using a 128-byte span buffer,
+explicit little-endian headers and the unchanged fixed DAC palette. `export.c`
+maps Animation frames/sheets into spans, validates DOS names and dimensions,
+preflights complete numbered batches and reports partial completion. `file_write`
+shares the checked transaction through a synchronous encoder callback; `file_save`
+retains the native adapter. `dialog_export` reuses bounded filename editing,
+modal restoration and input suppression. The controller captures the existing
+scratch image without advancing the saved baseline. [Export specification and
+verification](EXPORT.md) records the Microsoft factual references and streaming
+bounds; no dependency or full-sheet allocation is added.
 
 ## Measured 16-bit memory budget
 
@@ -124,13 +134,13 @@ canvas is 4096 bytes; fill queue 8192; near file scratch 16,424. No large automa
 images or large frame arrays live in DGROUP. Smaller documents retain this fixed
 bounded reservation so editing/history do not allocate during an operation.
 
-The final linked map reports DGROUP 38,432 bytes including the stack (27,104 bytes
-below 64 KiB), near code 45,615 bytes, and total linked image 84,064 bytes.
-`PIX86.EXE` is 50,430 bytes. Linked image plus reserved far blocks is 199,032 bytes;
+The final linked map reports DGROUP 38,784 bytes including the stack (26,752 bytes
+below 64 KiB), near code 49,032 bytes, and total linked image 87,840 bytes.
+`PIX86.EXE` is 54,204 bytes. Linked image plus reserved far blocks is 202,808 bytes;
 PSP/environment, heap bookkeeping, stdio and loader overhead are additional.
 Initialization on insufficient conventional memory fails with a diagnostic.
 Up to 16 frames are allowed for every shape except 64×64 (four). There is no
-transparency, onion skin, layers or export in this change. Native hardware and
+transparency, onion skin or layers. BMP export is implemented. Native hardware and
 FreeDOS/MS-DOS remain untested; DOSBox-X evidence is in TESTING.md.
 
 ## Provenance and engineering references
