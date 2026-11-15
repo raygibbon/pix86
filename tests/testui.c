@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "keyboard.h"
+#include "ui.h"
 #include "menu.h"
 #include "dialog.h"
 #include "mouse.h"
@@ -99,7 +100,7 @@ static void menus(void)
         menu_key(&menu, 27, &command); assert(!menu.active && !command);
     }
     assert(keyboard_menu('f') == -1);
-    for (h = 0; h < TOOL_COUNT; ++h) {
+    for (h = 0; h < TOOL_GROUPS; ++h) {
         assert(toolbar_hit(TOOL_X, TOOL_Y+h*TOOL_STEP) == h);
         assert(toolbar_hit(TOOL_X, TOOL_Y+h*TOOL_STEP+TOOL_HEIGHT) == -1);
     }
@@ -108,6 +109,8 @@ static void menus(void)
     menu_key(&menu, KEY_F10, &command);
     menu_key(&menu, 'c', &command); assert(!command && menu.active);
     menu_key(&menu, KEY_F10, &command); assert(!menu.active);
+    assert(!menu_mouse(&menu,5,4,1,&command) && !menu.active);
+    menu_mouse(&menu,5,4,0,&command); menu_key(&menu,KEY_MENU,&command);
     assert(menu_mouse(&menu, 5, 4, 1, &command) && menu.active);
     menu_mouse(&menu, 5, 4, 0, &command);
     assert(menu_mouse(&menu, 8, MENU_ROW_TOP+2*MENU_ROW_HEIGHT, 1, &command));
@@ -262,9 +265,69 @@ static void exports(void)
     assert(dialog_export("MOUSE.BMP",path,&o));
     assert(o.format==EXPORT_PNG && o.mode==EXPORT_SHEET && o.layout==SHEET_GRID && o.columns==5);
 }
+static void compact(void)
+{
+    UiState ui;
+    MouseState mouse;
+    Rect r;
+    int mode,g,i,command,consumed;
+    unsigned before;
+    for(mode=0;mode<2;++mode) {
+        layout_set(mode?640:320,mode?480:200);
+        assert(editor_new_document(&editor,32,24,1,141)); ui_init(&ui);
+        mouse.x=mouse.y=0; mouse.buttons=0;
+        for(g=0;g<TOOL_GROUPS;++g) for(i=0;i<flyout_count(g);++i) {
+            mouse.x=TOOL_X+2; mouse.y=TOOL_Y+g*TOOL_STEP+2; mouse.buttons=2;
+            assert(ui_input(&ui,&editor,-1,&mouse,&command) && ui.flyout.group==g && !command);
+            assert(!ui_pointer(&ui,&mouse,1,0)); flyout_bounds(g,&r);
+            assert(r.x>=0 && r.x+r.w<=TOOL_X && r.y>=0 && r.y+r.h<UI_STATUS_Y);
+            mouse.buttons=0; ui_input(&ui,&editor,-1,&mouse,&command);
+            mouse.x=r.x+2+i*FLY_CELL; mouse.y=r.y+2; mouse.buttons=1;
+            assert(ui_input(&ui,&editor,-1,&mouse,&command));
+            assert(ui.flyout.group<0 && command==tool_command(flyout_tool(g,i)));
+            editor_key(&editor,command); assert(editor.group_tool[g]==flyout_tool(g,i));
+            mouse.buttons=0; ui_input(&ui,&editor,-1,&mouse,&command); ui_pointer(&ui,&mouse,0,0);
+            editor_key(&editor,CMD_DESELECT);
+        }
+        mouse.x=TOOL_X+2; mouse.y=TOOL_Y+TOOL_STEP+2; mouse.buttons=2;
+        ui_input(&ui,&editor,-1,&mouse,&command); mouse.buttons=0;
+        ui_input(&ui,&editor,KEY_MENU,&mouse,&command);
+        assert(ui.menu.active && ui.flyout.group<0 && !command);
+        mouse.buttons=2; ui_input(&ui,&editor,-1,&mouse,&command);
+        assert(!ui.menu.active && ui.flyout.group==1);
+        mouse.buttons=0; ui_input(&ui,&editor,27,&mouse,&command);
+        assert(ui.flyout.group<0 && !command);
+        mouse.buttons=2; ui_input(&ui,&editor,-1,&mouse,&command); mouse.buttons=0;
+        ui_input(&ui,&editor,KEY_RIGHT,&mouse,&command); assert(!command && ui.flyout.hover==0);
+        ui_input(&ui,&editor,13,&mouse,&command); assert(command==CMD_SELECT && ui.flyout.group<0);
+        mouse.buttons=2; ui_input(&ui,&editor,-1,&mouse,&command); mouse.buttons=0;
+        ui_input(&ui,&editor,-1,&mouse,&command);
+        mouse.x=editor.view.x; mouse.y=editor.view.y; mouse.buttons=1;
+        consumed=ui_input(&ui,&editor,-1,&mouse,&command);
+        assert(consumed && ui.flyout.group<0 && !command && !ui_pointer(&ui,&mouse,consumed,0));
+        ui_input(&ui,&editor,-1,&mouse,&command); assert(!ui_pointer(&ui,&mouse,0,0));
+        mouse.buttons=0; ui_input(&ui,&editor,-1,&mouse,&command);
+        assert(!ui_pointer(&ui,&mouse,0,0)); assert(ui_pointer(&ui,&mouse,0,0));
+        assert(!editor_is_dirty(&editor));
+        for(i=1;i<16;++i) editor_key(&editor,CMD_FRAME_DUP);
+        editor_select(&editor,0); before=editor.history.position;
+        assert(nav_slots()>0 && NAV_X>=25*FONT_WIDTH);
+        assert(nav_hit(0,16,NAV_X,UI_STATUS_Y)==CMD_FRAME_PREV);
+        assert(nav_hit(0,16,NAV_X+NAV_ARROW,UI_STATUS_Y)==CMD_SELECT_FRAME);
+        assert(nav_hit(0,16,NAV_X+NAV_ARROW+nav_slots()*NAV_CELL,UI_STATUS_Y)==CMD_FRAME_NEXT);
+        editor_select(&editor,15);
+        assert(nav_first(15,16)+(unsigned)nav_slots()>=16);
+        assert(editor.history.position==before);
+        mouse.x=NAV_X; mouse.y=UI_STATUS_Y; mouse.buttons=1;
+        assert(ui_input(&ui,&editor,-1,&mouse,&command) && command==CMD_FRAME_PREV);
+        mouse.buttons=0; ui_input(&ui,&editor,-1,&mouse,&command); ui_pointer(&ui,&mouse,0,0);
+        assert(!editor.timeline);
+    }
+    layout_set(320,200);
+}
 int main(void)
 {
-    keys(); menus(); inputs(); dialogs(); palettes(); exports();
+    keys(); menus(); inputs(); dialogs(); palettes(); exports(); compact();
     puts("PASS: menus, keyboard/mouse dialogs, cursor editing and drawing handoff.");
     editor_dispose(&editor);
     return 0;

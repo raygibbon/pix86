@@ -39,6 +39,7 @@ static void row(const Menu *menu,int i)
 void menu_draw_bar(const Menu *menu)
 {
     int i,x;
+    if(!menu->active) return;
     cursor_protect(0,0,UI_WIDTH,MENU_BAR_HEIGHT);
     video_rect(0,0,UI_WIDTH,MENU_BAR_HEIGHT,UI_BAR);
     for(i=0;i<MENU_COUNT;++i) heading(menu,i);
@@ -49,8 +50,8 @@ void menu_draw(const Menu *menu)
 {
     Rect r;
     int i;
-    menu_draw_bar(menu);
     if(!menu->active) return;
+    menu_draw_bar(menu);
     menu_bounds(menu,&r); cursor_protect(r.x,r.y,r.w,r.h);
     /* Border strips never black-fill the interior before its final contents. */
     ui_border(&r,UI_INK);
@@ -60,15 +61,14 @@ void menu_draw_change(const Menu *menu,const Menu *previous)
 {
     Rect r;
     int i;
-    if(menu->active!=previous->active || menu->heading!=previous->heading) {
-        heading(menu,previous->heading);
-        if(menu->heading!=previous->heading) heading(menu,menu->heading);
-        if(menu->active) {
-            menu_bounds(menu,&r); cursor_protect(r.x,r.y,r.w,r.h);
-            ui_border(&r,UI_INK);
-            for(i=0;i<menu_items(menu->heading);++i) row(menu,i);
-        }
-    } else if(menu->active && menu->item!=previous->item) {
+    if(!menu->active) return;
+    if(!previous->active) menu_draw(menu);
+    else if(menu->heading!=previous->heading) {
+        heading(menu,previous->heading); heading(menu,menu->heading);
+        menu_bounds(menu,&r); cursor_protect(r.x,r.y,r.w,r.h);
+        ui_border(&r,UI_INK);
+        for(i=0;i<menu_items(menu->heading);++i) row(menu,i);
+    } else if(menu->item!=previous->item) {
         row(menu,previous->item); row(menu,menu->item);
     }
 }

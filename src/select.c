@@ -105,16 +105,17 @@ int selection_key(Editor *e,int key,unsigned *flags)
     s=&e->selection;
     if(key==CMD_SELECT_ALL && !selection_floating(e)) {
         editor_finish(e); e->playing=0; begin_damage(e); selection_reset(e);
+        e->group_tool[1]=6;
         s->state=SEL_ACTIVE; s->w=(int)e->canvas.width; s->h=(int)e->canvas.height;
-        *flags=end_damage(e); return 1;
+        *flags=end_damage(e)|EDIT_UI; return 1;
     }
     if((key==CMD_EXIT || key==CMD_DESELECT) && s->state) {
         begin_damage(e);
         if(selection_floating(e)) damage(e,s->x,s->y,s->w,s->h);
         selection_reset(e); *flags=end_damage(e); return 1;
     }
-    if(key==CMD_MOVE && s->state==SEL_ACTIVE) {
-        floating(e); *flags=EDIT_STATUS|EDIT_UI; e->tool=TOOL_MOVE; return 1;
+    if(key==CMD_MOVE && s->state>=SEL_ACTIVE) {
+        floating(e); *flags=EDIT_STATUS|EDIT_UI; e->tool=TOOL_MOVE; e->group_tool[1]=TOOL_MOVE; return 1;
     }
     if((key==KEY_LEFT || key==KEY_RIGHT || key==KEY_UP || key==KEY_DOWN) && s->state>=SEL_ACTIVE) {
         begin_damage(e); floating(e);

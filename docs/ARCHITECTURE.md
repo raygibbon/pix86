@@ -19,11 +19,14 @@ insert after the active frame, preserve at least one frame, wrap navigation,
 retain duplicated timing, and enforce both count and total-byte limits.
 Selection and playback do not enter history or change saved content. Explicit
 20..2000 ms durations default to 100 ms; timing commands adjust by 10 ms.
-`editor_tick` accepts elapsed milliseconds, loops through frame durations and
-reduces long delays modulo total cycle length. The DOS controller supplies
-`clock()` elapsed time; BIOS-resolution timing is approximate, not a precision
-multimedia timer. No timer interrupt or polling-count animation is used.
-Playback blocks drawing and stops for overlays/editing. Onion skin is deferred.
+`editor_tick` accepts elapsed milliseconds and advances at most one frame per
+presentation. If a render misses multiple deadlines, it discards that elapsed
+backlog instead of catching up across and hiding frames; the next frame receives
+its full duration. Stored durations are never changed by playback. The DOS
+controller supplies `clock()` elapsed time; BIOS-resolution timing is
+approximate, not a precision multimedia timer. No timer interrupt or
+polling-count animation is used. Playback blocks drawing and stops for
+overlays/editing. Onion skin is deferred.
 
 `editor_init` creates a fresh object and preallocates live document, saved
 baseline and five history states. Failure releases every successful allocation.
@@ -92,9 +95,15 @@ dropdowns preserve right-aligned shortcuts and exact shared hit geometry.
 painting, clipped model restoration, cursor intersection protection and a single
 startup full-screen clear. Timeline collapse repaints its complete old footprint,
 including the right/bottom margins. No screen buffer or widget framework is added.
-Playback repaints only after frame advancement; stopped/idle polling writes no
-pixels. Canvas updates also refresh the compact panel thumbnails. Font diagnostics
-use a bounded 280-byte automatic string; normal control buffers remain bounded.
+Playback compares the new active frame to the stored previous frame and paints
+only cells whose visible colour or transparency changed. Its timeline update
+changes the old/new selection backgrounds and metadata while preserving the
+already-painted thumbnails. Other UI regions are not redrawn. Playback diagnostics
+sample render time, overdue frame deadlines and displayed FPS only while playing;
+no framebuffer allocation is added. Stopped/idle polling writes no pixels.
+Canvas edits outside playback also refresh the compact panel thumbnails. Font
+diagnostics use a bounded 280-byte automatic string; normal control buffers
+remain bounded.
 
 The video drivers exclusively own VGA/VBE memory, BIOS mode entry/restoration and fixed DAC
 setup. `mouse.c`, `keyboard.c` and `cursor.c` retain their hardware boundaries.
@@ -135,9 +144,9 @@ canvas is 4096 bytes; fill queue 8192; near file scratch 18,474. No large automa
 images or large frame arrays live in DGROUP. Smaller documents retain this fixed
 bounded reservation so editing/history do not allocate during an operation.
 
-The final linked map reports DGROUP 43,312 bytes including the stack (22,224 bytes
-below 64 KiB), near code 60,728 bytes.
-`PIX86.EXE` is 66,980 bytes; seven far blocks reserve another 129,318 bytes.
+The final linked map reports DGROUP 43,280 bytes including the stack (22,256 bytes
+below 64 KiB), near code 62,600 bytes.
+`PIX86.EXE` is 68,804 bytes; seven far blocks reserve another 129,318 bytes.
 PSP/environment, heap bookkeeping, stdio and loader overhead are additional.
 Initialization on insufficient conventional memory fails with a diagnostic.
 Up to 16 frames are allowed for every shape except 64×64 (four). Packed transparency is implemented; onion skin and layers remain deferred.
@@ -206,3 +215,43 @@ maps the driver's 640-wide virtual coordinates to the active mode. `/HIRES` requ
 mode 101h and falls back to VGA on unavailable VBE. Bank failure exits to text
 with a diagnostic. No external library or reference-application code was imported.
 See [current measurements and limitations](SELECTION.md); the memory summary above includes this integrated build.
+
+## Compact workspace and temporary overlays
+
+The current layout reserves only left palette, right groups and the bottom status
+row. `DRAW_Y=1`; the 9-pixel menu bar is an overlay, independent of view fitting.
+Normal drawing bounds are 256×189 or 566×469. Tab retains the 36-pixel secondary
+timeline. Frame navigation in the status row is independent of that timeline:
+`flyout.c` derives five/sixteen available number targets from screen/font metrics,
+plus previous/next arrows. A deterministic page around the active frame keeps
+numbers visible without adding document or scrolling state. Only actual frames
+are drawn; selecting/navigation uses existing logical frame commands.
+
+`Flyout` is two transient integers (group, hover), stored in `UiState` and cached
+by `Screen`. Two remembered icon bytes in Editor are view state only. Keyboard
+shortcuts and popup choices update the same memories; Select All has an original
+seventh icon but remains an action, not a persistent image tool. No unimplemented
+shape buttons are shown. Group geometry, icon size and navigation cells share
+`layout.h`/`flyout.c`; no widget framework or allocation is introduced.
+
+`ui.c` gives menus priority over flyouts and both priority over editor input.
+Menu activation closes a flyout; right-clicking a group can replace an open menu.
+A dismissal press and its held release remain owned by UI blocking. Modal loops
+retain first ownership. Opening an overlay finishes an ordinary stroke and pauses
+a selection drag at its current rectangle/destination, without applying/cancelling
+a floating move. Choosing Move again preserves the capture and offset.
+
+`screen.c` restores closed/switching overlay footprints via `render_restore`,
+then paints the new overlay. `menudraw.c` paints a complete bar only on opening;
+row/heading changes stay incremental, and dismissal paints no headings. Menu
+opening/closing leaves the status row untouched. Flyout hover paints only its
+small region; tool changes repaint affected group buttons. Status text is cached
+separately from frame-number highlighting, which redraws only when frame/count
+changes. There are no idle writes or full-screen overlay buffers.
+
+Clipped editor restoration includes row zero, artwork, checkerboard, grid, guides,
+marquee/floating sampling, palette, groups and optional timeline. An outer cursor
+protection covers the actual clipped footprint; nested renderer protections are
+suppressed during restoration so an unrelated cursor is not needlessly hidden.
+[COMPACT.md](COMPACT.md) records native evidence, measured limits and reference
+provenance. Persistent v3 data, history snapshots and export encoders are unchanged.

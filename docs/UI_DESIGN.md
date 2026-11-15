@@ -219,3 +219,30 @@ clearing. Pix86 deliberately keeps explicit Enter/Escape, static borders and its
 own S/M bindings, without transforms, rotation or a context bar. No icons, code,
 fonts or bundled assets were copied. TDE remains the existing documented theme
 reference; see [selection screenshots](SELECTION.md).
+
+## Compact workspace, temporary menus and flyouts
+
+The current layout and controls are documented with native captures in
+[COMPACT.md](COMPACT.md); it supersedes the earlier permanent menu/tool geometry.
+The menu is normally absent. Ctrl+\ overlays bar/File, F10 recalls a heading,
+and Alt accelerators remain. Closing restores only the bar/dropdown footprints.
+The drawing view never changes when a temporary control opens.
+
+Drawing and Selection groups replace six permanently exposed tool buttons.
+Their small icons retain last choices, including keyboard changes. Right-click
+opens one horizontal icon-only row to the left over drawing space; click a tool,
+Escape or click outside to close. Left/Right/Enter offer keyboard selection while
+the flyout owns input. No unfinished floating edit is applied by opening, closing
+or choosing Move. Frame numbers/arrows share the existing bottom status row;
+Tab's thumbnail timeline remains optional and initially hidden.
+
+Functional review on 2026-11-15 inspected local TDE 5.1v `pull.c` entry behaviour,
+`menu.c` and screen-line save/restore declarations in `tdestr.h` and DOS routines in
+`dos/console.c`, as requested.
+The observed contract was temporary first-row controls, remembered choices and
+restoration on return. Pix86 implements that behaviour independently through its
+existing clipped renderer, not by adapting TDE's screen-save code or structures.
+[Aseprite's toolbar documentation](https://www.aseprite.org/docs/tool-bar/) was
+consulted only for tool-group/workflow context; Pix86's two-group contents,
+right-click activation, static flyouts, geometry and bitmap marks are original.
+No reference code, assets or layouts were imported.

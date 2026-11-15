@@ -7,35 +7,57 @@
 #include "workpal.h"
 
 /* Original bitmap marks, independently drawn at 8 and 16 pixels. */
-static const unsigned char icons[6][8]={
+static const unsigned char icons[7][8]={
  {3,7,14,28,56,112,224,192},{0,28,62,127,254,124,56,0},
  {16,40,68,130,124,56,16,0},{3,6,12,24,48,96,192,128},
- {255,129,129,129,129,129,129,255},{16,56,84,146,84,56,16,0}};
-static const unsigned short large_icons[6][16]={
+ {255,129,129,129,129,129,129,255},{16,56,84,146,84,56,16,0},{255,129,189,165,165,189,129,255}};
+static const unsigned short large_icons[7][16]={
  {3,7,15,30,60,120,240,480,960,1920,3840,7680,15360,28672,57344,49152},
  {0,0,992,2032,4088,8188,16382,32767,65534,32764,16376,8176,4064,1984,896,0},
  {256,640,1088,2080,4112,8200,16388,32770,65534,32764,16376,8176,4064,1984,896,256},
  {15,31,62,124,248,496,992,1984,3968,7936,15872,31744,63488,61440,57344,32768},
  {65535,32769,40961,32769,32769,32769,32769,32769,32769,32769,32769,32769,32769,32769,32769,65535},
- {256,896,1856,3376,6424,12556,24838,65535,24838,12556,6424,3376,1856,896,256,0}};
-static void tool_row(const Editor *editor,int tool)
+ {256,896,1856,3376,6424,12556,24838,65535,24838,12556,6424,3376,1856,896,256,0},
+ {65535,32769,32769,40957,40965,40965,40965,40965,40965,40965,40965,40957,32769,32769,32769,65535}};
+static int restoring;
+static void protect(int x,int y,int w,int h)
+{ if(!restoring) cursor_protect(x,y,w,h); }
+static void icon(int tool,int x,int y,int width,int height,int selected,int hover)
 {
-    static const char *keys[6]={"P","E","F","I","S","M"};
-    int y,x,xx,yy,size;
+    int xx,yy,size,ix;
     unsigned short bits;
     unsigned char ink,paper;
-    y=TOOL_Y+tool*TOOL_STEP; size=UI_WIDTH==640?16:8;
-    paper=tool==editor->tool?UI_PAPER:UI_PANEL;
-    ink=tool==editor->tool?UI_INK:UI_WHITE;
-    cursor_protect(TOOL_X,y,TOOL_WIDTH,TOOL_HEIGHT);
-    video_rect(TOOL_X,y,TOOL_WIDTH,TOOL_HEIGHT,tool==editor->tool?UI_WHITE:UI_DIM);
-    video_rect(TOOL_X+1,y+1,TOOL_WIDTH-2,TOOL_HEIGHT-2,paper);
-    x=TOOL_X+(TOOL_WIDTH-size)/2;
+    size=UI_WIDTH==640?16:8;
+    paper=hover?UI_SELECT:selected?UI_PAPER:UI_PANEL;
+    ink=hover?UI_WHITE:selected?UI_INK:UI_WHITE;
+    protect(x,y,width,height);
+    video_rect(x,y,width,height,selected?UI_WHITE:UI_DIM);
+    video_rect(x+1,y+1,width-2,height-2,paper);
+    ix=x+(width-size)/2;
     for(yy=0;yy<size;++yy) {
         bits=size==16?large_icons[tool][yy]:icons[tool][yy];
-        for(xx=0;xx<size;++xx) if(bits & (1U<<(size-1-xx))) video_pixel(x+xx,y+2+yy,ink);
+        for(xx=0;xx<size;++xx) if(bits & (1U<<(size-1-xx))) video_pixel(ix+xx,y+2+yy,ink);
     }
-    video_text_bg(TOOL_X+(TOOL_WIDTH-FONT_WIDTH)/2,y+size+3,keys[tool],ink,paper);
+}
+void render_group(const Editor *e,int group)
+{
+    int active;
+    active=tool_group(e->tool);
+    if(e->selection.state && e->group_tool[1]==TOOL_ALL) active=1;
+    icon(e->group_tool[group],TOOL_X,TOOL_Y+group*TOOL_STEP,TOOL_WIDTH,TOOL_HEIGHT,active==group,0);
+    video_pixel(TOOL_X+TOOL_WIDTH-3,TOOL_Y+group*TOOL_STEP+TOOL_HEIGHT-3,UI_WHITE);
+}
+void render_flyout(const Editor *e,const Flyout *f)
+{
+    Rect r;
+    int i,tool;
+    if(f->group<0) return;
+    flyout_bounds(f->group,&r); protect(r.x,r.y,r.w,r.h);
+    video_rect(r.x,r.y,r.w,r.h,UI_INK);
+    for(i=0;i<flyout_count(f->group);++i) {
+        tool=flyout_tool(f->group,i);
+        icon(tool,r.x+1+i*FLY_CELL,r.y+1,FLY_CELL,FLY_CELL,e->group_tool[f->group]==tool,f->hover==i);
+    }
 }
 static void swatch(const Editor *e,int slot)
 {
@@ -45,14 +67,14 @@ static void swatch(const Editor *e,int slot)
     y=PALETTE_Y+slot/PALETTE_COLS*PALETTE_CELL_H;
     colour=workpal_colour(slot);
     border=colour==e->foreground?UI_WHITE:colour==e->background?UI_FOCUS:UI_INK;
-    cursor_protect(x,y,PALETTE_CELL_W,PALETTE_CELL_H);
+    protect(x,y,PALETTE_CELL_W,PALETTE_CELL_H);
     video_rect(x,y,PALETTE_CELL_W,PALETTE_CELL_H,border);
     video_rect(x+1,y+1,PALETTE_CELL_W-2,PALETTE_CELL_H-2,colour);
 }
 static void current_colour(unsigned char colour,int y,char name)
 {
     char text[5];
-    cursor_protect(PALETTE_LABEL_X,y-1,UI_LEFT_WIDTH-2,SWATCH_HEIGHT);
+    protect(PALETTE_LABEL_X,y-1,UI_LEFT_WIDTH-2,SWATCH_HEIGHT);
     sprintf(text,"%c%03u",name,(unsigned)colour);
     video_text_bg(PALETTE_LABEL_X,y,text,UI_WHITE,UI_PANEL);
     video_rect(SWATCH_X,y-1,SWATCH_WIDTH,SWATCH_HEIGHT,UI_WHITE);
@@ -61,10 +83,9 @@ static void current_colour(unsigned char colour,int y,char name)
 void render_ui(const Editor *editor)
 {
     int i;
-    video_rect(0,UI_MENU_HEIGHT,UI_LEFT_WIDTH,UI_STATUS_Y-UI_MENU_HEIGHT,UI_PANEL);
-    video_rect(UI_RIGHT_X,UI_MENU_HEIGHT,UI_WIDTH-UI_RIGHT_X,UI_STATUS_Y-UI_MENU_HEIGHT,UI_PANEL);
-    video_text(TOOL_X,TOOL_TITLE_Y,UI_WIDTH==640?"Tools":"T",UI_WHITE);
-    for(i=0;i<TOOL_COUNT;++i) tool_row(editor,i);
+    video_rect(0,0,UI_LEFT_WIDTH,UI_STATUS_Y,UI_PANEL);
+    video_rect(UI_RIGHT_X,0,UI_WIDTH-UI_RIGHT_X,UI_STATUS_Y,UI_PANEL);
+    for(i=0;i<TOOL_GROUPS;++i) render_group(editor,i);
     video_text(PALETTE_LABEL_X,PALETTE_TITLE_Y,"Colour",UI_WHITE);
     current_colour(editor->foreground,FG_Y,'F');
     current_colour(editor->background,BG_Y,'B');
@@ -166,6 +187,31 @@ void render_canvas(const Editor *editor)
             canvas_cell(editor,(int)x,(int)y);
 }
 
+void render_playback_canvas(const Editor *editor,unsigned previous_frame)
+{
+    unsigned x,y,offset,previous_offset,previous_mask_offset,mask_offset;
+    unsigned char bit,current_transparent,previous_transparent;
+    int sx,sy,zoom;
+    if(previous_frame>=editor->document->frames) return;
+    zoom=editor->view.zoom;
+    previous_offset=previous_frame*editor->history.size;
+    previous_mask_offset=previous_frame*editor->history.size/8;
+    for(y=0;y<editor->canvas.height;++y) for(x=0;x<editor->canvas.width;++x) {
+        offset=y*editor->canvas.width+x;
+        mask_offset=previous_mask_offset+offset/8;
+        bit=(unsigned char)(1U<<(offset%8));
+        current_transparent=(unsigned char)((editor->mask[offset/8]&bit)!=0);
+        previous_transparent=(unsigned char)((editor->document->mask[mask_offset]&bit)!=0);
+        if(current_transparent!=previous_transparent ||
+           (!current_transparent &&
+            editor->pixels[offset]!=editor->document->pixels[previous_offset+offset])) {
+            sx=editor->view.x+(int)x*zoom; sy=editor->view.y+(int)y*zoom;
+            cursor_protect(sx,sy,zoom,zoom);
+            canvas_cell(editor,(int)x,(int)y);
+        }
+    }
+}
+
 void render_stroke(const Editor *editor)
 {
     int x,y;
@@ -175,45 +221,56 @@ void render_stroke(const Editor *editor)
 
 void render_status_text(const Editor *editor, int mouse_x, int mouse_y, int has_mouse, const char *filename, char *text)
 {
-    char coords[12];
-    int x, y;
-    static const char *names[6] = {"Pen", "Ers", "Fil", "Pck", "Sel", "Mov"};
+    char prefix[54],colours[12];
+    unsigned columns,n;
     const Selection *selection;
+    (void)mouse_x; (void)mouse_y; (void)has_mouse;
     selection=&editor->selection;
-    if(selection_floating(editor)) {
-        sprintf(text,"MOVE DX:%+d DY:%+d Enter:Apply Esc:Cancel",selection->dx,selection->dy); return;
-    }
-    if(selection->state) {
-        sprintf(text,"SELECT X:%02d Y:%02d W:%02d H:%02d",selection->x,selection->y,selection->w,selection->h); return;
-    }
-    if (has_mouse && view_map(&editor->view, mouse_x, mouse_y, &x, &y))
-        sprintf(coords, "X%02dY%02d", x, y);
-    else strcpy(coords, "X--Y--");
-    /* 12 basename cells, then all required document/view information fit
-       in the 53 complete 6-pixel cells on a 320-pixel scanline. */
-    sprintf(text, "%-12.12s%c%ux%u %s %s F%03u B%03u Z%d",
-            filename && *filename ? filename : "UNTITLED",
-            editor_is_dirty(editor) ? '*' : ' ', editor->canvas.width,
-            editor->canvas.height, coords, editor->tool==TOOL_ERASER && editor->transparent_eraser?"Alp":names[editor->tool],
-            (unsigned)editor->foreground, (unsigned)editor->background,
-            editor->view.zoom);
+    if(selection_floating(editor))
+        sprintf(prefix,"MOVE %+d,%+d Enter/Esc",selection->dx,selection->dy);
+    else if(selection->state)
+        sprintf(prefix,"SEL %02d,%02d %02dx%02d",selection->x,selection->y,selection->w,selection->h);
+    else sprintf(prefix,"%-12.12s%c %ux%u Z%d",filename && *filename?filename:"UNTITLED",
+                 editor_is_dirty(editor)?'*':' ',editor->canvas.width,editor->canvas.height,editor->view.zoom);
+    columns=(unsigned)(UI_WIDTH/FONT_WIDTH); memset(text,' ',columns); text[columns]='\0';
+    n=(unsigned)strlen(prefix); if(n>25) n=25; memcpy(text,prefix,n);
+    sprintf(colours,"F%03u B%03u",(unsigned)editor->foreground,(unsigned)editor->background);
+    memcpy(text+NAV_RIGHT/FONT_WIDTH,colours,9);
 
 }
 
+void render_nav(const Editor *e)
+{
+    unsigned i,first,count;
+    int x;
+    char label[4];
+    first=nav_first(e->history.active,e->document->frames); count=e->document->frames-first;
+    if(count>(unsigned)nav_slots()) count=(unsigned)nav_slots();
+    protect(NAV_X,UI_STATUS_Y,NAV_RIGHT-NAV_X,FONT_HEIGHT);
+    video_rect(NAV_X,UI_STATUS_Y,NAV_RIGHT-NAV_X,FONT_HEIGHT,UI_BAR);
+    video_text_bg(NAV_X,UI_STATUS_Y,"<",UI_INK,UI_BAR);
+    for(i=0;i<count;++i) {
+        x=NAV_X+NAV_ARROW+(int)i*NAV_CELL;
+        sprintf(label,"%2u",first+i+1);
+        video_text_bg(x,UI_STATUS_Y,label,first+i==e->history.active?UI_WHITE:UI_INK,
+                      first+i==e->history.active?UI_SELECT:UI_BAR);
+    }
+    video_text_bg(NAV_X+NAV_ARROW+(int)count*NAV_CELL,UI_STATUS_Y,">",UI_INK,UI_BAR);
+}
 void render_status(const Editor *editor,int x,int y,int has_mouse)
 {
-    char text[54];
+    char text[UI_STATUS_CHARS+1];
     render_status_text(editor,x,y,has_mouse,"",text);
-    video_rect(0,UI_STATUS_Y,UI_WIDTH,FONT_HEIGHT,UI_BAR); video_text(0,UI_STATUS_Y,text,UI_INK);
+    video_rect(0,UI_STATUS_Y,UI_WIDTH,FONT_HEIGHT,UI_BAR); video_text(0,UI_STATUS_Y,text,UI_INK); render_nav(editor);
 }
 void render_restore(const Editor *editor,const Rect *r)
 {
     Rect screen,art,parts[4];
     int i,n;
     if(r->w<=0 || r->h<=0) return;
-    cursor_protect(r->x,r->y,r->w,r->h);
+    cursor_protect(r->x,r->y,r->w,r->h); restoring=1;
     video_clip(r->x,r->y,r->w,r->h);
-    screen.x=0; screen.y=UI_MENU_HEIGHT; screen.w=UI_WIDTH; screen.h=UI_STATUS_Y-UI_MENU_HEIGHT;
+    screen.x=0; screen.y=0; screen.w=UI_WIDTH; screen.h=UI_STATUS_Y;
     art.x=editor->view.x-1; art.y=editor->view.y-1;
     art.w=(int)editor->view.width*editor->view.zoom+2;
     art.h=(int)editor->view.height*editor->view.zoom+2;
@@ -222,17 +279,14 @@ void render_restore(const Editor *editor,const Rect *r)
     if(r->x<UI_LEFT_WIDTH || r->x+r->w>UI_RIGHT_X) render_ui(editor);
     if(rect_overlap(r,&art)) render_canvas(editor);
     if(editor->timeline && r->y+r->h>TIMELINE_Y && r->x+r->w>DRAW_X-1) render_timeline(editor);
-    video_unclip();
+    video_unclip(); restoring=0;
 }
 void render_ui_change(const Editor *editor,int tool,unsigned char fg,unsigned char bg,
                       const unsigned char *old,int alpha)
 {
     int i;
     unsigned char colour;
-    if(tool!=editor->tool) {
-        tool_row(editor,tool); tool_row(editor,editor->tool);
-    }
-    if(alpha!=editor->transparent_eraser) tool_row(editor,TOOL_ERASER);
+    (void)tool; (void)alpha;
     for(i=0;i<16;++i) {
         colour=workpal_colour(i);
         if(old[i]!=colour || (fg!=editor->foreground && (colour==fg || colour==editor->foreground)) ||
@@ -250,7 +304,7 @@ void render_timeline(const Editor *e)
     char label[20];
     static const char *controls[9]={"<",">","+","Dup","Del","Play","<<",">>","X"};
     if(!e->timeline) return;
-    cursor_protect(DRAW_X-1,TIMELINE_Y,DRAW_WIDTH+3,TIMELINE_HEIGHT);
+    protect(DRAW_X-1,TIMELINE_Y,DRAW_WIDTH+3,TIMELINE_HEIGHT);
     video_rect(DRAW_X-1,TIMELINE_Y,DRAW_WIDTH+3,TIMELINE_HEIGHT,UI_PANEL);
     video_rect(DRAW_X-1,TIMELINE_Y,DRAW_WIDTH+3,1,UI_DIM);
     for(slot=0;slot<9;++slot) {
@@ -279,4 +333,49 @@ void render_timeline(const Editor *e)
     video_text(DRAW_X+TIMELINE_SLOTS*TIMELINE_CELL,TIMELINE_Y+14,label,UI_WHITE);
     sprintf(label,"%ums",e->document->duration[e->history.active]);
     video_text(DRAW_X+TIMELINE_SLOTS*TIMELINE_CELL,TIMELINE_Y+24,label,UI_WHITE);
+}
+
+static void render_timeline_playback_cell(const Editor *e,unsigned frame)
+{
+    int x,y;
+    unsigned slot,number;
+    unsigned char paper,ink;
+    char label[3];
+    if(frame<e->first_frame || frame>=e->document->frames) return;
+    slot=frame-e->first_frame;
+    if(slot>=TIMELINE_SLOTS) return;
+    x=DRAW_X+(int)slot*TIMELINE_CELL; y=TIMELINE_Y+13;
+    paper=frame==e->history.active?UI_SELECT:UI_BAR;
+    ink=frame==e->history.active?UI_WHITE:UI_INK;
+    cursor_protect(x,y,TIMELINE_CELL-2,21);
+    video_rect(x,y,TIMELINE_CELL-2,11,paper);
+    video_rect(x,y+19,TIMELINE_CELL-2,2,paper);
+    video_rect(x,y+11,12,8,paper);
+    video_rect(x+20,y+11,2,8,paper);
+    number=frame+1;
+    if(number>=10) {
+        label[0]=(char)('0'+number/10); label[1]=(char)('0'+number%10); label[2]='\0';
+    } else {
+        label[0]=(char)('0'+number); label[1]='\0';
+    }
+    video_text(x+2,y+1,label,ink);
+}
+
+void render_timeline_playback(const Editor *e,unsigned previous_frame)
+{
+    int x,y;
+    char label[20];
+    if(!e->timeline) return;
+    render_timeline_playback_cell(e,previous_frame);
+    if(e->history.active!=previous_frame)
+        render_timeline_playback_cell(e,e->history.active);
+    x=DRAW_X+TIMELINE_SLOTS*TIMELINE_CELL;
+    y=TIMELINE_Y+14;
+    cursor_protect(x,y,6*FONT_WIDTH,2*FONT_HEIGHT+2);
+    video_rect(x,y,6*FONT_WIDTH,FONT_HEIGHT,UI_PANEL);
+    sprintf(label,"%u/%u",e->history.active+1,e->document->frames);
+    video_text(x,y,label,UI_WHITE);
+    video_rect(x,y+FONT_HEIGHT+2,6*FONT_WIDTH,FONT_HEIGHT,UI_PANEL);
+    sprintf(label,"%ums",e->document->duration[e->history.active]);
+    video_text(x,y+FONT_HEIGHT+2,label,UI_WHITE);
 }

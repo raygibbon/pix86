@@ -2,12 +2,14 @@
 #define PIX86_UI_H
 #include "menu.h"
 #include "mouse.h"
+#include "editor.h"
+#include "flyout.h"
 /* Live interaction state, independent of document, renderer and file adapter. */
-typedef struct UiState { Menu menu; int blocked; } UiState;
+typedef struct UiState { Menu menu; Flyout flyout; int blocked; } UiState;
 int ui_timeline(UiState *ui,int open,unsigned first,unsigned count,const MouseState *mouse,int *command);
 void ui_init(UiState *ui);
 /* Route overlays first. Consumed events must not reach drawing tools. */
-int ui_input(UiState *ui,int key,const MouseState *mouse,int *command);
+int ui_input(UiState *ui,const Editor *editor,int key,const MouseState *mouse,int *command);
 /* Resume after a modal window; swallow its held dismissal buttons. */
 void ui_resume(UiState *ui,const MouseState *mouse);
 /* Return true only when the editor may receive this pointer event. */

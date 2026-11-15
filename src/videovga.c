@@ -1,6 +1,9 @@
 #include <dos.h>
+#include <string.h>
 #include "video.h"
 #include "videoint.h"
+
+extern void __far *_fmemset(void __far *,int,size_t);
 
 static unsigned char __far *vga = (unsigned char __far *)0xa0000000UL;
 
@@ -26,8 +29,12 @@ unsigned char videovga_read(int x, int y)
 
 void videovga_rect(int x, int y, int width, int height, unsigned char colour)
 {
-    int xx, yy;
-    for (yy = y; yy < y + height; ++yy)
-        for (xx = x; xx < x + width; ++xx)
-            videovga_pixel(xx, yy, colour);
+    int yy;
+    unsigned row_offset;
+    unsigned char __far *row;
+    for (yy = y; yy < y + height; ++yy) {
+        row_offset=(unsigned)yy*VIDEO_WIDTH+(unsigned)x;
+        row=vga+row_offset;
+        _fmemset(row,(int)colour,(size_t)width);
+    }
 }

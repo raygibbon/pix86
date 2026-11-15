@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include "view.h"
 #include "workpal.h"
+#include "flyout.h"
 
 int view_max_zoom(const Canvas *canvas)
 {
@@ -64,6 +65,6 @@ int toolbar_hit(int x, int y)
     int row;
     if (x < TOOL_X || x >= TOOL_X + TOOL_WIDTH || y < TOOL_Y) return -1;
     row = (y - TOOL_Y) / TOOL_STEP;
-    if (row >= 6 || (y - TOOL_Y) % TOOL_STEP >= TOOL_HEIGHT) return -1;
+    if (row >= TOOL_GROUPS || (y - TOOL_Y) % TOOL_STEP >= TOOL_HEIGHT) return -1;
     return row;
 }

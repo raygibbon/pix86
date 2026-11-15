@@ -8,10 +8,11 @@ A lightweight, DOS-native pixel-art and frame-by-frame animation editor for game
 
 Draw on 16×16, 32×32, 64×64, 16×24, 16×32 or 32×24 indexed documents.
 Pencil, eraser, fill, eyedropper, rectangular selection and move use an original
-right-hand icon toolbar. Select all with Ctrl+A, drag or nudge with arrows, then
-Enter to apply or Escape to cancel; one undo restores the complete move. A collapsible
-36-pixel timeline offers frame thumbnails, navigation, add/duplicate/delete and
-looping playback. Per-frame timing defaults to 100 ms and adjusts from 20–2000 ms.
+right-hand grouped icon toolbar. Right-click a group for an icon-only flyout;
+left-click recalls its last tool. Select all with Ctrl+A, drag or nudge with arrows, then
+Enter to apply or Escape to cancel; one undo restores the complete move. The single
+status row provides frame numbers and previous/next arrows. The optional Tab
+timeline provides thumbnails, add/duplicate/delete and playback, hidden by default. Per-frame timing defaults to 100 ms and adjusts from 20–2000 ms.
 Four undoable actions include pixel edits, frame structure and timing. Export a current frame, numbered frames or horizontal/vertical/grid sprite sheets
 as indexed BMP or RGBA PNG. New sprites default to Transparent; New also offers Opaque,
 filled with the selected BG colour. Save/reopen `.P86` version 3 masks and animations;
@@ -19,11 +20,10 @@ older version 1/2 files retain their fully opaque appearance.
 
 [Background, transparency and export verification](docs/TRANSP.md)
 
-![Animation workspace in DOSBox-X at 2x](docs/ANIM2X.PNG)
+![Compact workspace in DOSBox-X, native 320×200](docs/CW320.PNG)
 
-[Native 320×200](docs/ANIM.PNG) · [Frame menu](docs/ANMENU.PNG) ·
-[High-contrast grid](docs/ANGRID.PNG) · [Original font](docs/ANFONT.PNG) ·
-[Implementation and verification](docs/ANIMATION.md)
+[Enhanced 640×480](docs/CW640.PNG) · [Temporary menu](docs/CM320.PNG) ·
+[Tool flyout](docs/CF320.PNG) · [Compact workspace and verification](docs/COMPACT.md)
 
 Menus repaint only changed rows; dialogs remain unchanged while idle and restore
 only the covered editor region when closed. The cursor is saved/restored only
@@ -81,7 +81,9 @@ only `PIX86.EXE` to DOS; no runtime DLL or data assets are needed.
 
 | Control | Action |
 | --- | --- |
-| Left toolbar or P / E / F / I | Pencil / eraser / fill / eyedropper |
+| P / E / F / I | Pencil / eraser / fill / eyedropper |
+| Left/right-click right tool group | Activate last tool / open leftward flyout |
+| Bottom arrows / frame numbers | Previous/next / select a frame |
 | Left-drag on canvas | Draw or erase; one drag is one undo action |
 | Left-click with fill | Fill four-connected matching pixels; one action |
 | Left-click with eyedropper, or right-click canvas | Pick foreground index |
@@ -121,14 +123,16 @@ FG/BG in either palette. [ and ] cycle working foreground colours. New indices
 are remembered in eight recent slots, alongside eight stable defaults. These
 selections never remap existing pixels or edit the artwork DAC palette.
 
-The sidebar leaves a 274×176 drawing region, or 274×140 with the timeline open. Text uses an original crisp 6x8 bitmap font; UI colours use existing
-palette entries so saved artwork retains its colours. The single compact status
-line shows filename, modified state, dimensions, coordinates, tool, FG/BG and
-zoom; `X--Y--` means the pointer is outside the canvas. Grid lines belong to the view, never
-the artwork. Tool rows are 10 pixels high, and menu rows are 9 pixels high.
-Grid starts off;
-G shows a contrast-based dashed pixel mesh at zoom ≥3; 8/6 toggle solid tile guides. Help → Font sample
-displays all supported characters.
+The palette remains left and two compact tool-group buttons sit right. Classic
+has a 256×189 drawing region; Enhanced has 566×469. The top menu reserves no
+workspace: Ctrl+\ temporarily overlays the full menu bar and dropdown, then
+closing restores the covered editor pixels. Menu opening never refits the view.
+Original 6×8 text, 8×8/16×16 icons and fixed artwork DAC indices remain unchanged.
+The single status row shares filename/dirty marker, dimensions and zoom with
+nearby frame numbers and FG/BG. Selection/move instructions replace the left
+information while active; frame controls keep their separate hit targets.
+G toggles neutral continuous pixel boundaries at zoom ≥3; 8/6 toggle independent
+8/16 guides. Help → Font sample displays the original character set.
 
 The canvas is centred, initially at the largest fitting zoom: 11× for 16×16,
 5× for 32×32 and 2× for 64×64. Zoom 1× is available for every size. Drawing pauses
@@ -173,11 +177,10 @@ New, Open and Exit ask before discarding unsaved changes. Y or Yes permits
 discarding; N, Esc or Cancel abandons the operation. Cancel is initially selected;
 Tab/arrows and Enter operate the buttons. A cancelled or failed Open retains the
 current artwork. New starts an unnamed blank canvas. Saving/loading messages
-are acknowledged with any key. Menus display file/drawing shortcuts. Ctrl+\ opens File and closes an open
+are acknowledged with any key. Menus are hidden during normal editing and display file/drawing shortcuts when open. Ctrl+\ opens File and closes an open
 menu when pressed again. F10 and Alt+F/E/V/R/O/H are alternatives;
 Left/Right switches headings, Up/Down selects items, Enter executes and Esc
-closes. Frame (Alt+R) operates frames, playback and timing; onion skin remains disabled. Click a heading/item
-to use menus with the mouse; outside clicks close and are consumed. Release
+closes. Frame (Alt+R) operates frames, playback and timing; onion skin remains disabled. After opening the menu, click a heading/item to navigate; outside clicks close and are consumed. Release
 held buttons after closing a menu/dialog before drawing. See
 [interface design and reference review](docs/UI_DESIGN.md).
 
@@ -261,6 +264,9 @@ measured budget and ownership rules. All indices, including zero, remain paintab
 Onion skin, layers and GIF export are deferred. BMP and PNG sprite sheets are implemented.
 Playback uses elapsed DOS clock time (BIOS-resolution timing), and stops when
 menus/dialogs open or an editing command is used. Painting is blocked during play.
+Every frame is presented in order; a slow render lengthens playback rather than
+skipping frames. The in-play status reports render time, overdue frame deadlines
+and displayed FPS.
 
 Run `scripts/test.sh`, `scripts/build.sh`, `scripts/dostest.sh`, then
 `scripts/rundost.sh` to execute eight editor/I/O suites and two video-driver runs. The last command requires
@@ -297,3 +303,13 @@ Transparent holes composite using mask bits; real index-zero black moves normall
 Source pixels clear to transparency or BG according to document blank policy.
 Moves beyond artwork edges clip; committed off-canvas pixels can be recovered by
 Undo. Selection itself is transient and never saved or exported.
+
+## Compact workspace
+
+[Controls, original reference review, native screenshots and verification](docs/COMPACT.md).
+No top menu or thumbnail panel is permanently visible. Right-click Drawing or
+Selection for a leftward flyout; Escape/outside click dismisses it without drawing
+underneath. Left/Right and Enter also choose flyout tools. Existing tool, frame,
+selection and file shortcuts remain available. Frame arrows advance the selected
+frame and reveal nearby numbers: up to five in Classic and sixteen in Enhanced.
+Tab independently opens the optional thumbnail timeline.

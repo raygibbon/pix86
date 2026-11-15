@@ -222,9 +222,9 @@ static void palette_overlay(void)
         y=PALETTE_Y+i/PALETTE_COLS*PALETTE_CELL_H;
         assert(pixels[(y+1)*320+x+1]==workpal_colour(i));
     }
-    for(i=0;i<4;++i) {
+    for(i=0;i<TOOL_GROUPS;++i) {
         int y;
-        editor.tool=i;screen_update(&s,&editor,&m,EDIT_UI,&mouse,0);
+        editor_key(&editor,i?CMD_SELECT:CMD_PENCIL);screen_update(&s,&editor,&m,EDIT_UI,&mouse,0);
         y=TOOL_Y+i*TOOL_STEP;
         assert(pixels[y*320+TOOL_X]==UI_WHITE);
         if(i) assert(pixels[(y-TOOL_STEP)*320+TOOL_X]==UI_DIM);
@@ -242,27 +242,27 @@ static void routing_status(void)
     assert(keyboard_command('U')==CMD_UNDO && keyboard_command('r')==CMD_REDO);
     assert(keyboard_command('N')==CMD_NEW && keyboard_command('=')==CMD_ZOOM_IN);
     assert(keyboard_command(KEY_DELETE)==CMD_FRAME_DELETE && keyboard_command(-1)==CMD_NONE);
-    assert(ui_input(&ui,KEY_MENU,&mouse,&command) && !command && ui.menu.active);
-    assert(ui_input(&ui,CMD_EXIT,&mouse,&command) && !command && !ui.menu.active);
+    assert(ui_input(&ui,&editor,KEY_MENU,&mouse,&command) && !command && ui.menu.active);
+    assert(ui_input(&ui,&editor,CMD_EXIT,&mouse,&command) && !command && !ui.menu.active);
     assert(!ui_pointer(&ui,&mouse,1,1));
-    assert(!ui_input(&ui,'P',&mouse,&command) && command==CMD_PENCIL);
+    assert(!ui_input(&ui,&editor,'P',&mouse,&command) && command==CMD_PENCIL);
     assert(ui_pointer(&ui,&mouse,0,0));
     mouse.buttons=1; ui_resume(&ui,&mouse);
     assert(!ui_pointer(&ui,&mouse,0,0));
     mouse.buttons=0; assert(!ui_pointer(&ui,&mouse,0,0));
     assert(ui_pointer(&ui,&mouse,0,0));
-    ui_input(&ui,-1,&mouse,&command); /* poll the dismissal release */
+    ui_input(&ui,&editor,-1,&mouse,&command); /* poll the dismissal release */
     mouse.x=PALETTE_X;mouse.y=PALETTE_MORE_Y;mouse.buttons=1;
-    assert(ui_input(&ui,-1,&mouse,&command) && command==CMD_PALETTE);
-    mouse.buttons=0;ui_input(&ui,-1,&mouse,&command);
+    assert(ui_input(&ui,&editor,-1,&mouse,&command) && command==CMD_PALETTE);
+    mouse.buttons=0;ui_input(&ui,&editor,-1,&mouse,&command);
     mouse.buttons=2;
-    assert(ui_input(&ui,-1,&mouse,&command) && command==CMD_BG);
+    assert(ui_input(&ui,&editor,-1,&mouse,&command) && command==CMD_BG);
     mouse.buttons=0;
     screen_filename(&s,"C:\\ART\\LONGNAME.P86");
     assert(!strcmp(s.filename,"LONGNAME.P86"));
     render_status_text(&editor,editor.view.x,editor.view.y,1,s.filename,text);
     assert(strlen(text)<=UI_STATUS_CHARS && !strncmp(text,"LONGNAME.P86",12));
-    assert(strstr(text,"16x16") && strstr(text,"X00Y00") && strstr(text,"Pen"));
+    assert(strstr(text,"16x16") && !strstr(text,"X00Y00"));
     assert(strstr(text,"F015") && strstr(text,"B000") && strstr(text,"Z11"));
     screen_update(&s,&editor,&m,EDIT_STATUS,&mouse,0);
     assert(strstr(s.status,"LONGNAME.P86"));
@@ -340,6 +340,36 @@ static void background_preview(void)
     assert(pixels[(BG_Y+1)*320+SWATCH_X+1]==141 && editor.pixels[0]==231);
     before=writes; screen_update(&s,&editor,&m,0,&mouse,0); assert(writes==before);
 }
+static void playback_render(void)
+{
+    Screen s; Menu m; MouseState mouse; UiState ui;
+    unsigned size,flags;
+    unsigned long before;
+    start(); editor_dispose(&editor); assert(editor_init(&editor,16,queue));
+    editor.timeline=1; assert(view_fit(&editor.view,&editor.canvas,1,0));
+    size=editor.history.size; editor_store(&editor); editor.document->frames=2;
+    memcpy(editor.document->pixels+size,editor.pixels,size);
+    memcpy(editor.document->mask+size/8,editor.mask,size/8);
+    editor.document->duration[1]=editor.document->duration[0];
+    editor.document->pixels[size]=201; editor.history.active=0; editor_restore(&editor);
+    menu_init(&m); ui_init(&ui); mouse.x=mouse.y=mouse.buttons=0;
+    screen_init(&s,&editor,&mouse,0);
+    assert(!(editor_key(&editor,CMD_PLAY)&EDIT_CANVAS));
+    before=writes; flags=editor_tick(&editor,editor.document->duration[0]);
+    assert(flags&EDIT_PLAYBACK);
+    screen_present(&s,&editor,&ui,flags,&mouse,0);
+    assert(editor.history.active==1 && editor.pixels[0]==201);
+    assert(writes-before>50000);
+    before=writes; flags=editor_tick(&editor,editor.document->duration[1]);
+    assert(flags&EDIT_PLAYBACK);
+    screen_present(&s,&editor,&ui,flags,&mouse,0);
+    assert(editor.history.active==0 && editor.pixels[0]==0);
+    assert(writes-before<5000);
+    assert(strstr(s.status,"R") && strstr(s.status,"D") && strstr(s.status,"F"));
+    assert(strstr(s.status,"D   0"));
+    assert(!(editor_key(&editor,CMD_PLAY)&EDIT_CANVAS));
+    screen_present(&s,&editor,&ui,EDIT_TIMELINE,&mouse,0);
+}
 static void type(const char *text) { while(*text) add((unsigned char)*text++); }
 static void run(int mouse)
 {
@@ -361,7 +391,7 @@ static void application(void)
     remove("PAINT.P86");
     start();add(KEY_F2);type("PAINT");add(13);add(13);
     add(CMD_PALETTE);add(KEY_END);add(13);
-    mouse_event(DRAW_X+(DRAW_WIDTH-176)/2+12,30,1);mouse_event(DRAW_X+(DRAW_WIDTH-176)/2+12,30,0);
+    mouse_event(DRAW_X+(DRAW_WIDTH-176)/2+12,DRAW_Y+(DRAW_HEIGHT-176)/2+12,1);mouse_event(DRAW_X+(DRAW_WIDTH-176)/2+12,DRAW_Y+(DRAW_HEIGHT-176)/2+12,0);
     add(KEY_F2);add('y');add(13);
     add('n');add('3');add(KEY_F3);type("PAINT");add(13);add(13);add(27);run(1);
     f=fopen("PAINT.P86","rb");assert(f);assert(file_decode(f,&image)==FILE_OK);fclose(f);
@@ -370,8 +400,8 @@ static void application(void)
     remove("MOVE.P86");
     start();
     /* Select all, move, then try New/Open/Save: each waits for Apply/Cancel. */
-    mouse_event(DRAW_X+(DRAW_WIDTH-176)/2+12,30,1);
-    mouse_event(DRAW_X+(DRAW_WIDTH-176)/2+12,30,0);
+    mouse_event(DRAW_X+(DRAW_WIDTH-176)/2+12,DRAW_Y+(DRAW_HEIGHT-176)/2+12,1);
+    mouse_event(DRAW_X+(DRAW_WIDTH-176)/2+12,DRAW_Y+(DRAW_HEIGHT-176)/2+12,0);
     add(1); add('m'); add(KEY_RIGHT);
     add('n'); add(13); add(KEY_F3); add(27); add(KEY_F2); add(13);
     add(KEY_MENU); add(KEY_UP); add(13); add(13); /* File Exit also waits */
@@ -394,7 +424,7 @@ static void application(void)
 }
 int main(void)
 {
-    geometry(); menus(); dialogs(); palette_overlay(); routing_status(); timeline(); export_overlay(); background_preview(); application();
+    geometry(); menus(); dialogs(); palette_overlay(); routing_status(); timeline(); export_overlay(); background_preview(); playback_render(); application();
     puts("PASS: dirty rectangles, idle stability, exact overlay/cursor restoration, one startup clear and deliberate exits/file workflow.");
     editor_dispose(&editor);
     return 0;
