@@ -82,7 +82,7 @@ static int file_command(int key)
 int main(int argc, char **argv)
 {
     MouseState mouse, previous;
-    unsigned side, flags;
+    unsigned side, flags, height;
     int has_mouse, disable_mouse, key, i, size_set;
     int command, consumed, was_active, modal;
     UiState ui;
@@ -90,7 +90,7 @@ int main(int argc, char **argv)
     int background;
     clock_t last_tick,now;
     unsigned long ticks;
-    side = 32;
+    side = height = 32;
     size_set = disable_mouse = 0;
     for (i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "/NOMOUSE") == 0 && !disable_mouse)
@@ -98,9 +98,12 @@ int main(int argc, char **argv)
         else if (!size_set && (strcmp(argv[i], "16") == 0 ||
                  strcmp(argv[i], "32") == 0 || strcmp(argv[i], "64") == 0)) {
             side = (unsigned)(argv[i][0] - '0') * 10 + (unsigned)(argv[i][1] - '0');
-            size_set = 1;
+            height=side; size_set = 1;
+        } else if(!size_set && (strcmp(argv[i],"16x24")==0 || strcmp(argv[i],"16x32")==0 || strcmp(argv[i],"32x24")==0)) {
+            side=(unsigned)(argv[i][0]-'0')*10+argv[i][1]-'0';
+            height=(unsigned)(argv[i][3]-'0')*10+argv[i][4]-'0'; size_set=1;
         } else {
-            puts("Usage: PIX86 [16|32|64] [/NOMOUSE]");
+            puts("Usage: PIX86 [16|32|64|16x24|16x32|32x24] [/NOMOUSE]");
             return 1;
         }
     }
@@ -108,11 +111,12 @@ int main(int argc, char **argv)
         puts("PIX86: could not initialize editor.");
         return 1;
     }
+    if(side!=height) editor_new_shape(&editor,side,height);
     project_init(&project, &editor, &scratch);
     ui_init(&ui);
     if (!video_init()) {
         puts("PIX86: VGA Mode 13h required; launch from DOS text mode.");
-        return 1;
+        editor_dispose(&editor); return 1;
     }
     has_mouse = !disable_mouse && mouse_init();
     mouse_available=has_mouse;
@@ -128,7 +132,7 @@ int main(int argc, char **argv)
         mouse_poll(&mouse);
         was_active = ui.menu.active;
         consumed = ui_input(&ui,key,&mouse,&command);
-        if(!consumed && !ui.menu.active)
+        if(!consumed && !ui.menu.active && !(previous.buttons&1))
             consumed=ui_timeline(&ui,editor.timeline,editor.first_frame,editor.document->frames,&mouse,&command);
         now=clock(); ticks=(unsigned long)(now-last_tick); last_tick=now;
         flags=ui.menu.active?0:editor_tick(&editor,(unsigned)(ticks>60*CLOCKS_PER_SEC?60000UL:ticks*1000UL/CLOCKS_PER_SEC));

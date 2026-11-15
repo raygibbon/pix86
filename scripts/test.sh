@@ -50,3 +50,15 @@ mkdir -p "$ROOT/build/iotest"
     "$ROOT/src/project.c" -o "$ROOT/build/painttest"
 mkdir -p "$ROOT/build/painttest-files"
 (cd "$ROOT/build/painttest-files" && "$ROOT/build/painttest")
+# Animation allocation failures are injected only into test objects.
+"${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror -I"$ROOT/src" \
+    -Dmalloc=fault_alloc -Dfree=fault_free -c "$ROOT/src/editor.c" -o "$ROOT/build/failedit.o"
+"${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror -I"$ROOT/src" \
+    -Dmalloc=fault_alloc -Dfree=fault_free -c "$ROOT/src/history.c" -o "$ROOT/build/failhist.o"
+"${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror -DALLOC_FAULTS -I"$ROOT/src" \
+    "$ROOT/tests/testanim.c" "$ROOT/build/failedit.o" "$ROOT/build/failhist.o" \
+    "$ROOT/src/anim.c" "$ROOT/src/canvas.c" "$ROOT/src/tools.c" "$ROOT/src/view.c" \
+    "$ROOT/src/workpal.c" "$ROOT/src/keymap.c" "$ROOT/src/fileio.c" "$ROOT/src/project.c" \
+    -o "$ROOT/build/animtest"
+mkdir -p "$ROOT/build/animtest-files"
+(cd "$ROOT/build/animtest-files" && "$ROOT/build/animtest")
