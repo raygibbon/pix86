@@ -10,8 +10,8 @@ mkdir -p "$ROOT/build/dos-results"
     -c "mount c $ROOT/mnt" -c 'c:' -c "cd $NAME" \
     -c '..\EDTEST > ED.TXT' -c '..\IOTEST > IO.TXT' \
     -c '..\UITEST > UI.TXT' -c '..\KBDTEST > KBD.TXT' \
-    -c '..\ANIMTEST > ANIM.TXT' -c exit
-for suite in ED IO UI KBD ANIM; do
+    -c '..\ANIMTEST > ANIM.TXT' -c '..\BMPTEST > BMP.TXT' -c exit
+for suite in ED IO UI KBD ANIM BMP; do
     cp "$SCRATCH/$suite.TXT" "$ROOT/build/dos-results/$suite.TXT"
     rg '^PASS:' "$SCRATCH/$suite.TXT"
 done

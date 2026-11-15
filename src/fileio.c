@@ -196,7 +196,7 @@ int file_load(const char *path, P86Image *image)
 }
 
 /* -1 means inaccessible, not evidence that it is safe to replace a file. */
-static int exists(const char *path)
+int file_exists(const char *path)
 {
     StatInfo info;
     if (host_stat(path, &info) == 0) {
@@ -245,8 +245,8 @@ static void discard(char *path)
     if (path[0] && remove(path) == 0) path[0] = '\0';
 }
 
-int file_save(const char *path, const P86Image *image, int overwrite,
-              FileReport *report)
+int file_write(const char *path,FileWriter writer,const void *context,int overwrite,
+               FileReport *report)
 {
     char name[FILE_PATH_MAX];
     FILE *stream;
@@ -255,8 +255,8 @@ int file_save(const char *path, const P86Image *image, int overwrite,
     if (report == NULL) return FILE_WRITE_ERROR;
     report->temporary[0] = report->backup[0] = '\0';
     if (!file_name(path, name)) return FILE_BAD_NAME;
-    if (image == NULL || !(image->frames?anim_dimensions(image->width, image->height):dimensions(image->width,image->height))) return FILE_DIMENSIONS;
-    present = exists(name);
+    if(!writer) return FILE_WRITE_ERROR;
+    present = file_exists(name);
     if (present < 0) return FILE_OPEN_ERROR;
     if (present && !overwrite) return FILE_EXISTS;
     stream = NULL;
@@ -273,7 +273,7 @@ int file_save(const char *path, const P86Image *image, int overwrite,
         report->temporary[0] = '\0';
         return FILE_OPEN_ERROR;
     }
-    status = file_encode(stream, image);
+    status = writer(stream, context);
     if (fflush(stream) != 0) status = FILE_WRITE_ERROR;
     if (fclose(stream) != 0) status = FILE_WRITE_ERROR;
     if (status != FILE_OK) {
@@ -281,7 +281,7 @@ int file_save(const char *path, const P86Image *image, int overwrite,
         return status;
     }
     /* Recheck after writing; never let rename silently replace an unapproved target. */
-    present = exists(name);
+    present = file_exists(name);
     if (present < 0 || (present && !overwrite)) {
         discard(report->temporary);
         return present < 0 ? FILE_OPEN_ERROR : FILE_EXISTS;
@@ -289,7 +289,7 @@ int file_save(const char *path, const P86Image *image, int overwrite,
     if (present) {
         for (sequence = 0; sequence < 100; ++sequence) {
             if (!candidate(name, report->backup, sequence, "BAK")) continue;
-            probe = exists(report->backup);
+            probe = file_exists(report->backup);
             if (probe == 0) break;
             if (probe < 0) break;
         }
@@ -309,6 +309,16 @@ int file_save(const char *path, const P86Image *image, int overwrite,
     report->temporary[0] = '\0';
     if (present) discard(report->backup);
     return report->backup[0] ? FILE_BACKUP_LEFT : FILE_OK;
+}
+
+static int native_writer(FILE *stream,const void *image)
+{ return file_encode(stream,(const P86Image *)image); }
+int file_save(const char *path,const P86Image *image,int overwrite,FileReport *report)
+{
+    if(!report) return FILE_WRITE_ERROR;
+    report->temporary[0]=report->backup[0]='\0';
+    if(image==NULL || !(image->frames?anim_dimensions(image->width,image->height):dimensions(image->width,image->height))) return FILE_DIMENSIONS;
+    return file_write(path,native_writer,image,overwrite,report);
 }
 
 const char *file_message(int status)

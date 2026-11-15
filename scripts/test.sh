@@ -47,7 +47,7 @@ mkdir -p "$ROOT/build/iotest"
     "$ROOT/src/dialog.c" "$ROOT/src/dlggeom.c" "$ROOT/src/dlginput.c" \
     "$ROOT/src/editor.c" "$ROOT/src/anim.c" "$ROOT/src/canvas.c" "$ROOT/src/tools.c" \
     "$ROOT/src/history.c" "$ROOT/src/view.c" "$ROOT/src/workpal.c" "$ROOT/src/fileio.c" \
-    "$ROOT/src/project.c" -o "$ROOT/build/painttest"
+    "$ROOT/src/project.c" "$ROOT/src/bmp.c" "$ROOT/src/export.c" -o "$ROOT/build/painttest"
 mkdir -p "$ROOT/build/painttest-files"
 (cd "$ROOT/build/painttest-files" && "$ROOT/build/painttest")
 # Animation allocation failures are injected only into test objects.
@@ -62,3 +62,14 @@ mkdir -p "$ROOT/build/painttest-files"
     -o "$ROOT/build/animtest"
 mkdir -p "$ROOT/build/animtest-files"
 (cd "$ROOT/build/animtest-files" && "$ROOT/build/animtest")
+"${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror -I"$ROOT/src" \
+    -Dfwrite=bmp_fault_write -c "$ROOT/src/bmp.c" -o "$ROOT/build/faultbmp.o"
+"${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror -I"$ROOT/src" \
+    -Dfflush=bmp_fault_flush -Dfclose=bmp_fault_close -c "$ROOT/src/fileio.c" -o "$ROOT/build/bmpio.o"
+"${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror -DBMP_FAULTS -I"$ROOT/src" \
+    "$ROOT/tests/testbmp.c" "$ROOT/build/faultbmp.o" "$ROOT/build/bmpio.o" \
+    "$ROOT/src/export.c" "$ROOT/src/anim.c" "$ROOT/src/editor.c" "$ROOT/src/canvas.c" \
+    "$ROOT/src/history.c" "$ROOT/src/view.c" "$ROOT/src/tools.c" "$ROOT/src/workpal.c" \
+    "$ROOT/src/keymap.c" -o "$ROOT/build/bmptest"
+mkdir -p "$ROOT/build/bmptest-files"
+(cd "$ROOT/build/bmptest-files" && "$ROOT/build/bmptest")

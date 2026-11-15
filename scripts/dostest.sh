@@ -44,3 +44,16 @@ wcl -bt=dos -ms -0 -za -wx -we -w4 -os -k4096 -I"$ROOT/src" \
     "$ROOT/src/anim.c" "$ROOT/src/canvas.c" "$ROOT/src/tools.c" "$ROOT/src/view.c" \
     "$ROOT/src/workpal.c" "$ROOT/src/keymap.c" fileio.o "$ROOT/src/project.c" \
     -fe="$ROOT/mnt/ANIMTEST.EXE"
+wcc -bt=dos -ms -0 -za -wx -we -w4 -os -Dfwrite=bmp_fault_write \
+    -fo=faultbmp.o "$ROOT/src/bmp.c"
+wcc -bt=dos -ms -0 -ze -wx -we -w4 -os -Dfflush=bmp_fault_flush -Dfclose=bmp_fault_close \
+    -fo=bmpio.o "$ROOT/src/fileio.c"
+wcl -bt=dos -ms -0 -za -wx -we -w4 -os -k4096 -DBMP_FAULTS -I"$ROOT/src" \
+    "$ROOT/tests/testbmp.c" faultbmp.o bmpio.o "$ROOT/src/export.c" \
+    "$ROOT/src/editor.c" "$ROOT/src/history.c" "$ROOT/src/anim.c" "$ROOT/src/canvas.c" \
+    "$ROOT/src/view.c" "$ROOT/src/tools.c" "$ROOT/src/workpal.c" "$ROOT/src/keymap.c" \
+    -fe="$ROOT/mnt/BMPTEST.EXE"
+# Optional interactive independent 8-bit BMP viewer (not in PIX86.EXE).
+wcl -bt=dos -ms -0 -ze -wx -we -w4 -os -k4096 -I"$ROOT/src" \
+    "$ROOT/tests/bmpview.c" "$ROOT/src/video.c" "$ROOT/src/font.c" "$ROOT/src/textsize.c" \
+    -fe="$ROOT/mnt/BMPVIEW.EXE"

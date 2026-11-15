@@ -25,6 +25,12 @@ int file_encode(FILE *stream, const P86Image *image);
 int file_decode(FILE *stream, P86Image *image);
 int file_load(const char *path, P86Image *image);
 /* Single-writer DOS transaction; report names retained recovery files. */
+typedef int (*FileWriter)(FILE *stream,const void *context);
+/* Same checked transaction for independent encoders. Paths must have an extension. */
+int file_write(const char *path,FileWriter writer,const void *context,
+               int overwrite,FileReport *report);
+/* Canonical path probe: 1 regular file, 0 absent, -1 inaccessible/non-file. */
+int file_exists(const char *path);
 int file_save(const char *path, const P86Image *image, int overwrite,
               FileReport *report);
 #endif

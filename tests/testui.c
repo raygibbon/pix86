@@ -81,7 +81,7 @@ static void menus(void)
     assert(menu_key(&menu, KEY_F10, &command) && menu.active);
     assert(menu_key(&menu, KEY_LEFT, &command) && menu.heading == 5);
     menu_key(&menu, KEY_RIGHT, &command); assert(menu.heading == 0);
-    menu_key(&menu, KEY_UP, &command); assert(menu.item == 4);
+    menu_key(&menu, KEY_UP, &command); assert(menu.item == menu_items(0)-1);
     menu_key(&menu, KEY_DOWN, &command); assert(menu.item == 0);
     menu_key(&menu, KEY_DOWN, &command);
     menu_key(&menu, 13, &command); assert(command == KEY_F3 && !menu.active);
@@ -223,9 +223,38 @@ static void palettes(void)
     start();add(-1,0,0,1);assert(!dialog_palette(&colour,&background));
     start();add(13,0,0,0);dialog_font();
 }
+static void exports(void)
+{
+    ExportOptions o;
+    DialogLayout l;
+    char path[FILE_PATH_MAX];
+    o.mode=EXPORT_CURRENT; o.layout=SHEET_HORIZONTAL; o.columns=4;
+    strcpy(path,"unchanged");
+    start(); add(9,0,0,0); add(KEY_RIGHT,0,0,0); add(27,0,0,0);
+    assert(!dialog_export("PLAYER.BMP",path,&o));
+    assert(o.mode==EXPORT_CURRENT && !strcmp(path,"unchanged"));
+    start(); add(-1,0,0,0); add(-1,0,0,0);
+    add(9,0,0,0); add(KEY_RIGHT,0,0,0); add(KEY_RIGHT,0,0,0);
+    add(9,0,0,0); add(KEY_RIGHT,0,0,0); add(KEY_RIGHT,0,0,0);
+    add(9,0,0,0); add(KEY_LEFT,0,0,0); add(13,0,0,0);
+    assert(dialog_export("PLAYER.BMP",path,&o));
+    assert(o.mode==EXPORT_SHEET && o.layout==SHEET_GRID && o.columns==3 && !strcmp(path,"PLAYER.BMP"));
+    o.mode=EXPORT_CURRENT; o.layout=SHEET_HORIZONTAL; o.columns=4;
+    start(); add(9,0,0,0); add(9,0,0,0); add(9,0,0,0); add(13,0,0,0);
+    assert(!dialog_export("PLAYER.BMP",path,&o)); /* disabled fields skipped to Cancel */
+    dialog_layout(&l,DIALOG_FILE,"Export BMP","Mode\nLayout\nColumns");
+    start(); add(-1,l.body.x+10,l.body.y+2,1); add(-1,0,0,0);
+    add(-1,l.body.x+10,l.body.y+2,1); add(-1,0,0,0);
+    add(-1,l.body.x+10,l.body.y+FONT_HEIGHT+2,1); add(-1,0,0,0);
+    add(-1,l.body.x+10,l.body.y+FONT_HEIGHT+2,1); add(-1,0,0,0);
+    add(-1,l.body.x+10,l.body.y+2*FONT_HEIGHT+2,1); add(-1,0,0,0);
+    add(-1,l.accept.x+2,l.accept.y+2,1);
+    assert(dialog_export("MOUSE.BMP",path,&o));
+    assert(o.mode==EXPORT_SHEET && o.layout==SHEET_GRID && o.columns==5);
+}
 int main(void)
 {
-    keys(); menus(); inputs(); dialogs(); palettes();
+    keys(); menus(); inputs(); dialogs(); palettes(); exports();
     puts("PASS: menus, keyboard/mouse dialogs, cursor editing and drawing handoff.");
     editor_dispose(&editor);
     return 0;

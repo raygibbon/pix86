@@ -73,3 +73,6 @@ background regions. Native crops use exact integer sampling; no filtering or
 font scaling is used. Physical VGA, mouse/storage hardware and native DOS remain
 outstanding. Animation stores opaque colours only; onion skin, transparency,
 layers, PNG/GIF/sprite-sheet export and precision sub-BIOS-tick timing are absent.
+
+BMP frame/batch/sheet export is now implemented; see [EXPORT.md](EXPORT.md).
+The earlier export deferrals above describe the initial animation stage.

@@ -8,6 +8,7 @@
 #define CMD_OPEN KEY_F3
 #define CMD_SAVE KEY_F2
 #define CMD_SAVE_AS KEY_SAVE_AS
+#define CMD_EXPORT 604
 #define CMD_EXIT 27
 #define CMD_UNDO 26
 #define CMD_REDO 25

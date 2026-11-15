@@ -9,8 +9,8 @@ Draw on 16×16, 32×32, 64×64, 16×24, 16×32 or 32×24 indexed documents.
 Pencil, eraser, fill and eyedropper share the existing Canvas tools. A collapsible
 36-pixel timeline offers frame thumbnails, navigation, add/duplicate/delete and
 looping playback. Per-frame timing defaults to 100 ms and adjusts from 20–2000 ms.
-Four undoable actions include pixel edits, frame structure and timing. Save/reopen
-`.P86` version 2 animations; existing version 1 images remain supported.
+Four undoable actions include pixel edits, frame structure and timing. Export a current frame, numbered frames or horizontal/vertical/grid sprite sheets
+as uncompressed indexed BMP. Save/reopen `.P86` version 2 animations; existing version 1 images remain supported.
 
 ![Animation workspace in DOSBox-X at 2x](docs/ANIM2X.PNG)
 
@@ -97,6 +97,7 @@ only `PIX86.EXE` to DOS; no runtime DLL or data assets are needed.
 | Arrows / Enter / Esc (menu open) | Navigate / execute / close menu |
 | F2 | Save (asks for a name on an untitled canvas) |
 | Shift+F2 | Save As |
+| File → Export | Native-size BMP: current frame, numbered frames or sprite sheet |
 | F3 | Open a .P86 project |
 | N | New document; choose one of six square/rectangular sizes |
 | ESC | Exit; confirm before discarding unsaved changes |
@@ -205,7 +206,7 @@ FreeDOS/MS-DOS and real VGA/mouse hardware checks remain outstanding.
 - Export sprites and animation frames in useful formats for DOS game development.
 - Keep drawing and animation logic separate from platform-specific video, input, and UI code.
 
-Onion skinning, export and native hardware verification remain future work; the implemented subset is described above.
+Onion skinning, additional export formats and native hardware verification remain future work; the implemented subset is described above.
 
 ## DOS engineering reference: Zine
 
@@ -245,11 +246,24 @@ At most 16 frames and 16,384 total pixel bytes: four frames at 64×64, up to
 blocks reserve 114,968 bytes; failed initialization frees partial allocations.
 DGROUP remains below 64 KiB. See [architecture](docs/ARCHITECTURE.md) for the
 measured budget and ownership rules. All colours, including zero, are opaque.
-Onion skin, transparency, layers and PNG/GIF/sprite-sheet export are deferred.
+Onion skin, transparency, layers and PNG/GIF export are deferred. BMP sprite sheets are implemented.
 Playback uses elapsed DOS clock time (BIOS-resolution timing), and stops when
 menus/dialogs open or an editing command is used. Painting is blocked during play.
 
 Run `scripts/test.sh`, `scripts/build.sh`, `scripts/dostest.sh`, then
-`scripts/rundost.sh` to execute all five DOS suites. The last command requires
-DOSBox-X and a display; override its executable with `DOSBOX_X`. IOTEST and
+`scripts/rundost.sh` to execute all six DOS suites. The last command requires
+DOSBox-X and a display; override its executable with `DOSBOX_X`. IOTEST, BMPTEST and
 ANIMTEST run in an exclusively created disposable directory.
+
+## BMP export
+
+File → Export accepts a DOS 8.3 destination (default `.BMP`), current/all/sheet
+mode, horizontal/vertical/grid layout and 1–16 grid columns. Tab changes focus;
+arrows change options, Enter exports and Escape cancels. Mouse clicks cycle
+options. All Frames uses up to four stem characters plus `0001`, `0002`, etc.
+Existing outputs require confirmation before any batch file is written. Failures
+report completed/total and recovery paths. Export preserves native project/dirty
+state, all 256 indices and opaque index zero. Unused sheet cells use BG.
+
+See [format, screenshots, streaming limits and test evidence](docs/EXPORT.md).
+`BMPTEST` checks output in DOS; optional `BMPVIEW` displays small exported BMPs.
