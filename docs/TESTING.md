@@ -1,3 +1,13 @@
+# Toolbar, selection and both display modes — 2026-11-15
+
+All eleven strict host suites and all eleven ASan/UBSan suites pass. Watcom
+application/native test builds pass with warnings as errors. The eight native
+editor/I/O suites plus two VIDTEST runs pass under DOSBox-X, including actual
+VBE bank-boundary access. Native GUI checks in both modes verify the complete
+selection/drag/nudge/commit/undo/redo/save/reopen workflow against independent
+expected index/mask bytes. [Screenshots, memory, scope and provenance](SELECTION.md).
+Earlier feature-specific measurements below are historical.
+
 # Transparency and PNG verification — 2026-11-15
 
 All ten strict host and ASan/UBSan suites pass. Watcom build and DOS test build

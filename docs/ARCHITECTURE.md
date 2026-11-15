@@ -1,7 +1,8 @@
 # Animation workspace architecture
 
 Pix86 targets 8086 real-mode DOS (`-bt=dos -ms -0`) and VGA Mode 13h,
-320×200×256. There is no SVGA, extender, DPMI, SDL or added dependency.
+320×200×256, with optional banked VBE 640×480×256. There is no extender,
+DPMI, SDL or added application dependency.
 
 ## Portable document and editor
 
@@ -95,7 +96,7 @@ Playback repaints only after frame advancement; stopped/idle polling writes no
 pixels. Canvas updates also refresh the compact panel thumbnails. Font diagnostics
 use a bounded 280-byte automatic string; normal control buffers remain bounded.
 
-`video.c` exclusively owns VGA memory, BIOS mode entry/restoration and fixed DAC
+The video drivers exclusively own VGA/VBE memory, BIOS mode entry/restoration and fixed DAC
 setup. `mouse.c`, `keyboard.c` and `cursor.c` retain their hardware boundaries.
 `main.c` owns elapsed-time acquisition, logical command dispatch and modal routing.
 
@@ -134,9 +135,9 @@ canvas is 4096 bytes; fill queue 8192; near file scratch 18,474. No large automa
 images or large frame arrays live in DGROUP. Smaller documents retain this fixed
 bounded reservation so editing/history do not allocate during an operation.
 
-The final linked map reports DGROUP 41,856 bytes including the stack (23,680 bytes
-below 64 KiB), near code 54,536 bytes.
-`PIX86.EXE` is 60,202 bytes; seven far blocks reserve another 129,318 bytes.
+The final linked map reports DGROUP 43,312 bytes including the stack (22,224 bytes
+below 64 KiB), near code 60,728 bytes.
+`PIX86.EXE` is 66,980 bytes; seven far blocks reserve another 129,318 bytes.
 PSP/environment, heap bookkeeping, stdio and loader overhead are additional.
 Initialization on insufficient conventional memory fails with a diagnostic.
 Up to 16 frames are allowed for every shape except 64×64 (four). Packed transparency is implemented; onion skin and layers remain deferred.
@@ -170,3 +171,38 @@ Pix86 design are recorded in UI_DESIGN.md. Zine's util.c was inspected for DOS f
 and standard file-handling conventions. No implementation was reused; Pix86's
 checked-write/replacement strategy and format are original.
 The workspace, pointer, swatches and module implementations are original.
+
+## Selection and integrated display drivers
+
+`select.c` owns the transient rectangle/floating state machine. Pixel-space
+coordinates do not depend on the video mode. The 8192-byte fill queue is exclusively
+reused while floating: 4096 index bytes followed by 512 packed mask bytes. Source
+is captured once; preview sampling reads original destination, source capture and
+clear policy. Transparent source mask bits leave the cleared/original destination;
+opaque black is copied as index zero. Apply samples each destination once, commits
+through existing history, and clips the active marquee to the visible result.
+No-op history remains deduplicated. Cancel and selection-only actions never touch
+pixels, masks or history. New/Open, frame transitions and undo clear stale state.
+
+`EDIT_SELECTION` reuses the bounded canvas stroke repaint without updating frame
+thumbnails during preview. Previous/current selection bounds form the damage;
+Cancel also restores the source. Static dotted edges are composed by canvas cells,
+so clipped overlay restoration redraws the same floating result. Starting a float,
+pressing inside it, or releasing without movement only changes status; it does not
+repaint the canvas. Idle paints remain suppressed. Tool buttons repaint only old
+and new selections. Cursor protection remains intersection-based.
+
+`layout.c` supplies validated 320×200/640×480 dimensions; `layout.h` derives
+palette, right toolbar, drawing and timeline reservations. UI text uses the original
+6×8 face at native size in both modes; larger tool bitmaps are separately drawn,
+not scaled copies. Status buffers reserve the maximum 640-pixel text width.
+
+The first-party video drivers and driver test are integrated from
+`feature/dual-display-modes` commit `70d79e5bab4ae285814e5c4a5dc0ca5b5917efac`.
+That branch predates animation/transparency/export. Its video adapter was reused
+under this repository's existing MIT licence while current document/UI features
+were retained. `video.c` dispatches clipped spans to VGA or banked VBE; `mouse.c`
+maps the driver's 640-wide virtual coordinates to the active mode. `/HIRES` requests
+mode 101h and falls back to VGA on unavailable VBE. Bank failure exits to text
+with a diagnostic. No external library or reference-application code was imported.
+See [current measurements and limitations](SELECTION.md); the memory summary above includes this integrated build.
