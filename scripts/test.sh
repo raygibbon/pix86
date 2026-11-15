@@ -11,7 +11,7 @@ mkdir -p "$ROOT/build"
     "$ROOT/src/tools.c" "$ROOT/src/history.c" "$ROOT/src/view.c" "$ROOT/src/layout.c" "$ROOT/src/flyout.c" "$ROOT/src/select.c" "$ROOT/src/workpal.c" \
     "$ROOT/src/editor.c" "$ROOT/src/anim.c" "$ROOT/src/keymap.c" -o "$ROOT/build/edtest"
 "$ROOT/build/edtest"
-"${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror \
+"${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror -DPIX86_TEST \
     -I"$ROOT/src" "$ROOT/tests/render.c" "$ROOT/src/render.c" \
     "$ROOT/src/canvas.c" "$ROOT/src/tools.c" "$ROOT/src/history.c" \
     "$ROOT/src/view.c" "$ROOT/src/layout.c" "$ROOT/src/flyout.c" "$ROOT/src/select.c" "$ROOT/src/workpal.c" "$ROOT/src/editor.c" "$ROOT/src/anim.c" "$ROOT/src/region.c" "$ROOT/src/keymap.c" -o "$ROOT/build/rentest"

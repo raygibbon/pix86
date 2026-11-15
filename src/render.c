@@ -5,6 +5,7 @@
 #include "theme.h"
 #include "cursor.h"
 #include "workpal.h"
+#include "profile.h"
 
 /* Original bitmap marks, independently drawn at 8 and 16 pixels. */
 static const unsigned char icons[7][8]={
@@ -42,6 +43,7 @@ static void icon(int tool,int x,int y,int width,int height,int selected,int hove
 void render_group(const Editor *e,int group)
 {
     int active;
+    PROFILE_COUNT(ui_groups);
     active=tool_group(e->tool);
     if(e->selection.state && e->group_tool[1]==TOOL_ALL) active=1;
     icon(e->group_tool[group],TOOL_X,TOOL_Y+group*TOOL_STEP,TOOL_WIDTH,TOOL_HEIGHT,active==group,0);
@@ -52,6 +54,7 @@ void render_flyout(const Editor *e,const Flyout *f)
     Rect r;
     int i,tool;
     if(f->group<0) return;
+    PROFILE_COUNT(ui_flyouts);
     flyout_bounds(f->group,&r); protect(r.x,r.y,r.w,r.h);
     video_rect(r.x,r.y,r.w,r.h,UI_INK);
     for(i=0;i<flyout_count(f->group);++i) {
@@ -83,6 +86,7 @@ static void current_colour(unsigned char colour,int y,char name)
 void render_ui(const Editor *editor)
 {
     int i;
+    PROFILE_COUNT(ui_full);
     video_rect(0,0,UI_LEFT_WIDTH,UI_STATUS_Y,UI_PANEL);
     video_rect(UI_RIGHT_X,0,UI_WIDTH-UI_RIGHT_X,UI_STATUS_Y,UI_PANEL);
     for(i=0;i<TOOL_GROUPS;++i) render_group(editor,i);
@@ -162,11 +166,21 @@ static void canvas_cell(const Editor *editor,int x,int y)
     }
 }
 
+static void canvas_frame(int x,int y,int w,int h)
+{
+    video_rect(x,y,w,1,UI_FRAME);
+    video_rect(x,y+h-1,w,1,UI_FRAME);
+    video_rect(x,y,1,h,UI_FRAME);
+    video_rect(x+w-1,y,1,h,UI_FRAME);
+}
+
 void render_canvas(const Editor *editor)
 {
     unsigned x, y;
     int zoom;
     const View *view;
+    PROFILE_COUNT(canvas_full);
+    PROFILE_ADD(canvas_cells,(unsigned long)editor->canvas.width*editor->canvas.height);
     view = &editor->view;
     zoom = view->zoom;
     {
@@ -177,14 +191,32 @@ void render_canvas(const Editor *editor)
         art.w=(int)view->width*zoom+2; art.h=(int)view->height*zoom+2;
         n=rect_subtract(&area,&art,parts);
         for(i=0;i<n;++i) video_rect(parts[i].x,parts[i].y,parts[i].w,parts[i].h,UI_DESK);
-        video_rect(art.x,art.y,art.w,1,UI_FRAME);
-        video_rect(art.x,art.y+art.h-1,art.w,1,UI_FRAME);
-        video_rect(art.x,art.y,1,art.h,UI_FRAME);
-        video_rect(art.x+art.w-1,art.y,1,art.h,UI_FRAME);
+        canvas_frame(art.x,art.y,art.w,art.h);
     }
     for (y = 0; y < editor->canvas.height; ++y)
         for (x = 0; x < editor->canvas.width; ++x)
             canvas_cell(editor,(int)x,(int)y);
+}
+
+static void render_canvas_region(const Editor *editor,const Rect *r)
+{
+    int x0,y0,x1,y1,x,y,zoom,width,height;
+    zoom=editor->view.zoom; width=(int)editor->canvas.width;
+    height=(int)editor->canvas.height;
+    canvas_frame(editor->view.x-1,editor->view.y-1,
+                 width*zoom+2,height*zoom+2);
+    x0=(r->x-editor->view.x)/zoom;
+    x1=(r->x+r->w-1-editor->view.x)/zoom;
+    y0=(r->y-editor->view.y)/zoom;
+    y1=(r->y+r->h-1-editor->view.y)/zoom;
+    if(x0<0) x0=0;
+    if(y0<0) y0=0;
+    if(x1>=width) x1=width-1;
+    if(y1>=height) y1=height-1;
+    PROFILE_COUNT(canvas_partial);
+    PROFILE_ADD(canvas_cells,(unsigned long)(x1-x0+1)*(unsigned long)(y1-y0+1));
+    for(y=y0;y<=y1;++y)
+        for(x=x0;x<=x1;++x) canvas_cell(editor,x,y);
 }
 
 void render_playback_canvas(const Editor *editor,unsigned previous_frame)
@@ -193,6 +225,8 @@ void render_playback_canvas(const Editor *editor,unsigned previous_frame)
     unsigned char bit,current_transparent,previous_transparent;
     int sx,sy,zoom;
     if(previous_frame>=editor->document->frames) return;
+    PROFILE_COUNT(canvas_partial);
+    PROFILE_ADD(canvas_compares,(unsigned long)editor->canvas.width*editor->canvas.height);
     zoom=editor->view.zoom;
     previous_offset=previous_frame*editor->history.size;
     previous_mask_offset=previous_frame*editor->history.size/8;
@@ -215,8 +249,23 @@ void render_playback_canvas(const Editor *editor,unsigned previous_frame)
 void render_stroke(const Editor *editor)
 {
     int x,y;
+    PROFILE_COUNT(canvas_partial);
+    PROFILE_ADD(canvas_cells,(unsigned long)(editor->dirty_x1-editor->dirty_x0+1)*
+                (unsigned long)(editor->dirty_y1-editor->dirty_y0+1));
     for(y=editor->dirty_y0;y<=editor->dirty_y1;++y)
         for(x=editor->dirty_x0;x<=editor->dirty_x1;++x) canvas_cell(editor,x,y);
+}
+
+void render_cells(const Editor *editor)
+{
+    unsigned i,index;
+    PROFILE_COUNT(canvas_partial);
+    PROFILE_ADD(canvas_cells,editor->dirty_count);
+    for(i=0;i<editor->dirty_count;++i) {
+        index=editor->fill_queue[i];
+        canvas_cell(editor,(int)(index%editor->canvas.width),
+                    (int)(index/editor->canvas.width));
+    }
 }
 
 void render_status_text(const Editor *editor, int mouse_x, int mouse_y, int has_mouse, const char *filename, char *text)
@@ -257,17 +306,21 @@ void render_nav(const Editor *e)
     }
     video_text_bg(NAV_X+NAV_ARROW+(int)count*NAV_CELL,UI_STATUS_Y,">",UI_INK,UI_BAR);
 }
+
+#ifdef PIX86_TEST
 void render_status(const Editor *editor,int x,int y,int has_mouse)
 {
     char text[UI_STATUS_CHARS+1];
     render_status_text(editor,x,y,has_mouse,"",text);
     video_rect(0,UI_STATUS_Y,UI_WIDTH,FONT_HEIGHT,UI_BAR); video_text(0,UI_STATUS_Y,text,UI_INK); render_nav(editor);
 }
+#endif
 void render_restore(const Editor *editor,const Rect *r)
 {
     Rect screen,art,parts[4];
     int i,n;
     if(r->w<=0 || r->h<=0) return;
+    PROFILE_COUNT(overlay_restores);
     cursor_protect(r->x,r->y,r->w,r->h); restoring=1;
     video_clip(r->x,r->y,r->w,r->h);
     screen.x=0; screen.y=0; screen.w=UI_WIDTH; screen.h=UI_STATUS_Y;
@@ -277,7 +330,7 @@ void render_restore(const Editor *editor,const Rect *r)
     n=rect_subtract(&screen,&art,parts);
     for(i=0;i<n;++i) video_rect(parts[i].x,parts[i].y,parts[i].w,parts[i].h,UI_DESK);
     if(r->x<UI_LEFT_WIDTH || r->x+r->w>UI_RIGHT_X) render_ui(editor);
-    if(rect_overlap(r,&art)) render_canvas(editor);
+    if(rect_overlap(r,&art)) render_canvas_region(editor,r);
     if(editor->timeline && r->y+r->h>TIMELINE_Y && r->x+r->w>DRAW_X-1) render_timeline(editor);
     video_unclip(); restoring=0;
 }
@@ -286,6 +339,7 @@ void render_ui_change(const Editor *editor,int tool,unsigned char fg,unsigned ch
 {
     int i;
     unsigned char colour;
+    PROFILE_COUNT(ui_controls);
     (void)tool; (void)alpha;
     for(i=0;i<16;++i) {
         colour=workpal_colour(i);
@@ -296,14 +350,45 @@ void render_ui_change(const Editor *editor,int tool,unsigned char fg,unsigned ch
     if(bg!=editor->background) current_colour(editor->background,BG_Y,'B');
 }
 
+static void timeline_thumbnail(const Editor *e,unsigned frame,int x,int y)
+{
+    int tx,ty;
+    unsigned offset;
+    unsigned char colour;
+    for(ty=0;ty<8;++ty) for(tx=0;tx<8;++tx) {
+        offset=(unsigned)(ty*e->canvas.height/8)*e->canvas.width+
+               (unsigned)tx*e->canvas.width/8;
+        colour=frame==e->history.active?e->pixels[offset]:
+               e->document->pixels[frame*e->history.size+offset];
+        if(frame==e->history.active?((e->mask[offset/8]>>(offset%8))&1):
+           ((e->document->mask[(frame*e->history.size+offset)/8]>>(offset%8))&1))
+            colour=preview_colour(e,x+12+tx,y+11+ty);
+        video_pixel(x+12+tx,y+11+ty,colour);
+    }
+}
+
+void render_timeline_thumbnail(const Editor *e)
+{
+    unsigned slot;
+    int x,y;
+    if(!e->timeline || e->history.active<e->first_frame) return;
+    slot=e->history.active-e->first_frame;
+    if(slot>=TIMELINE_SLOTS) return;
+    PROFILE_COUNT(timeline_partial);
+    x=DRAW_X+(int)slot*TIMELINE_CELL; y=TIMELINE_Y+13;
+    protect(x+12,y+11,8,8);
+    timeline_thumbnail(e,e->history.active,x,y);
+}
+
 void render_timeline(const Editor *e)
 {
     unsigned f,slot;
-    int x,y,tx,ty;
-    unsigned char paper,ink,colour;
+    int x,y;
+    unsigned char paper,ink;
     char label[20];
     static const char *controls[9]={"<",">","+","Dup","Del","Play","<<",">>","X"};
     if(!e->timeline) return;
+    PROFILE_COUNT(timeline_full);
     protect(DRAW_X-1,TIMELINE_Y,DRAW_WIDTH+3,TIMELINE_HEIGHT);
     video_rect(DRAW_X-1,TIMELINE_Y,DRAW_WIDTH+3,TIMELINE_HEIGHT,UI_PANEL);
     video_rect(DRAW_X-1,TIMELINE_Y,DRAW_WIDTH+3,1,UI_DIM);
@@ -318,16 +403,7 @@ void render_timeline(const Editor *e)
         ink=f==e->history.active?UI_WHITE:UI_INK;
         video_rect(x,y,TIMELINE_CELL-2,21,paper);
         sprintf(label,"%u",f+1); video_text(x+2,y+1,label,ink);
-        /* Original nearest-sample 8x8 thumbnail, no extra image allocation. */
-        for(ty=0;ty<8;++ty) for(tx=0;tx<8;++tx) {
-            unsigned offset;
-            offset=(unsigned)(ty*e->canvas.height/8)*e->canvas.width+tx*e->canvas.width/8;
-            colour=f==e->history.active?e->pixels[offset]:e->document->pixels[f*e->history.size+offset];
-            if(f==e->history.active?((e->mask[offset/8]>>(offset%8))&1):
-               ((e->document->mask[(f*e->history.size+offset)/8]>>(offset%8))&1))
-                colour=preview_colour(e,x+12+tx,y+11+ty);
-            video_pixel(x+12+tx,y+11+ty,colour);
-        }
+        timeline_thumbnail(e,f,x,y);
     }
     sprintf(label,"%u/%u",e->history.active+1,e->document->frames);
     video_text(DRAW_X+TIMELINE_SLOTS*TIMELINE_CELL,TIMELINE_Y+14,label,UI_WHITE);
@@ -366,6 +442,7 @@ void render_timeline_playback(const Editor *e,unsigned previous_frame)
     int x,y;
     char label[20];
     if(!e->timeline) return;
+    PROFILE_COUNT(timeline_partial);
     render_timeline_playback_cell(e,previous_frame);
     if(e->history.active!=previous_frame)
         render_timeline_playback_cell(e,e->history.active);

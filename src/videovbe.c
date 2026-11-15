@@ -3,8 +3,11 @@
 #include <string.h>
 #include "video.h"
 #include "videoint.h"
+#include "profile.h"
 
 #define VBE_MODE_640_480_256 0x0101
+
+extern void __far *_fmemset(void __far *,int,size_t);
 
 static unsigned short vbe_segment, vbe_granularity, vbe_window_size;
 static unsigned short vbe_stride, current_bank;
@@ -137,6 +140,7 @@ static unsigned char __far *vbe_address(unsigned long offset)
         current_bank = bank;
         current_bank_start = bank_start;
         bank_valid = 1;
+        PROFILE_COUNT(vbe_bank_switches);
     }
     window_offset = (unsigned short)(offset - current_bank_start);
     return (unsigned char __far *)MK_FP(vbe_segment, window_offset);
@@ -174,10 +178,8 @@ void videovbe_rect(int x, int y, int width, int height, unsigned char colour)
             run = x + width - xx;
             if (run > remaining)
                 run = remaining;
-            while (run-- > 0)
-                *address++ = colour;
-            xx += (int)(x + width - xx < remaining ?
-                        x + width - xx : remaining);
+            _fmemset(address,(int)colour,(size_t)run);
+            xx+=(int)run;
         }
     }
 }

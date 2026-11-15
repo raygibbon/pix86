@@ -10,7 +10,7 @@ typedef struct Screen {
     unsigned nav_active,nav_count,first_frame;
     unsigned playback_render_ms,playback_fps;
     unsigned long playback_dropped,playback_window,playback_frames;
-    int playback_active;
+    int playback_active,timeline;
     unsigned char groups[2];
     int tool,alpha,active_group,playing;
     unsigned char foreground,background;

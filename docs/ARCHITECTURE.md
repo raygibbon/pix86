@@ -93,10 +93,16 @@ dropdowns preserve right-aligned shortcuts and exact shared hit geometry.
 
 `screen.c`, `region.c`, `menudraw.c`, `uipaint.c` and `dialog.c` retain changed-row
 painting, clipped model restoration, cursor intersection protection and a single
-startup full-screen clear. Timeline collapse repaints its complete old footprint,
-including the right/bottom margins. No screen buffer or widget framework is added.
-Playback compares the new active frame to the stored previous frame and paints
-only cells whose visible colour or transparency changed. Its timeline update
+startup full-screen clear. Ordinary strokes and fills collect changed cell indices
+in the existing fill queue and share the cell painter; they do not allocate another
+dirty buffer. Frame navigation compares visible pixels/transparency and updates
+only changed cells and frame indicators. Timeline thumbnails are repainted only
+when their visible content changes; structural timeline changes repaint the
+timeline. Timeline collapse repaints its complete old footprint, including the
+right/bottom margins. No screen buffer or widget framework is added.
+playback compares the new active frame to the stored previous frame and paints
+only cells whose visible colour or transparency changed. The profile harness
+and measured tradeoffs are recorded in [PERFORMANCE.md](PERFORMANCE.md). Its timeline update
 changes the old/new selection backgrounds and metadata while preserving the
 already-painted thumbnails. Other UI regions are not redrawn. Playback diagnostics
 sample render time, overdue frame deadlines and displayed FPS only while playing;
@@ -144,9 +150,9 @@ canvas is 4096 bytes; fill queue 8192; near file scratch 18,474. No large automa
 images or large frame arrays live in DGROUP. Smaller documents retain this fixed
 bounded reservation so editing/history do not allocate during an operation.
 
-The final linked map reports DGROUP 43,280 bytes including the stack (22,256 bytes
-below 64 KiB), near code 62,600 bytes.
-`PIX86.EXE` is 68,804 bytes; seven far blocks reserve another 129,318 bytes.
+The current linked map reports DGROUP 43,344 bytes including the stack (22,192
+bytes below 64 KiB), near code 65,320 bytes (216 bytes below 64 KiB).
+`PIX86.EXE` is 71,554 bytes; seven far blocks reserve another 129,318 bytes.
 PSP/environment, heap bookkeeping, stdio and loader overhead are additional.
 Initialization on insufficient conventional memory fails with a diagnostic.
 Up to 16 frames are allowed for every shape except 64×64 (four). Packed transparency is implemented; onion skin and layers remain deferred.

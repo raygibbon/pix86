@@ -5,6 +5,9 @@
 
 /* Endpoints must be inside the canvas. Returns changed-pixel count. */
 unsigned tools_stroke(Canvas *canvas,int x0,int y0,int x1,int y1,unsigned char colour,int transparent);
+unsigned tools_stroke_collect(Canvas *canvas,int x0,int y0,int x1,int y1,
+                              unsigned char colour,int transparent,
+                              unsigned short *changed_cells);
 unsigned tools_pencil(Canvas *canvas, int x0, int y0, int x1, int y1,
                       unsigned char colour);
 unsigned tools_erase(Canvas *canvas, int x0, int y0, int x1, int y1,

@@ -2,6 +2,7 @@
 #include <i86.h>
 #include "mouse.h"
 #include "video.h"
+#include "profile.h"
 
 static int available;
 
@@ -38,6 +39,7 @@ int mouse_init(void)
 void mouse_poll(MouseState *state)
 {
     union REGS r;
+    PROFILE_COUNT(mouse_polls);
     state->x = state->y = 0;
     state->buttons = 0;
     if (!available)

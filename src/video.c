@@ -2,6 +2,7 @@
 #include <conio.h>
 #include "video.h"
 #include "videoint.h"
+#include "profile.h"
 
 static unsigned char previous_mode;
 static unsigned char previous_page;
@@ -125,6 +126,7 @@ void video_pixel(int x, int y, unsigned char colour)
 {
     if (x < clip_x || x >= clip_right || y < clip_y || y >= clip_bottom)
         return;
+    PROFILE_COUNT(framebuffer_pixel_writes);
     if (hires)
         videovbe_pixel(x, y, colour);
     else
@@ -151,6 +153,10 @@ void video_rect(int x, int y, int width, int height, unsigned char colour)
     if (y < clip_y) y = clip_y;
     if (x >= right || y >= bottom)
         return;
+    PROFILE_COUNT(rectangles);
+    PROFILE_ADD(scanlines,bottom-y);
+    PROFILE_ADD(framebuffer_pixel_writes,
+                (unsigned long)(right-x)*(unsigned long)(bottom-y));
     if (hires)
         videovbe_rect(x, y, (int)(right - x), (int)(bottom - y), colour);
     else

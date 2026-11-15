@@ -2,8 +2,9 @@
 #include <stdlib.h>
 #include "tools.h"
 
-unsigned tools_stroke(Canvas *canvas, int x0, int y0, int x1, int y1,
-                      unsigned char colour,int transparent)
+unsigned tools_stroke_collect(Canvas *canvas,int x0,int y0,int x1,int y1,
+                              unsigned char colour,int transparent,
+                              unsigned short *changed_cells)
 {
     int dx, dy, sx, sy, error, twice;
     unsigned changed;
@@ -25,6 +26,8 @@ unsigned tools_stroke(Canvas *canvas, int x0, int y0, int x1, int y1,
              old!=colour || canvas_transparent(canvas,(unsigned)x0,(unsigned)y0))) {
             if(transparent) canvas_mask_set(canvas,(unsigned)x0,(unsigned)y0,1);
             else canvas_set(canvas, (unsigned)x0, (unsigned)y0, colour);
+            if(changed_cells)
+                changed_cells[changed]=(unsigned short)((unsigned)y0*canvas->width+(unsigned)x0);
             ++changed;
         }
         if (x0 == x1 && y0 == y1)
@@ -34,6 +37,12 @@ unsigned tools_stroke(Canvas *canvas, int x0, int y0, int x1, int y1,
         if (twice < dx) { error += dx; y0 += sy; }
     }
     return changed;
+}
+
+unsigned tools_stroke(Canvas *canvas,int x0,int y0,int x1,int y1,
+                      unsigned char colour,int transparent)
+{
+    return tools_stroke_collect(canvas,x0,y0,x1,y1,colour,transparent,NULL);
 }
 
 unsigned tools_pencil(Canvas *c,int x0,int y0,int x1,int y1,unsigned char colour)

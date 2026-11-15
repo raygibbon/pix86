@@ -15,5 +15,9 @@ void render_canvas(const Editor *editor);
 void render_playback_canvas(const Editor *editor,unsigned previous_frame);
 void render_timeline_playback(const Editor *editor,unsigned previous_frame);
 void render_stroke(const Editor *editor);
+void render_cells(const Editor *editor);
+void render_timeline_thumbnail(const Editor *editor);
+#ifdef PIX86_TEST
 void render_status(const Editor *editor, int mouse_x, int mouse_y, int has_mouse);
+#endif
 #endif

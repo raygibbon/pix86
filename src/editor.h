@@ -19,6 +19,9 @@
 #define EDIT_STROKE 8
 #define EDIT_TIMELINE 16
 #define EDIT_PLAYBACK 64
+#define EDIT_CELLS 128
+#define EDIT_THUMBNAIL 256
+#define EDIT_FRAME_SWITCH 512
 #define EDIT_LEFT 1
 #define EDIT_RIGHT 2
 
@@ -42,6 +45,7 @@ typedef struct Editor {
     int preview_link, checker, transparent_eraser, stroke_transparent;
     int timeline, guide, tool, grid, dragging, segment_valid, last_x, last_y;
     int dirty_x0, dirty_y0, dirty_x1, dirty_y1;
+    unsigned dirty_count;
     unsigned previous_buttons;
 } Editor;
 

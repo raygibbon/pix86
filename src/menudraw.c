@@ -3,6 +3,7 @@
 #include "cursor.h"
 #include "theme.h"
 #include "uipaint.h"
+#include "profile.h"
 static void heading(const Menu *menu,int i)
 {
     int x,w,selected;
@@ -51,6 +52,7 @@ void menu_draw(const Menu *menu)
     Rect r;
     int i;
     if(!menu->active) return;
+    PROFILE_COUNT(ui_menus);
     menu_draw_bar(menu);
     menu_bounds(menu,&r); cursor_protect(r.x,r.y,r.w,r.h);
     /* Border strips never black-fill the interior before its final contents. */
@@ -62,6 +64,7 @@ void menu_draw_change(const Menu *menu,const Menu *previous)
     Rect r;
     int i;
     if(!menu->active) return;
+    PROFILE_COUNT(ui_menus);
     if(!previous->active) menu_draw(menu);
     else if(menu->heading!=previous->heading) {
         heading(menu,previous->heading); heading(menu,menu->heading);
