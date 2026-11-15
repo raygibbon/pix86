@@ -40,15 +40,17 @@ static int discard_changes(void)
 static int file_command(int key)
 {
     char path[FILE_PATH_MAX];
-    int status, side;
+    int status, side, transparent;
     editor_finish(&editor);
     refresh_editor(EDIT_STATUS);
     if (key == CMD_EXIT) return discard_changes();
     if (key == CMD_NEW) {
         if (!discard_changes()) return 0;
-        side = dialog_new_size(editor.canvas.width);
+        side = dialog_new_document(editor.canvas.width,&transparent);
         if (side) {
-            project_new(&project, (unsigned)side);
+            editor_new_document(&editor,side<256?(unsigned)side:(unsigned)side/256,
+                                side<256?(unsigned)side:(unsigned)side%256,transparent,editor.background);
+            project.filename[0]='\0';
             refresh_editor(EDIT_UI | EDIT_CANVAS | EDIT_STATUS);
         }
     } else if (key == CMD_OPEN) {
@@ -137,7 +139,7 @@ int main(int argc, char **argv)
         puts("PIX86: could not initialize editor.");
         return 1;
     }
-    if(side!=height) editor_new_shape(&editor,side,height);
+    editor_new_document(&editor,side,height,1,editor.background);
     project_init(&project, &editor, &scratch);
     ui_init(&ui);
     if (!video_init()) {

@@ -137,19 +137,28 @@ static int new_size(int choice)
     static const int sizes[6]={16,32,64,16*256+24,16*256+32,32*256+24};
     return sizes[choice];
 }
-int dialog_new_size(unsigned current)
+int dialog_new_document(unsigned current,int *transparent)
 {
     DialogLayout l; MouseState m; int key,choice,oldchoice,focus,oldfocus;
     dialog_layout(&l,DIALOG_NEW,"New canvas",DIALOG_NEW_CHOICES);
     choice=current==16?0:current==32?1:2; focus=0;
     begin(&l,"New canvas",DIALOG_NEW_CHOICES,"Arrows size  Tab focus",&m);
+    *transparent=1;
+    video_text_bg(l.body.x,l.body.y+2*FONT_HEIGHT,"T Transparent",UI_WHITE,UI_SELECT);
     choices(&l,choice); ui_button(&l.accept,"Create",1); ui_button(&l.cancel,"Cancel",0);
     for(;;) {
         key=event(&m); oldchoice=choice; oldfocus=focus;
         if(key==-2) {
             if(hit(&l.cancel,&m)) return finish(&l,0);
             if(hit(&l.accept,&m)) return finish(&l,new_size(choice));
-            if(hit(&l.body,&m) && m.x<l.body.x+24*FONT_WIDTH) { choice=(m.x-l.body.x)/(8*FONT_WIDTH)+(m.y-l.body.y)/FONT_HEIGHT*3; focus=0; }
+            if(hit(&l.body,&m) && m.y<l.body.y+2*FONT_HEIGHT && m.x<l.body.x+24*FONT_WIDTH) { choice=(m.x-l.body.x)/(8*FONT_WIDTH)+(m.y-l.body.y)/FONT_HEIGHT*3; focus=0; }
+        }
+        if(key=='t' || key=='T' || key=='o' || key=='O' ||
+           (key==-2 && hit(&l.body,&m) && m.y>=l.body.y+2*FONT_HEIGHT)) {
+            *transparent=(key=='t' || key=='T' || (key==-2 && m.x<l.body.x+15*FONT_WIDTH));
+            protect(&l.body);
+            video_text_bg(l.body.x,l.body.y+2*FONT_HEIGHT,"T Transparent",*transparent?UI_WHITE:UI_INK,*transparent?UI_SELECT:UI_PAPER);
+            video_text_bg(l.body.x+15*FONT_WIDTH,l.body.y+2*FONT_HEIGHT,"O Opaque",*transparent?UI_INK:UI_WHITE,*transparent?UI_PAPER:UI_SELECT);
         }
         if(key==27) return finish(&l,0);
         if(key==13) return finish(&l,focus?0:new_size(choice));
@@ -160,6 +169,11 @@ int dialog_new_size(unsigned current)
         if(choice!=oldchoice) choices(&l,choice);
         if(focus!=oldfocus) { ui_button(&l.accept,"Create",!focus); ui_button(&l.cancel,"Cancel",focus); }
     }
+}
+int dialog_new_size(unsigned current)
+{
+    int transparent;
+    return dialog_new_document(current,&transparent);
 }
 static void append(char *body,const char *text)
 {

@@ -73,3 +73,12 @@ mkdir -p "$ROOT/build/animtest-files"
     "$ROOT/src/keymap.c" -o "$ROOT/build/bmptest"
 mkdir -p "$ROOT/build/bmptest-files"
 (cd "$ROOT/build/bmptest-files" && "$ROOT/build/bmptest")
+"${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror -I"$ROOT/src" \
+    -Dfwrite=alpha_write -c "$ROOT/src/png.c" -o "$ROOT/build/faultpng.o"
+"${CC:-cc}" -std=c89 -pedantic -Wall -Wextra -Werror -DALPHA_FAULTS -I"$ROOT/src" \
+    "$ROOT/tests/tstalpha.c" "$ROOT/build/faultpng.o" "$ROOT/src/export.c" "$ROOT/src/bmp.c" "$ROOT/src/colour.c" \
+    "$ROOT/src/fileio.c" "$ROOT/src/editor.c" "$ROOT/src/history.c" "$ROOT/src/anim.c" \
+    "$ROOT/src/canvas.c" "$ROOT/src/tools.c" "$ROOT/src/view.c" "$ROOT/src/workpal.c" "$ROOT/src/keymap.c" \
+    -o "$ROOT/build/alphatest"
+mkdir -p "$ROOT/build/alphatest-files"
+(cd "$ROOT/build/alphatest-files" && "$ROOT/build/alphatest")

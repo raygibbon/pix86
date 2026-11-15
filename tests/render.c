@@ -128,11 +128,34 @@ static void guides(void)
     assert(!memcmp(before,editor.pixels,1024));
 }
 
+static void transparency(void)
+{
+    int x,y,z,sx,sy;
+    unsigned char before[384];
+    editor_dispose(&editor); assert(editor_init(&editor,16,queue));
+    assert(editor_new_shape(&editor,16,24));
+    memcpy(before,editor.pixels,384); editor.mask[0]=1;
+    editor_mark_saved(&editor); sx=editor.view.x; sy=editor.view.y; z=editor.view.zoom;
+    render_canvas(&editor);
+    for(y=sy;y<sy+z;++y) for(x=sx;x<sx+z;++x) assert(screen[y*320+x]==7 || screen[y*320+x]==8);
+    editor.checker=0; editor.preview_colour=11; render_canvas(&editor);
+    for(y=sy;y<sy+z;++y) for(x=sx;x<sx+z;++x) assert(screen[y*320+x]==11);
+    editor.grid=1; render_canvas(&editor);
+    assert(screen[(sy+1)*320+sx+1]==11 && screen[(sy+1)*320+sx+z-1]!=11);
+    editor.grid=0; editor.preview_link=1; assert(editor_background(&editor,5)&EDIT_CANVAS); render_canvas(&editor);
+    assert(screen[(sy+1)*320+sx+1]==5);
+    assert(screen[(sy+1)*320+sx+z+1]==0); /* opaque black remains black */
+    assert(!memcmp(before,editor.pixels,384) && editor.mask[0]==1);
+    assert(editor_is_dirty(&editor)); editor_mark_saved(&editor);
+    editor_key(&editor,CMD_CHECKER); editor_key(&editor,CMD_GUIDE8); editor_key(&editor,CMD_GUIDE16);
+    assert(editor.guide==3 && !editor_is_dirty(&editor));
+    editor_key(&editor,CMD_GUIDE8); assert(editor.guide==2);
+}
 int main(void)
 {
     test_render(16);
     test_render(32);
-    test_render(64); guides();
+    test_render(64); guides(); transparency();
     puts("PASS: canvas rendering at every zoom, grids and all palette indices.");
     editor_dispose(&editor);
     return 0;
