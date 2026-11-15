@@ -1,243 +1,137 @@
-# M2.5 architecture
+# Animation workspace architecture
 
-Pix86 remains a 16-bit real-mode DOS application. M2.5 adds native project
-saving/loading, original filename/confirmation dialogs and exact saved-state
-tracking to M2's indexed canvas, tools, zoom and bounded undo. Animation, layers,
-non-native formats, alternative graphics modes and other platforms remain outside
-this milestone.
+Pix86 targets 8086 real-mode DOS (`-bt=dos -ms -0`) and VGA Mode 13h,
+320×200×256. There is no SVGA, extender, DPMI, SDL or added dependency.
 
-## Data and tools
+## Portable document and editor
 
-`canvas.c` owns the portable interface to caller-supplied pixel storage. A byte
-is a palette index, including 0 and 255. Get/set reject out-of-bounds coordinates;
-clear fills the canvas. The generic interface caps objects at 32767 bytes, while
-The editor restricts a canvas to a 16×16, 32×32 or 64×64 square (4096 bytes maximum).
-Size is selected at launch, with New, or by opening a project. There is no
-resampling operation; New/Open reset history after user confirmation if dirty.
+`anim.h` defines the original `Animation` storage contract: supported dimensions,
+up to 16 frames, 16,384 total indexed pixels and per-frame millisecond durations.
+`anim.c` validates the six shapes. All indices are opaque, including zero; blank
+frames use BG. `fileio.h` aliases this portable structure as `P86Image` for the
+codec. Nothing in the animation representation depends on DOS video or file I/O.
 
-`tools.c` contains independently callable pencil, eraser, fill and pick functions.
-Pencil connects sampled positions with an original integer error-accumulation
-line implementation, inclusive of both endpoints; eraser uses the same path
-with the configured background. Endpoints must be inside the M2 canvas, bounding
-coordinate differences to 63 and intermediate line errors well within signed
-16-bit range. No floating-point arithmetic is used.
+`editor.c` retains the existing 4096-byte active Canvas and original pencil,
+eraser, fill and pick tools. The active canvas is flushed to its frame before
+switching, structural edits, capture or playback advancement. Frame operations
+insert after the active frame, preserve at least one frame, wrap navigation,
+retain duplicated timing, and enforce both count and total-byte limits.
+Selection and playback do not enter history or change saved content. Explicit
+20..2000 ms durations default to 100 ms; timing commands adjust by 10 ms.
+`editor_tick` accepts elapsed milliseconds, loops through frame durations and
+reduces long delays modulo total cycle length. The DOS controller supplies
+`clock()` elapsed time; BIOS-resolution timing is approximate, not a precision
+multimedia timer. No timer interrupt or polling-count animation is used.
+Playback blocks drawing and stops for overlays/editing. Onion skin is deferred.
 
-Fill visits four-connected matching indices using a caller-owned queue of 4096
-unsigned-short pixel offsets. It marks a pixel before enqueuing it, so each pixel
-enters the queue at most once. There is no recursion or growing allocation.
-Same-colour fills return immediately. Boundary checks prevent horizontal row
-wrapping and diagonally touching regions do not connect. Pick reads the software
-canvas, including positions covered by grid lines or the visible cursor.
+`editor_init` creates a fresh object and preallocates live document, saved
+baseline and five history states. Failure releases every successful allocation.
+`editor_dispose` ends its lifetime. New/Open reuse allocated storage and cannot
+fail halfway through allocation. New validates shape before changing anything;
+Open fully decodes into independent scratch before applying. Callers must dispose
+before reinitializing an existing editor. New/Open reset held gesture state.
 
-## History and action boundaries
+## History and dirty state
 
-`history.c` stores five fixed 4096-byte slots: one base state and at most four
-undoable actions. Metadata records canvas dimensions, byte count, current
-position and state count. Only the active canvas bytes are compared/copied.
-On a fifth edit, the oldest state expires; storage never grows. Full snapshots
-are deliberately bounded and simple at these small canvas sizes, rather than
-introducing variable-sized change logs. Each history object is below 32 KiB.
+`history.c` retains one base plus four undoable actions, using separate allocated
+whole-document snapshots. Snapshots contain all frames and durations and the
+frame selection associated with an edit. Undo of pixels after navigation returns
+to the edited frame. Structural undo restores deleted pixels and timing. Navigation
+alone neither commits nor truncates redo. Actual no-op edits preserve redo.
+Oldest snapshots expire by rotating pointers, not moving large history arrays.
+Pencil/eraser commit once on release; fill/clear and structural/timing commands
+commit once. Tools, palette selection and view remain outside pixel history.
 
-Pencil/eraser samples mutate the live canvas during a drag, then commit once on
-release, including the final release position. Fill and clear commit once.
-A no-op creates no history entry and preserves redo. A real edit after undo
-truncates redo; palette selection, picking, tools, grid and zoom do not edit art.
-Undo/redo copy pixel data only, leaving foreground/background and view unchanged.
-Canvas dimensions stay fixed between New/Open operations, which reset history;
-history rejects a mismatched canvas.
+Dirty tracking compares exact saved pixels, dimensions, frame count, durations
+and FG/BG, independently of history position. The active frame compares its near
+Canvas bytes; other frames compare their document storage. Therefore a held
+stroke is dirty immediately, and undo can return to saved content after expiry.
+Selection, grid, timeline, zoom, scroll and playback are view state. FG/BG remain
+persisted selections and mark dirty. No probabilistic hash is used.
 
-`editor.c` owns application state and gesture handling, independently of DOS,
-mouse hardware or rendering. A stroke starts only on a new left press inside the
-canvas. Moving outside pauses it and breaks interpolation; re-entry starts a new
-segment in the same action. A press starting on the toolbar/palette cannot become
-a canvas stroke. Tools and foreground/background are captured for a held stroke;
-keyboard actions finish it and require release before another can start.
-Right-click canvas picks colour; right-click palette configures the background.
+## View, timeline and input
 
-## View, rendering and platform boundaries
+`view.c` uses integer zoom and half-open mouse bounds. `view_fit` accepts the
+workspace reservation and recentres/refits on timeline transitions or document
+size changes. Closed bounds remain x=44..317, y=14..189 (274×176). Open bounds
+use 274×140, leaving a two-pixel gap before the panel at y=156..191. Status stays
+at y=192..199; the sidebar is unchanged. 32×32 refits from 5× to 4×; 64×64
+remains 2×. All shapes permit 1×. Artwork indices and pixel proportions never change.
 
-`view.c` calculates integer zoom, centred origins and mouse-to-canvas coordinates.
-Shared `layout.h` defines the drawing area x=44..317, y=14..189, compact
-tool hit boxes, palette and menu/status boundaries. All zooms from 1 to the largest fitting
-integer are accepted: maximum 11, 5 or 2 for the three sizes respectively.
-Mapping uses half-open bounds; the last displayed pixel belongs to the last
-canvas cell. Long subtraction protects negative/outside screen coordinates.
-Grid pixels map to their containing cell. Palette hit testing maps the sidebar
-working slots through workpal.c to exact VGA indices without touching canvas data.
+`layout.h` shares timeline/control geometry. Nine visible 24-pixel frame cells
+carry numbers and original nearest-sample 8×8 thumbnails. Scroll arrows shift the
+visible window; selection follows into view. The top row supplies previous,
+next, blank, duplicate, delete, play/stop, scroll left/right and close. The panel
+also reports active/count and duration. Tab toggles it; comma/period navigate,
+Insert/D/Delete edit frames, Space plays, parentheses adjust duration.
 
-`render.c` draws toolbar, palette, foreground/background swatches, software canvas
-and status through the video interface. Shaded grid dots are view-only at zoom >=2 (off initially),
-and can be disabled. Pencil/eraser redraw only the affected bounding rectangle;
-fill, history and view changes redraw the canvas. Zoom restores only the area outside the new art rectangle, then paints final
-pixels/grid directly. Cursor protection hides the pointer only for an intersecting
-repaint; unchanged pointer positions perform no VGA reads or writes.
+`keymap.c` owns aliases; `ui.c` routes menus before timeline and canvas. Fresh
+left presses on the timeline are consumed, and UI blocking owns the held button
+until release, including when moved over canvas. A drag beginning in canvas
+cannot turn into a timeline command. Menu/modal entry finishes a stroke.
+Ctrl+\ BIOS decoding, F10, Alt headings and plain/AltGr path separators remain
+unchanged. `menu.c` derives widths, prefix matching and rows from command tables,
+retains per-heading row memory and prevents disabled commands from executing.
+There are no separator rows in the current tables.
 
-`video.c` exclusively owns VGA memory, BIOS video calls and DAC I/O. It checks
-Mode 13h entry, clips drawing, and uses unsigned offsets up to 63999 for VGA.
-Rectangle endpoints use long arithmetic before clipping; rectangles write directly
-to VGA within this module to avoid a per-pixel function call. Text uses the
-original `font.c` renderer with a 6x8 advance and 760 bytes of hand-drawn
-ASCII glyphs. Shared `font.h` metrics drive control text and hit geometry. The
-renderer clips transparent ink on all edges with long coordinates. `theme.h`
-chooses UI colours from the existing palette without DAC changes. The original
-M1 DAC palette remains unchanged, with all indices exposed in M2 (some RGB entries intentionally repeat).
+## Rendering and typography
 
-`mouse.c` owns INT 33h polling, null/IRET vector checks, driver reset, position
-and button reads. Mode 13h's 640-unit horizontal range is divided by two.
-`menu.c` owns portable keyboard/mouse menu state and bounded command descriptions;
-`menudraw.c` paints overlays. `keymap.c` interprets extended menu mnemonics.
-The editor remains unaware of these modules.
-`keyboard.c` polls BIOS keyboard words (AH scan, AL character) and current shift
-flags, preserving information lost by console getch(). `keymap.c` decodes these
-portably; Ctrl+\ opens/closes File, with conventional FS (1Ch) plus scan/logical
-fallbacks. Plain/AltGr backslash remains editable. Extended keys stay 256 + BIOS
-scan code (F2=60, F3=61, Shift+F2=85). ASCII drawing keys retain their values.
-See UI_DESIGN.md for layout/queued-modifier limitations and factual references.
-`cursor.c` saves/restores 64 bytes for the original pointer using only the video
-interface. `main.c` parses launch options, polls input, dispatches dirty render
-flags, dispatches file commands, and confirms dirty ESC before normal cleanup. No interrupt handlers are installed.
+`render.c` shares the existing cell painter across full/partial updates. G draws
+a black/white contrasting dashed mesh at zoom ≥3. Independent 8/16 guides use
+solid boundaries with alternating contrasting companion marks at zoom ≥2.
+Luminance comes from the existing fixed DAC formula. These effects never write
+to Canvas bytes or change the artwork DAC. Suppressed grids return on zoom-in.
 
-## UI state, layout and invalidation
+`font.c` keeps the original 760-byte, 95-glyph, 6×8 face, with selected original
+lowercase/symbol redraws; spacing column and transparent/opaque clipping remain.
+No third-party glyph data or scaling is used. Menu bar stays nine pixels; wider
+dropdowns preserve right-aligned shortcuts and exact shared hit geometry.
 
-`ui.c` owns the live Menu and held-button suppression state; it has no document,
-file or video dependency. Dialog focus/input state is local to each synchronous
-modal invocation. `main.c` executes routed file/help/editor commands.
-`dlggeom.c` computes bounded content-sized dialog rectangles; `dlginput.c` edits
-text without painting. `uipaint.c` shares thin borders and flat highlighted
-buttons; menu rows and filename fields use opaque font cells with local clipping.
+`screen.c`, `region.c`, `menudraw.c`, `uipaint.c` and `dialog.c` retain changed-row
+painting, clipped model restoration, cursor intersection protection and a single
+startup full-screen clear. Timeline collapse repaints its complete old footprint,
+including the right/bottom margins. No screen buffer or widget framework is added.
+Playback repaints only after frame advancement; stopped/idle polling writes no
+pixels. Canvas updates also refresh the compact panel thumbnails. Font diagnostics
+use a bounded 280-byte automatic string; normal control buffers remain bounded.
 
-`screen.c` caches the previous visible menu, tool/colours, status string and
-bounded basename and working-palette snapshot (96 bytes with 16-bit ints). It compares state and emits only
-changed rows, controls and status character runs. `region.c` subtracts the new
-menu bounds from the old bounds into at most four disjoint exposed rectangles.
-`render_restore` clips model repainting to each rectangle; no saved-screen
-allocation, damage queue or framebuffer is needed. Actual document flags still
-select full-canvas updates for history/zoom/fill and bounded stroke updates for
-pencil/eraser. There is one full-screen clear, at startup.
+`video.c` exclusively owns VGA memory, BIOS mode entry/restoration and fixed DAC
+setup. `mouse.c`, `keyboard.c` and `cursor.c` retain their hardware boundaries.
+`main.c` owns elapsed-time acquisition, logical command dispatch and modal routing.
 
-The bottom status row uses 53 complete six-pixel cells. It shows a 12-character
-DOS basename, dirty marker, dimensions, coordinates, tool, FG/BG and zoom;
-paths remain fully available in the filename field and project model. The
-workspace is now 274x176. A future timeline can reserve layout space
-without changing canvas/file storage; no timeline is implemented here.
+## Persistence and failure boundaries
 
-## Working colour selection
+`fileio.c` explicitly encodes little endian fields, validating all dimensions,
+counts, durations and exact lengths before application. Version 1 remains its
+24-byte header plus exactly one supported square image. Version 2 stores an
+explicit count and sequential duration/pixel records, including rectangles.
+See [FILE_FORMAT.md](FILE_FORMAT.md). The low-level version 1 writer is retained
+for independent compatibility fixtures; application saves use version 2.
 
-`workpal.c` owns sixteen UI shortcuts to unchanged VGA indices: eight fixed
-defaults and eight recent colours. `palette_hit` translates sidebar geometry to
-these indices; editor painting/picking and persisted FG/BG semantics are unchanged.
-`screen.c` remembers new FG/BG from picker, file load or eyedropper, compares the
-previous sixteen slots and repaints changed swatches/markers. It has no palette
-RGB editor. The module uses 16 bytes of writable data and a 16-byte default table.
+`project.c` captures into one near scratch image, preserving the checked exclusive
+TMP creation, fwrite/flush/close checks, approved replacement, BAK rollback and
+retained-recovery reporting. Failed reads/writes leave artwork, filename and saved
+baseline intact. The codec's failed scratch contents are unspecified. There are
+no per-frame filesystem operations or external format/export dependencies.
 
-`dialog_palette` extends the existing modal path with a bounded 188x164 colour
-popup. It stores only selection/target and input state; arrow navigation paints
-the old/new cells, Tab changes the target and idle polls perform no painting.
-Acceptance returns a stored index and FG/BG target; the controller updates those
-selections and the existing dirty flags. Cancellation leaves them untouched.
-Both mouse buttons and outside dismissal are consumed. `dialog_font` uses the
-existing message renderer for an original printable-ASCII diagnostic screen.
+## Measured 16-bit memory budget
 
-`render.c` shares one cell painter between full and stroke updates. Grid dots
-use nearby shades from the existing fixed DAC palette, never canvas mutations;
-single dots use the VGA pixel primitive rather than rectangle setup. video.c
-and its DAC programming have not changed in this refinement.
+The 4096-byte stack, strict ordinary modules and extended-CRT file adapter remain.
+Watcom uses `_fmalloc`/`_ffree` and declared CRT far-memory interfaces for seven
+separate document blocks; hosts use malloc/free. Each block is 16,424 bytes in
+DOS, below 32 KiB. All seven reserve 114,968 bytes outside DGROUP. The near active
+canvas is 4096 bytes; fill queue 8192; near file scratch 16,424. No large automatic
+images or large frame arrays live in DGROUP. Smaller documents retain this fixed
+bounded reservation so editing/history do not allocate during an operation.
 
-## Native I/O and project state
-
-`fileio.c` defines a versioned binary format and bounds all dimensions/lengths
-before reading at most 4096 pixel bytes. It encodes little-endian integers
-explicitly; no C structs are serialized. [FILE_FORMAT.md](FILE_FORMAT.md) is the
-independent reader specification, including the implicit fixed palette and
-future-version boundaries. Version 1 has one image, no animation or palette RGB
-block. The low-level decoder writes caller-owned scratch; failed scratch contents
-are unspecified and are never applied to live art.
-
-The file adapter accepts bounded DOS 8.3 paths, supplies .P86, canonicalizes case,
-rejects device names and uses exclusive temporary creation. DOS uses the Watcom
-CRT's `_open`/`_fdopen`/`_stat`; the host test adapter uses POSIX equivalents. This
-single module is compiled with Watcom `-ze` for those declarations; the remaining
-application modules retain strict ANSI mode `-za`. There is no new library.
-
-A save checks every fwrite, fflush and fclose before touching an existing target.
-A completed same-directory TMP is installed by rename. Replacement first renames
-the old target to a free BAK, then installs the TMP, then removes BAK. On failed
-installation, it attempts to restore BAK; if rollback also fails it retains both
-old BAK and new TMP and reports their paths. Failure to remove an old backup after
-successful installation is a warning/success, not a failed save. Directories and
-inaccessible targets are rejected. This supports single-writer DOS, not concurrent
-writers or power-failure atomicity. Recovery details and filename limits are in
-the format document; stale recovery files are never automatically discarded.
-
-`project.c` ties file operations to an Editor using one shared P86Image scratch
-buffer and a bounded current filename. A failed load never applies scratch.
-A successful load replaces pixels/dimensions/FG/BG, resets history, recentres at
-maximum fitting zoom, and records the saved baseline. A save records a new
-baseline/current filename only after successful installation (including the
-retained-backup warning case). A failed write leaves both unchanged. New resets
-to an unnamed blank canvas. Saving commits any held stroke before capture.
-
-`editor.c` keeps a separate saved-pixel snapshot and saved dimensions/FG/BG.
-`editor_is_dirty` compares actual content, not history position or a hash. It
-therefore recognizes a return to saved art even when the original history entry
-has expired, and it cannot confuse another edit at the same history position
-with saved art. FG/BG are persisted selections, so changing them also marks the
-project dirty; view/tool choices do not. A new blank canvas is an untitled clean
-baseline until content/selections change.
-
-`dlginput.c` is portable filename editing state: selected prefill, bounded insertion,
-Backspace/Delete and Left/Right/Home/End. `dialog.c` draws centred VGA boxes and
-polls keyboard/mouse input without knowing file parsing. Tab/Shift+Tab select
-controls; fresh mouse presses activate buttons or place the text cursor.
-Idle polling moves/restores the software cursor without repainting the box. The
-32-character filename window follows the insertion cursor. Destructive prompts
-default to Cancel; Y explicitly approves. New offers the three canvas sizes.
-Each modal exit restores only its box from the editor model through a VGA clip.
-`ui.c` routes overlays before commands, consumes outside clicks and blocks held
-buttons until release. `keymap.c` maps shortcut aliases to the logical constants
-in `command.h`; editor operations and menu descriptions share those commands. Menu overlays have no screen-sized backing buffer. See
-[UI_DESIGN.md](UI_DESIGN.md) for interaction details and reference provenance.
-
-F2 saves the current name (or prompts), Shift+F2 always prompts, F3 opens, and N
-starts a new canvas. Existing targets always require overwrite confirmation.
-New/Open/Exit require explicit discard confirmation when dirty. Cancel or failed
-Open preserves current artwork/name; users can cancel Exit, save, then exit.
-Success/failure and retained recovery paths are displayed and acknowledged.
-
-## 16-bit memory budget
-
-The build retains `wcl -bt=dos -ms -0`: 16-bit DOS, small model, 8086 instructions,
-with a 4096-byte stack. Only the file adapter enables CRT extension declarations.
-No DPMI, extender, graphics framework or new dependency
-is used. All DOS-facing source and executable names fit 8.3.
-
-| Fixed application buffer | Bytes |
-| --- | ---: |
-| Canvas, reserved for largest size | 4096 |
-| Five history slots | 20480 |
-| Fill queue, 4096 16-bit offsets | 8192 |
-| Exact saved-pixel baseline | 4096 |
-| Shared load/save scratch pixels | 4096 |
-| Cursor saved pixels | 64 |
-| Total pixel/history/work buffers | 41024 |
-| Original printable-ASCII font (constant data) | 760 |
-
-The Editor object adds small metadata; the fill queue is a separate static
-object to keep individual near objects below 32767 bytes. Smaller canvases
-retain the same fixed reservation. Large objects are static, never automatic;
-there is no explicit application heap allocation and no full-screen shadow
-buffer. Standard stdio may allocate bounded runtime buffering internally.
-The link map, including runtime code/data and the 4096-byte stack, reports about
-88 KiB in total; code and DGROUP each remain below 64 KiB. DGROUP is about
-48 KiB, leaving room within the near segment for runtime file buffering. Exact measured values are in TESTING.md.
-The executable file is smaller because DOS zero-initializes BSS. Loader/PSP,
-environment and runtime bookkeeping are additional to the linked footprint.
-
-Launch from a DOS text mode (0..3 or 7) on VGA hardware/emulation. Confirmed ESC
-resets an initialized mouse driver and restores the prior BIOS mode,
-active page, text cursor position and shape. Restoration clears prior screen
-contents; custom fonts/palettes and previous text contents are not preserved.
-Abrupt process termination/emulator closure is outside normal cleanup.
+The final linked map reports DGROUP 38,432 bytes including the stack (27,104 bytes
+below 64 KiB), near code 45,615 bytes, and total linked image 84,064 bytes.
+`PIX86.EXE` is 50,430 bytes. Linked image plus reserved far blocks is 199,032 bytes;
+PSP/environment, heap bookkeeping, stdio and loader overhead are additional.
+Initialization on insufficient conventional memory fails with a diagnostic.
+Up to 16 frames are allowed for every shape except 64×64 (four). There is no
+transparency, onion skin, layers or export in this change. Native hardware and
+FreeDOS/MS-DOS remain untested; DOSBox-X evidence is in TESTING.md.
 
 ## Provenance and engineering references
 
@@ -246,7 +140,7 @@ Abrupt process termination/emulator closure is outside normal cleanup.
   for Linux-hosted Watcom, `WATCOM`, `binl`, `h`, `lib286`, shell builds and `mnt/`.
   Pix86's script and C modules were written independently; no Zine source or
   third-party components were imported. Zine's large memory model is unnecessary
-  for this small canvas, so Pix86 uses small model.
+  for this small canvas, so Pix86 uses small model with bounded far document blocks.
 - [Open Watcom C/C++ User's Guide](https://open-watcom.github.io/open-watcom-v2-wikidocs/cguide.html):
   compiler targets, memory models and 8086 generation; local Watcom headers define
   the interrupt-call interfaces. The toolchain is installed externally; its

@@ -55,18 +55,14 @@ void render_ui(const Editor *editor)
     for(i=0;i<16;++i) swatch(editor,i);
     video_text_bg(PALETTE_X,PALETTE_MORE_Y+1,"A All ",UI_INK,UI_BAR);
 }
-/* Grid dots follow exact cell edges, using a nearby shade rather than a bright
-   continuous mesh. This is view-only and never writes to canvas storage. */
+/* Palette-derived luminance selects black/white without changing the DAC.
+   Fine mesh is dashed; tile boundaries are solid and two-tone. */
 static unsigned char grid_colour(unsigned char colour)
 {
-    unsigned n;
-    if(colour<16) return (unsigned char)(colour+(colour<8?1:-1));
-    n=colour-16;
-    if(colour>=232) return (unsigned char)(colour-180);
-    if(n%6) return (unsigned char)(colour-1);
-    if(n/6%6) return (unsigned char)(colour-6);
-    if(n/36) return (unsigned char)(colour-36);
-    return 17;
+    unsigned n,r,g,b;
+    if(colour<16) return colour<8?15:0;
+    n=colour-16; r=n%6; g=n/6%6; b=n/36;
+    return 3*r+6*g+b<25?15:0;
 }
 static void canvas_cell(const Editor *editor,int x,int y)
 {
@@ -76,11 +72,21 @@ static void canvas_cell(const Editor *editor,int x,int y)
     sx=editor->view.x+x*zoom; sy=editor->view.y+y*zoom;
     colour=editor->canvas.pixels[(unsigned)y*editor->canvas.width+x];
     video_rect(sx,sy,zoom,zoom,colour);
-    if(editor->grid && zoom>=2) {
-        grid=grid_colour(colour);
-        for(i=1;i<zoom;i+=2) {
+    grid=grid_colour(colour);
+    if(editor->grid && zoom>=3) {
+        for(i=0;i<zoom;++i) if(i%2) {
             video_pixel(sx+zoom-1,sy+i,grid);
             video_pixel(sx+i,sy+zoom-1,grid);
+        }
+    }
+    if(editor->guide && zoom>=2) {
+        if((x+1)%editor->guide==0) {
+            video_rect(sx+zoom-1,sy,1,zoom,grid);
+            for(i=0;i<zoom;i+=2) video_pixel(sx+zoom-2,sy+i,grid?0:15);
+        }
+        if((y+1)%editor->guide==0) {
+            video_rect(sx,sy+zoom-1,zoom,1,grid);
+            for(i=0;i<zoom;i+=2) video_pixel(sx+i,sy+zoom-2,grid?0:15);
         }
     }
 }
@@ -95,7 +101,7 @@ void render_canvas(const Editor *editor)
     {
         Rect area,art,parts[4];
         int n,i;
-        area.x=DRAW_X-1; area.y=DRAW_Y-1; area.w=DRAW_WIDTH+2; area.h=DRAW_HEIGHT+2;
+        area.x=DRAW_X-1; area.y=DRAW_Y-1; area.w=UI_WIDTH-DRAW_X+1; area.h=UI_STATUS_Y-DRAW_Y+1;
         art.x=view->x-1; art.y=view->y-1;
         art.w=(int)view->width*zoom+2; art.h=(int)view->height*zoom+2;
         n=rect_subtract(&area,&art,parts);
@@ -157,6 +163,7 @@ void render_restore(const Editor *editor,const Rect *r)
     for(i=0;i<n;++i) video_rect(parts[i].x,parts[i].y,parts[i].w,parts[i].h,UI_DESK);
     if(r->x<UI_LEFT_WIDTH || r->x+r->w>UI_RIGHT_X) render_ui(editor);
     if(rect_overlap(r,&art)) render_canvas(editor);
+    if(editor->timeline && r->y+r->h>TIMELINE_Y && r->x+r->w>DRAW_X-1) render_timeline(editor);
     video_unclip();
 }
 void render_ui_change(const Editor *editor,int tool,unsigned char fg,unsigned char bg,
@@ -174,4 +181,40 @@ void render_ui_change(const Editor *editor,int tool,unsigned char fg,unsigned ch
     }
     if(fg!=editor->foreground) current_colour(editor->foreground,FG_Y,'F');
     if(bg!=editor->background) current_colour(editor->background,BG_Y,'B');
+}
+
+void render_timeline(const Editor *e)
+{
+    unsigned f,slot;
+    int x,y,tx,ty;
+    unsigned char paper,ink,colour;
+    char label[20];
+    static const char *controls[9]={"<",">","+","Dup","Del","Play","<<",">>","X"};
+    if(!e->timeline) return;
+    cursor_protect(DRAW_X-1,TIMELINE_Y,UI_WIDTH-DRAW_X+1,TIMELINE_HEIGHT);
+    video_rect(DRAW_X-1,TIMELINE_Y,UI_WIDTH-DRAW_X+1,TIMELINE_HEIGHT,UI_PANEL);
+    video_rect(DRAW_X-1,TIMELINE_Y,UI_WIDTH-DRAW_X+1,1,UI_DIM);
+    for(slot=0;slot<9;++slot) {
+        x=DRAW_X+(int)slot*30;
+        video_text_bg(x,TIMELINE_Y+2,slot==5 && e->playing?"Stop":controls[slot],UI_WHITE,UI_PANEL);
+    }
+    for(slot=0;slot<TIMELINE_SLOTS;++slot) {
+        f=e->first_frame+slot; if(f>=e->document->frames) break;
+        x=DRAW_X+(int)slot*TIMELINE_CELL; y=TIMELINE_Y+13;
+        paper=f==e->history.active?UI_SELECT:UI_BAR;
+        ink=f==e->history.active?UI_WHITE:UI_INK;
+        video_rect(x,y,TIMELINE_CELL-2,21,paper);
+        sprintf(label,"%u",f+1); video_text(x+2,y+1,label,ink);
+        /* Original nearest-sample 8x8 thumbnail, no extra image allocation. */
+        for(ty=0;ty<8;++ty) for(tx=0;tx<8;++tx) {
+            unsigned offset;
+            offset=(unsigned)(ty*e->canvas.height/8)*e->canvas.width+tx*e->canvas.width/8;
+            colour=f==e->history.active?e->pixels[offset]:e->document->pixels[f*e->history.size+offset];
+            video_pixel(x+12+tx,y+11+ty,colour);
+        }
+    }
+    sprintf(label,"%u/%u",e->history.active+1,e->document->frames);
+    video_text(DRAW_X+TIMELINE_SLOTS*TIMELINE_CELL,TIMELINE_Y+14,label,UI_WHITE);
+    sprintf(label,"%ums",e->document->duration[e->history.active]);
+    video_text(DRAW_X+TIMELINE_SLOTS*TIMELINE_CELL,TIMELINE_Y+24,label,UI_WHITE);
 }

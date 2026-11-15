@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "editor.h"
+#include "command.h"
 #include "render.h"
 #include "video.h"
 #include "theme.h"
@@ -41,6 +42,7 @@ static void test_render(unsigned side)
 {
     unsigned x, y, index;
     int zoom, sx, sy;
+    editor_dispose(&editor);
     assert(editor_init(&editor, side, queue));
     for (y = 0; y < side; ++y)
         for (x = 0; x < side; ++x)
@@ -63,8 +65,8 @@ static void test_render(unsigned side)
         view_set(&editor.view,&editor.canvas,zoom); render_canvas(&editor);
         sx=editor.view.x; sy=editor.view.y;
         assert(screen[sy*320+sx]==0);
-        if(zoom>=2) {
-            assert(screen[(sy+1)*320+sx+zoom-1]==1); /* black -> subtle grey */
+        if(zoom>=3) {
+            assert(screen[(sy+1)*320+sx+zoom-1]==15); /* black -> white contrast */
             assert(screen[(sy+zoom)*320+sx+zoom-1]==(unsigned char)side);
         }
         for(y=0;y<side;++y) for(x=0;x<side;++x)
@@ -96,7 +98,7 @@ static void test_render(unsigned side)
     editor.grid = 1;
     editor.canvas.pixels[0]=15;
     render_canvas(&editor);
-    if(zoom>=2) assert(screen[(editor.view.y+1)*320+editor.view.x+zoom-1]==14);
+    if(zoom>=3) assert(screen[(editor.view.y+1)*320+editor.view.x+zoom-1]==0);
     assert(editor.canvas.pixels[0]==15);
     render_canvas(&editor);
     editor.foreground = 255;
@@ -104,14 +106,34 @@ static void test_render(unsigned side)
     editor_mouse(&editor, sx, sy, EDIT_LEFT);
     render_stroke(&editor);
     assert(screen[sy * 320 + sx] == 255);
-    assert(screen[(sy+1)*320+sx+zoom-1] != 255);
+    if(zoom>=3) assert(screen[(sy+1)*320+sx+zoom-1] != 255);
+}
+
+static void guides(void)
+{
+    unsigned char before[4096];
+    int sx,sy,z;
+    unsigned i;
+    editor_dispose(&editor); assert(editor_init(&editor,32,queue));
+    for(i=0;i<1024;++i) editor.pixels[i]=(unsigned char)i;
+    memcpy(before,editor.pixels,1024); z=editor.view.zoom;
+    editor_key(&editor,CMD_GUIDE8); render_canvas(&editor);
+    sx=editor.view.x+8*z-1; sy=editor.view.y;
+    assert(screen[sy*320+sx]!=editor.pixels[7]);
+    assert(screen[(sy+1)*320+sx]!=editor.pixels[7]);
+    assert(!memcmp(before,editor.pixels,1024));
+    editor_key(&editor,CMD_GUIDE16); render_canvas(&editor);
+    sx=editor.view.x+16*z-1;
+    assert(screen[sy*320+sx]!=editor.pixels[15]);
+    assert(!memcmp(before,editor.pixels,1024));
 }
 
 int main(void)
 {
     test_render(16);
     test_render(32);
-    test_render(64);
+    test_render(64); guides();
     puts("PASS: canvas rendering at every zoom, grids and all palette indices.");
+    editor_dispose(&editor);
     return 0;
 }

@@ -9,7 +9,7 @@
 #define DIALOG_MESSAGE 3
 #define DIALOG_COLUMNS 40
 #define DIALOG_FILE_HINT "DOS 8.3 path; default .P86"
-#define DIALOG_NEW_CHOICES "1 16x16 2 32x32 3 64x64"
+#define DIALOG_NEW_CHOICES "1 16x16 2 32x32 3 64x64\n4 16x24 5 16x32 6 32x24"
 typedef struct DialogLayout {
     Rect box,body,field,accept,cancel;
     int columns,hint_y;

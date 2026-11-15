@@ -12,6 +12,7 @@
 #define EDIT_CANVAS 2
 #define EDIT_STATUS 4
 #define EDIT_STROKE 8
+#define EDIT_TIMELINE 16
 #define EDIT_LEFT 1
 #define EDIT_RIGHT 2
 
@@ -19,19 +20,26 @@ typedef struct Editor {
     Canvas canvas;
     unsigned char pixels[4096];
     History history;
-    unsigned char saved_pixels[4096];
+    Animation ANIM_FAR *document, ANIM_FAR *saved;
     unsigned saved_width, saved_height;
     unsigned char saved_foreground, saved_background;
+    unsigned first_frame, elapsed;
+    int playing;
     View view;
     unsigned short *fill_queue;
     unsigned char foreground, background, stroke_colour;
-    int tool, grid, dragging, segment_valid, last_x, last_y;
+    int timeline, guide, tool, grid, dragging, segment_valid, last_x, last_y;
     int dirty_x0, dirty_y0, dirty_x1, dirty_y1;
     unsigned previous_buttons;
 } Editor;
 
-/* Supported square sizes: 16,32,64; fill_queue has 4096 entries. */
+/* Init a fresh object; dispose before reinitializing. New/Open reuse its storage.
+   fill_queue has 4096 entries. Dimensions are checked by anim_dimensions. */
 int editor_init(Editor *editor, unsigned side, unsigned short *fill_queue);
+void editor_dispose(Editor *editor);
+int editor_new_shape(Editor *editor,unsigned width,unsigned height);
+unsigned editor_tick(Editor *editor,unsigned milliseconds);
+unsigned editor_select(Editor *editor,unsigned frame);
 unsigned editor_mouse(Editor *editor, int x, int y, unsigned buttons);
 unsigned editor_key(Editor *editor, int key);
 void editor_finish(Editor *editor);

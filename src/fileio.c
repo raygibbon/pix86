@@ -119,50 +119,66 @@ static void put16(unsigned char *p, unsigned value)
 
 int file_encode(FILE *stream, const P86Image *image)
 {
-    unsigned char header[P86_HEADER_SIZE];
-    unsigned count;
-    if (stream == NULL || image == NULL) return FILE_WRITE_ERROR;
-    if (!dimensions(image->width, image->height)) return FILE_DIMENSIONS;
-    count = image->width * image->height;
-    memset(header, 0, sizeof(header));
-    memcpy(header, "P86\032", 4);
-    put16(header + 4, 1);
-    put16(header + 6, P86_HEADER_SIZE);
-    put16(header + 8, image->width);
-    put16(header + 10, image->height);
-    header[12] = image->foreground;
-    header[13] = image->background;
-    put16(header + 16, count); /* Upper half of 32-bit length remains zero. */
-    if (fwrite(header, 1, sizeof(header), stream) != sizeof(header) ||
-        fwrite(image->pixels, 1, count, stream) != count || ferror(stream))
-        return FILE_WRITE_ERROR;
-    return FILE_OK;
+    unsigned char header[P86_HEADER_SIZE],timing[2];
+    unsigned size,frames,i,payload;
+    int v2;
+    if(!stream || !image) return FILE_WRITE_ERROR;
+    v2=image->frames!=0; frames=v2?image->frames:1;
+    if(!(v2?anim_dimensions(image->width,image->height):dimensions(image->width,image->height))) return FILE_DIMENSIONS;
+    size=image->width*image->height;
+    if(frames>ANIM_FRAMES || frames>ANIM_PIXELS/size) return FILE_LENGTH;
+    for(i=0;v2 && i<frames;++i)
+        if(image->duration[i]<20 || image->duration[i]>2000) return FILE_HEADER;
+    payload=frames*(size+(v2?2:0));
+    memset(header,0,sizeof(header)); memcpy(header,"P86\032",4);
+    put16(header+4,v2?2:1); put16(header+6,P86_HEADER_SIZE);
+    put16(header+8,image->width); put16(header+10,image->height);
+    header[12]=image->foreground; header[13]=image->background;
+    put16(header+16,payload);
+    if(v2) put16(header+20,frames);
+    if(fwrite(header,1,sizeof(header),stream)!=sizeof(header)) return FILE_WRITE_ERROR;
+    for(i=0;i<frames;++i) {
+        if(v2) {
+            put16(timing,image->duration[i]);
+            if(fwrite(timing,1,2,stream)!=2) return FILE_WRITE_ERROR;
+        }
+        if(fwrite(image->pixels+i*size,1,size,stream)!=size) return FILE_WRITE_ERROR;
+    }
+    return ferror(stream)?FILE_WRITE_ERROR:FILE_OK;
 }
-
-int file_decode(FILE *stream, P86Image *image)
+int file_decode(FILE *stream,P86Image *image)
 {
-    unsigned char header[P86_HEADER_SIZE];
-    unsigned width, height, count;
-    if (stream == NULL || image == NULL) return FILE_READ_ERROR;
-    if (fread(header, 1, sizeof(header), stream) != sizeof(header))
-        return ferror(stream) ? FILE_READ_ERROR : FILE_LENGTH;
-    if (memcmp(header, "P86\032", 4) != 0) return FILE_SIGNATURE;
-    if (get16(header + 4) != 1) return FILE_VERSION;
-    if (get16(header + 6) != P86_HEADER_SIZE || get16(header + 14) != 0 ||
-        get32(header + 20) != 0) return FILE_HEADER;
-    width = get16(header + 8);
-    height = get16(header + 10);
-    if (!dimensions(width, height)) return FILE_DIMENSIONS;
-    count = width * height;
-    if (get32(header + 16) != count) return FILE_LENGTH;
-    if (fread(image->pixels, 1, count, stream) != count)
-        return ferror(stream) ? FILE_READ_ERROR : FILE_LENGTH;
-    if (fgetc(stream) != EOF) return FILE_LENGTH;
-    if (ferror(stream)) return FILE_READ_ERROR;
-    image->width = width;
-    image->height = height;
-    image->foreground = header[12];
-    image->background = header[13];
+    unsigned char header[P86_HEADER_SIZE],timing[2];
+    unsigned width,height,size,frames,version,i;
+    if(!stream || !image) return FILE_READ_ERROR;
+    if(fread(header,1,sizeof(header),stream)!=sizeof(header))
+        return ferror(stream)?FILE_READ_ERROR:FILE_LENGTH;
+    if(memcmp(header,"P86\032",4)) return FILE_SIGNATURE;
+    version=get16(header+4);
+    if(version!=1 && version!=2) return FILE_VERSION;
+    if(get16(header+6)!=P86_HEADER_SIZE || get16(header+14) || get16(header+22)) return FILE_HEADER;
+    if(version==1 && get32(header+20)) return FILE_HEADER;
+    width=get16(header+8); height=get16(header+10);
+    if(!(version==1?dimensions(width,height):anim_dimensions(width,height))) return FILE_DIMENSIONS;
+    size=width*height; frames=version==1?1:get16(header+20);
+    if(!frames || frames>ANIM_FRAMES || frames>ANIM_PIXELS/size) return FILE_LENGTH;
+    if(get32(header+16)!=(unsigned long)frames*(size+(version==2?2:0))) return FILE_LENGTH;
+    for(i=0;i<frames;++i) {
+        image->duration[i]=ANIM_DEFAULT_MS;
+        if(version==2) {
+            if(fread(timing,1,2,stream)!=2) return ferror(stream)?FILE_READ_ERROR:FILE_LENGTH;
+            image->duration[i]=get16(timing);
+            if(image->duration[i]<20 || image->duration[i]>2000) return FILE_HEADER;
+        }
+        if(fread(image->pixels+i*size,1,size,stream)!=size)
+            return ferror(stream)?FILE_READ_ERROR:FILE_LENGTH;
+    }
+    if(fgetc(stream)!=EOF) return FILE_LENGTH;
+    if(ferror(stream)) return FILE_READ_ERROR;
+    image->width=width; image->height=height;
+    image->foreground=header[12]; image->background=header[13];
+    /* Zero is the legacy single-image API marker, never an on-disk frame count. */
+    image->frames=version==1?0:frames;
     return FILE_OK;
 }
 
@@ -239,7 +255,7 @@ int file_save(const char *path, const P86Image *image, int overwrite,
     if (report == NULL) return FILE_WRITE_ERROR;
     report->temporary[0] = report->backup[0] = '\0';
     if (!file_name(path, name)) return FILE_BAD_NAME;
-    if (image == NULL || !dimensions(image->width, image->height)) return FILE_DIMENSIONS;
+    if (image == NULL || !(image->frames?anim_dimensions(image->width, image->height):dimensions(image->width,image->height))) return FILE_DIMENSIONS;
     present = exists(name);
     if (present < 0) return FILE_OPEN_ERROR;
     if (present && !overwrite) return FILE_EXISTS;

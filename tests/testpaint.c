@@ -81,6 +81,7 @@ static void mouse_event(int x,int y,unsigned buttons)
 { add(-1); events[count-1].x=x; events[count-1].y=y; events[count-1].buttons=buttons; }
 static void clean_baseline(Screen *s,Menu *m,MouseState *mouse)
 {
+    editor_dispose(&editor);
     assert(editor_init(&editor,16,queue));
     /* High contrast artwork makes erased/mis-restored canvas pixels visible. */
     memset(editor.pixels,231,256);
@@ -236,7 +237,7 @@ static void routing_status(void)
     start(); clean_baseline(&s,&m,&mouse); ui_init(&ui);
     assert(keyboard_command('U')==CMD_UNDO && keyboard_command('r')==CMD_REDO);
     assert(keyboard_command('N')==CMD_NEW && keyboard_command('=')==CMD_ZOOM_IN);
-    assert(keyboard_command(KEY_DELETE)==CMD_NONE && keyboard_command(-1)==CMD_NONE);
+    assert(keyboard_command(KEY_DELETE)==CMD_FRAME_DELETE && keyboard_command(-1)==CMD_NONE);
     assert(ui_input(&ui,KEY_MENU,&mouse,&command) && !command && ui.menu.active);
     assert(ui_input(&ui,CMD_EXIT,&mouse,&command) && !command && !ui.menu.active);
     assert(!ui_pointer(&ui,&mouse,1,1));
@@ -263,6 +264,49 @@ static void routing_status(void)
     assert(strstr(s.status,"LONGNAME.P86"));
     screen_filename(&s,""); screen_update(&s,&editor,&m,EDIT_STATUS,&mouse,0);
     assert(strstr(s.status,"UNTITLED"));
+}
+static void timeline(void)
+{
+    static unsigned char closed[64000];
+    Screen s; Menu m; MouseState mouse; UiState ui;
+    unsigned long before;
+    unsigned flags;
+    int command,h;
+    start(); clean_baseline(&s,&m,&mouse); ui_init(&ui);
+    memcpy(closed,pixels,sizeof(pixels));
+    flags=editor_key(&editor,CMD_TIMELINE);
+    screen_update(&s,&editor,&m,flags,&mouse,0);
+    assert(editor.view.y+(int)editor.view.height*editor.view.zoom<TIMELINE_Y);
+    flags=editor_key(&editor,CMD_TIMELINE);
+    screen_update(&s,&editor,&m,flags,&mouse,0);
+    assert(!memcmp(pixels,closed,sizeof(pixels)));
+    flags=editor_key(&editor,CMD_TIMELINE);
+    screen_update(&s,&editor,&m,flags,&mouse,0);
+    memcpy(baseline,pixels,sizeof(pixels)); before=writes;
+    screen_update(&s,&editor,&m,0,&mouse,0); assert(writes==before);
+    for(h=0;h<MENU_COUNT;++h) {
+        m.active=1; m.heading=h; m.item=0;
+        screen_update(&s,&editor,&m,0,&mouse,0);
+        m.active=0; screen_update(&s,&editor,&m,0,&mouse,0);
+        assert(!memcmp(pixels,baseline,sizeof(pixels)));
+    }
+    start(); add(27); dialog_editor(&editor); dialog_font();
+    assert(!memcmp(pixels,baseline,sizeof(pixels)));
+    mouse.x=DRAW_X+2*30; mouse.y=TIMELINE_Y+4; mouse.buttons=1;
+    assert(ui_timeline(&ui,1,0,1,&mouse,&command) && command==CMD_FRAME_ADD);
+    flags=editor_key(&editor,command); assert(editor.document->frames==2);
+    assert(!ui_pointer(&ui,&mouse,1,0));
+    mouse.x=editor.view.x; mouse.y=editor.view.y;
+    assert(!ui_pointer(&ui,&mouse,0,0));
+    mouse.buttons=0; assert(!ui_pointer(&ui,&mouse,0,0));
+    assert(ui_pointer(&ui,&mouse,0,0));
+    assert(editor.pixels[0]==0);
+    mouse.x=DRAW_X+2; mouse.y=TIMELINE_Y+20; mouse.buttons=1;
+    assert(ui_timeline(&ui,1,0,2,&mouse,&command) && command==CMD_SELECT_FRAME);
+    flags=editor_key(&editor,command);
+    screen_update(&s,&editor,&m,flags,&mouse,0);
+    assert(editor.pixels[0]==231);
+    assert(!clears);
 }
 static void type(const char *text) { while(*text) add((unsigned char)*text++); }
 static void run(int mouse)
@@ -294,7 +338,8 @@ static void application(void)
 }
 int main(void)
 {
-    geometry(); menus(); dialogs(); palette_overlay(); routing_status(); application();
+    geometry(); menus(); dialogs(); palette_overlay(); routing_status(); timeline(); application();
     puts("PASS: dirty rectangles, idle stability, exact overlay/cursor restoration, one startup clear and deliberate exits/file workflow.");
+    editor_dispose(&editor);
     return 0;
 }

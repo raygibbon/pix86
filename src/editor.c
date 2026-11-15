@@ -4,6 +4,9 @@
 #include "editor.h"
 #include "tools.h"
 
+static void follow(Editor *e);
+static unsigned editor_frame_command(Editor *e,int key);
+
 static void stroke_bounds(Editor *editor, int x0, int y0, int x1, int y1)
 {
     editor->dirty_x0 = x0 < x1 ? x0 : x1;
@@ -12,24 +15,40 @@ static void stroke_bounds(Editor *editor, int x0, int y0, int x1, int y1)
     editor->dirty_y1 = y0 > y1 ? y0 : y1;
 }
 
-int editor_init(Editor *editor, unsigned side, unsigned short *fill_queue)
+void editor_dispose(Editor *e)
 {
-    if (editor == NULL || fill_queue == NULL ||
-        (side != 16 && side != 32 && side != 64))
-        return 0;
-    canvas_init(&editor->canvas, side, side, editor->pixels, sizeof(editor->pixels));
-    editor->background = 0;
-    editor->foreground = 15;
-    editor->tool = TOOL_PENCIL;
-    editor->grid = 0;
-    editor->dragging = editor->segment_valid = 0;
-    editor->previous_buttons = 0;
-    editor->fill_queue = fill_queue;
-    canvas_clear(&editor->canvas, editor->background);
-    history_init(&editor->history, &editor->canvas);
-    view_set(&editor->view, &editor->canvas, view_max_zoom(&editor->canvas));
-    editor_mark_saved(editor);
+    history_destroy(&e->history);
+    if(e->document) anim_free(e->document);
+    if(e->saved) anim_free(e->saved);
+    e->document=e->saved=NULL;
+}
+int editor_new_shape(Editor *e,unsigned w,unsigned h)
+{
+    if(!anim_dimensions(w,h)) return 0;
+    e->playing=0; e->elapsed=e->first_frame=0;
+    e->dragging=e->segment_valid=0; e->previous_buttons=0;
+    e->foreground=15; e->background=0;
+    canvas_init(&e->canvas,w,h,e->pixels,sizeof(e->pixels));
+    canvas_clear(&e->canvas,0);
+    anim_set(e->document,0,sizeof(P86Image));
+    e->document->width=w; e->document->height=h;
+    e->document->frames=1; e->document->duration[0]=ANIM_DEFAULT_MS;
+    e->history.active=0;
+    history_init(&e->history,&e->canvas);
+    view_fit(&e->view,&e->canvas,e->timeline,0);
+    editor_mark_saved(e);
     return 1;
+}
+int editor_init(Editor *e,unsigned side,unsigned short *queue)
+{
+    if(!e || !queue || !anim_dimensions(side,side)) return 0;
+    memset(e,0,sizeof(*e)); e->fill_queue=queue;
+    e->document=anim_alloc(sizeof(P86Image));
+    e->saved=anim_alloc(sizeof(P86Image));
+    if(!e->document || !e->saved || !history_create(&e->history,e->document)) {
+        editor_dispose(e); return 0;
+    }
+    return editor_new_shape(e,side,side);
 }
 
 void editor_finish(Editor *editor)
@@ -44,6 +63,7 @@ unsigned editor_mouse(Editor *editor, int x, int y, unsigned buttons)
     int cx, cy, inside, tool;
     unsigned pressed, changed, flags;
     unsigned char index;
+    if(editor->playing) { editor->previous_buttons=buttons; return 0; }
     pressed = buttons & ~editor->previous_buttons;
     editor->previous_buttons = buttons;
     flags = EDIT_STATUS;
@@ -118,6 +138,12 @@ unsigned editor_key(Editor *editor, int key)
 {
     int zoom, tool;
     key = keyboard_command(key);
+    if(key>=CMD_SELECT_FRAME && key<CMD_SELECT_FRAME+ANIM_FRAMES)
+        return editor_select(editor,(unsigned)(key-CMD_SELECT_FRAME));
+    if(key>=CMD_FRAME_ADD && key<=CMD_SCROLL_RIGHT)
+        return editor_frame_command(editor,key);
+    editor->playing=0;
+
     tool = -1;
     if (key == 'p') tool = TOOL_PENCIL;
     if (key == 'e') tool = TOOL_ERASER;
@@ -127,6 +153,17 @@ unsigned editor_key(Editor *editor, int key)
         editor_finish(editor);
         editor->tool = tool;
         return EDIT_UI | EDIT_STATUS;
+    }
+    if(key==CMD_TIMELINE) {
+        editor_finish(editor); editor->timeline=!editor->timeline;
+        view_fit(&editor->view,&editor->canvas,editor->timeline,0);
+        return EDIT_CANVAS | EDIT_STATUS | EDIT_TIMELINE;
+    }
+    if(key==CMD_GUIDE8 || key==CMD_GUIDE16) {
+        editor_finish(editor);
+        zoom=key==CMD_GUIDE8?8:16;
+        editor->guide=editor->guide==zoom?0:zoom;
+        return EDIT_CANVAS | EDIT_STATUS;
     }
     if (key == 'g') {
         editor_finish(editor);
@@ -145,62 +182,140 @@ unsigned editor_key(Editor *editor, int key)
             history_undo(&editor->history, &editor->canvas);
         else
             history_redo(&editor->history, &editor->canvas);
-        return EDIT_CANVAS | EDIT_STATUS;
+        follow(editor);
+        return EDIT_CANVAS | EDIT_STATUS | EDIT_TIMELINE;
     }
     if (key == CMD_ZOOM_IN || key == CMD_ZOOM_OUT) {
         editor_finish(editor);
         zoom = editor->view.zoom + (key == '-' ? -1 : 1);
-        if (view_set(&editor->view, &editor->canvas, zoom))
+        if (view_fit(&editor->view, &editor->canvas, editor->timeline, zoom))
             return EDIT_CANVAS | EDIT_STATUS;
         return EDIT_STATUS;
     }
     return 0;
 }
 
-void editor_mark_saved(Editor *editor)
+void editor_mark_saved(Editor *e)
 {
-    editor_finish(editor);
-    editor->saved_width = editor->canvas.width;
-    editor->saved_height = editor->canvas.height;
-    editor->saved_foreground = editor->foreground;
-    editor->saved_background = editor->background;
-    memcpy(editor->saved_pixels, editor->canvas.pixels,
-           editor->canvas.width * editor->canvas.height);
+    editor_finish(e);
+    anim_copy(e->document->pixels+e->history.active*e->history.size,e->pixels,e->history.size);
+    anim_copy(e->saved,e->document,sizeof(P86Image));
+    e->saved_foreground=e->foreground; e->saved_background=e->background;
+    e->saved_width=e->canvas.width; e->saved_height=e->canvas.height;
+}
+int editor_is_dirty(const Editor *e)
+{
+    unsigned i,size;
+    size=e->canvas.width*e->canvas.height;
+    if(e->saved_width!=e->canvas.width || e->saved_height!=e->canvas.height ||
+       e->saved_foreground!=e->foreground || e->saved_background!=e->background ||
+       e->saved->frames!=e->document->frames) return 1;
+    for(i=0;i<e->document->frames;++i) {
+        if(e->saved->duration[i]!=e->document->duration[i]) return 1;
+        if(anim_compare(e->saved->pixels+i*size,
+            i==e->history.active?e->pixels:e->document->pixels+i*size,size)) return 1;
+    }
+    return 0;
+}
+void editor_image(const Editor *e,P86Image *image)
+{
+    anim_copy(image,e->document,sizeof(P86Image));
+    memcpy(image->pixels+e->history.active*e->history.size,e->pixels,e->history.size);
+    image->foreground=e->foreground; image->background=e->background;
+}
+int editor_load(Editor *e,const P86Image *im)
+{
+    unsigned frames,i;
+    if(!im || !anim_dimensions(im->width,im->height)) return 0;
+    frames=im->frames?im->frames:1;
+    if(frames>ANIM_FRAMES || frames>ANIM_PIXELS/(im->width*im->height)) return 0;
+    for(i=0;i<frames;++i) if(im->frames && (im->duration[i]<20 || im->duration[i]>2000)) return 0;
+    editor_finish(e); e->playing=0; e->elapsed=e->first_frame=0;
+    anim_copy(e->document,im,sizeof(P86Image));
+    e->document->frames=frames;
+    if(!im->frames) e->document->duration[0]=ANIM_DEFAULT_MS;
+    canvas_init(&e->canvas,im->width,im->height,e->pixels,sizeof(e->pixels));
+    memcpy(e->pixels,im->pixels,im->width*im->height);
+    e->foreground=im->foreground; e->background=im->background;
+    e->previous_buttons=0; e->history.active=0;
+    history_init(&e->history,&e->canvas);
+    view_fit(&e->view,&e->canvas,e->timeline,0);
+    editor_mark_saved(e); return 1;
 }
 
-int editor_is_dirty(const Editor *editor)
+static void follow(Editor *e)
 {
-    return editor->saved_width != editor->canvas.width ||
-           editor->saved_height != editor->canvas.height ||
-           editor->saved_foreground != editor->foreground ||
-           editor->saved_background != editor->background ||
-           memcmp(editor->saved_pixels, editor->canvas.pixels,
-                  editor->canvas.width * editor->canvas.height) != 0;
+    unsigned a;
+    a=e->history.active;
+    if(a<e->first_frame) e->first_frame=a;
+    if(a>=e->first_frame+TIMELINE_SLOTS) e->first_frame=a-TIMELINE_SLOTS+1;
+    if(e->first_frame>=e->document->frames) e->first_frame=e->document->frames-1;
 }
-
-void editor_image(const Editor *editor, P86Image *image)
+unsigned editor_select(Editor *e,unsigned frame)
 {
-    image->width = editor->canvas.width;
-    image->height = editor->canvas.height;
-    image->foreground = editor->foreground;
-    image->background = editor->background;
-    memcpy(image->pixels, editor->pixels, image->width * image->height);
+    if(frame>=e->document->frames) return 0;
+    editor_finish(e); e->playing=0; e->elapsed=0;
+    anim_copy(e->document->pixels+e->history.active*e->history.size,e->pixels,e->history.size);
+    e->history.active=frame;
+    anim_copy(e->pixels,e->document->pixels+frame*e->history.size,e->history.size);
+    follow(e); return EDIT_CANVAS|EDIT_STATUS|EDIT_TIMELINE;
 }
-
-int editor_load(Editor *editor, const P86Image *image)
+static unsigned editor_frame_command(Editor *e,int key)
 {
-    if (image == NULL || image->width != image->height ||
-        (image->width != 16 && image->width != 32 && image->width != 64))
-        return 0;
-    editor_finish(editor);
-    canvas_init(&editor->canvas, image->width, image->height,
-                editor->pixels, sizeof(editor->pixels));
-    memcpy(editor->pixels, image->pixels, image->width * image->height);
-    editor->foreground = image->foreground;
-    editor->background = image->background;
-    editor->previous_buttons = 0;
-    history_init(&editor->history, &editor->canvas);
-    view_set(&editor->view, &editor->canvas, view_max_zoom(&editor->canvas));
-    editor_mark_saved(editor);
-    return 1;
+    unsigned n,a,size,d;
+    editor_finish(e);
+    n=e->document->frames; a=e->history.active; size=e->history.size;
+    if(key==CMD_PLAY) {
+        e->playing=!e->playing; e->elapsed=0;
+        return EDIT_TIMELINE|EDIT_STATUS;
+    }
+    if(key==CMD_FRAME_PREV || key==CMD_FRAME_NEXT)
+        return editor_select(e,(a+n+(key==CMD_FRAME_PREV?-1:1))%n);
+    e->playing=0;
+    if(key==CMD_SCROLL_LEFT || key==CMD_SCROLL_RIGHT) {
+        if(key==CMD_SCROLL_LEFT && e->first_frame) --e->first_frame;
+        if(key==CMD_SCROLL_RIGHT && e->first_frame+TIMELINE_SLOTS<n) ++e->first_frame;
+        return EDIT_TIMELINE;
+    }
+    anim_copy(e->document->pixels+a*size,e->pixels,size);
+    if(key==CMD_FRAME_ADD || key==CMD_FRAME_DUP) {
+        if(n>=ANIM_FRAMES || n>=ANIM_PIXELS/size) return EDIT_STATUS;
+        anim_move(e->document->pixels+(a+2)*size,e->document->pixels+(a+1)*size,(n-a-1)*size);
+        for(d=n;d>a+1;--d) e->document->duration[d]=e->document->duration[d-1];
+        if(key==CMD_FRAME_DUP) anim_copy(e->document->pixels+(a+1)*size,e->pixels,size);
+        else anim_set(e->document->pixels+(a+1)*size,e->background,size);
+        e->document->duration[a+1]=key==CMD_FRAME_DUP?e->document->duration[a]:ANIM_DEFAULT_MS;
+        e->document->frames=n+1; e->history.active=a+1;
+    } else if(key==CMD_FRAME_DELETE) {
+        if(n==1) return EDIT_STATUS;
+        anim_move(e->document->pixels+a*size,e->document->pixels+(a+1)*size,(n-a-1)*size);
+        for(d=a;d+1<n;++d) e->document->duration[d]=e->document->duration[d+1];
+        e->document->frames=n-1; if(a==n-1) e->history.active=a-1;
+    } else if(key==CMD_FASTER || key==CMD_SLOWER) {
+        d=e->document->duration[a];
+        if(key==CMD_FASTER && d>20) d-=10;
+        if(key==CMD_SLOWER && d<2000) d+=10;
+        e->document->duration[a]=d;
+    }
+    anim_copy(e->pixels,e->document->pixels+e->history.active*size,size);
+    history_commit(&e->history,&e->canvas); follow(e);
+    return EDIT_CANVAS|EDIT_STATUS|EDIT_TIMELINE;
+}
+unsigned editor_tick(Editor *e,unsigned ms)
+{
+    unsigned long elapsed,total;
+    unsigned i,old;
+    if(!e->playing || !ms) return 0;
+    elapsed=(unsigned long)e->elapsed+ms; total=0;
+    for(i=0;i<e->document->frames;++i) total+=e->document->duration[i];
+    elapsed%=total; old=e->history.active;
+    while(elapsed>=e->document->duration[e->history.active]) {
+        elapsed-=e->document->duration[e->history.active];
+        e->history.active=(e->history.active+1)%e->document->frames;
+    }
+    e->elapsed=(unsigned)elapsed;
+    if(old==e->history.active) return 0;
+    anim_copy(e->document->pixels+old*e->history.size,e->pixels,e->history.size);
+    anim_copy(e->pixels,e->document->pixels+e->history.active*e->history.size,e->history.size);
+    follow(e); return EDIT_CANVAS|EDIT_STATUS|EDIT_TIMELINE;
 }

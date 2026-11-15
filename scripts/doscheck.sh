@@ -9,5 +9,5 @@ export INCLUDE="$WATCOM/h"
 export LIB="$WATCOM/lib286"
 mkdir -p "$ROOT/build" "$ROOT/mnt"
 cd "$ROOT/build"
-wcl -bt=dos -ms -0 -ze -wx -w4 "$ROOT/tests/doscheck.c" \
+wcl -bt=dos -ms -0 -ze -wx -we -w4 "$ROOT/tests/doscheck.c" \
     -fe="$ROOT/mnt/DOSCHECK.EXE"

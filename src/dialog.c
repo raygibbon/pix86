@@ -126,11 +126,16 @@ static void choices(const DialogLayout *l,int choice)
 {
     int i,x;
     char text[9];
-    for(i=0;i<3;++i) {
-        x=l->body.x+i*8*FONT_WIDTH;
-        protect(&l->body); memcpy(text,DIALOG_NEW_CHOICES+i*8,7); text[7]='\0';
-        video_text_bg(x,l->body.y,text,i==choice?UI_WHITE:UI_INK,i==choice?UI_SELECT:UI_PAPER);
+    for(i=0;i<6;++i) {
+        x=l->body.x+i%3*8*FONT_WIDTH;
+        protect(&l->body); memcpy(text,DIALOG_NEW_CHOICES+(i/3)*24+(i%3)*8,7); text[7]='\0';
+        video_text_bg(x,l->body.y+i/3*FONT_HEIGHT,text,i==choice?UI_WHITE:UI_INK,i==choice?UI_SELECT:UI_PAPER);
     }
+}
+static int new_size(int choice)
+{
+    static const int sizes[6]={16,32,64,16*256+24,16*256+32,32*256+24};
+    return sizes[choice];
 }
 int dialog_new_size(unsigned current)
 {
@@ -143,15 +148,15 @@ int dialog_new_size(unsigned current)
         key=event(&m); oldchoice=choice; oldfocus=focus;
         if(key==-2) {
             if(hit(&l.cancel,&m)) return finish(&l,0);
-            if(hit(&l.accept,&m)) return finish(&l,16<<choice);
-            if(hit(&l.body,&m) && m.x<l.body.x+24*FONT_WIDTH) { choice=(m.x-l.body.x)/(8*FONT_WIDTH); focus=0; }
+            if(hit(&l.accept,&m)) return finish(&l,new_size(choice));
+            if(hit(&l.body,&m) && m.x<l.body.x+24*FONT_WIDTH) { choice=(m.x-l.body.x)/(8*FONT_WIDTH)+(m.y-l.body.y)/FONT_HEIGHT*3; focus=0; }
         }
         if(key==27) return finish(&l,0);
-        if(key==13) return finish(&l,focus?0:16<<choice);
-        if(key>='1' && key<='3') return finish(&l,16<<(key-'1'));
+        if(key==13) return finish(&l,focus?0:new_size(choice));
+        if(key>='1' && key<='6') return finish(&l,new_size(key-'1'));
         if(key==9 || key==KEY_SHIFT_TAB) focus=!focus;
-        if(key==KEY_LEFT || key==KEY_UP) choice=(choice+2)%3;
-        if(key==KEY_RIGHT || key==KEY_DOWN) choice=(choice+1)%3;
+        if(key==KEY_LEFT || key==KEY_UP) choice=(choice+5)%6;
+        if(key==KEY_RIGHT || key==KEY_DOWN) choice=(choice+1)%6;
         if(choice!=oldchoice) choices(&l,choice);
         if(focus!=oldfocus) { ui_button(&l.accept,"Create",!focus); ui_button(&l.cancel,"Cancel",focus); }
     }
@@ -235,13 +240,13 @@ int dialog_palette(unsigned char *colour,int *background)
 }
 void dialog_font(void)
 {
-    char body[240];
+    char body[280];
     int code,n;
     n=0;
     for(code=32;code<=126;++code) {
         body[n++]=(char)code;
         if((code-31)%32==0) body[n++]='\n';
     }
-    strcpy(body+n,"\nABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz\n0O 1Il ! : ; . , ' ` \\ /\nPLAYER01.P86  mixed_Case-09\nTools File Edit View Options");
+    strcpy(body+n,"\nABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz\na e o p m rn  0O 1Il\n! : ; . , ' ` \\ /\nPLAYER01.P86  mixed_Case-09\nTools File Edit View Options");
     dialog_message("Original 6x8 font",body,NULL);
 }

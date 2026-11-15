@@ -7,6 +7,7 @@ typedef struct View {
     int x, y, zoom;
     unsigned width, height;
 } View;
+int view_fit(View *view,const Canvas *canvas,int timeline,int zoom);
 int view_max_zoom(const Canvas *canvas);
 int view_set(View *view, const Canvas *canvas, int zoom);
 int view_map(const View *view, int screen_x, int screen_y, int *x, int *y);

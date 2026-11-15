@@ -33,11 +33,27 @@ int keyboard_decode(unsigned word, unsigned shifts)
 
 int keyboard_command(int key)
 {
+    if(key>=CMD_SELECT_FRAME && key<CMD_SELECT_FRAME+16) return key;
     if(key>=0 && key<=255) key=tolower((unsigned char)key);
     if(key=='u') return CMD_UNDO;
     if(key=='r') return CMD_REDO;
     if(key=='=') return CMD_ZOOM_IN;
+    if(key==',') return CMD_FRAME_PREV;
+    if(key=='.') return CMD_FRAME_NEXT;
+    if(key==' ') return CMD_PLAY;
+    if(key==(256+82)) return CMD_FRAME_ADD;
+    if(key=='d') return CMD_FRAME_DUP;
+    if(key==KEY_DELETE) return CMD_FRAME_DELETE;
+    if(key=='(') return CMD_FASTER;
+    if(key==')') return CMD_SLOWER;
+    if(key==9) return CMD_TIMELINE;
+    if(key=='8') return CMD_GUIDE8;
+    if(key=='6') return CMD_GUIDE16;
     switch(key) {
+    case CMD_FRAME_ADD: case CMD_FRAME_DUP: case CMD_FRAME_DELETE:
+    case CMD_FRAME_PREV: case CMD_FRAME_NEXT: case CMD_PLAY:
+    case CMD_FASTER: case CMD_SLOWER: case CMD_SCROLL_LEFT: case CMD_SCROLL_RIGHT:
+    case CMD_TIMELINE: case CMD_GUIDE8: case CMD_GUIDE16:
     case CMD_NEW: case CMD_OPEN: case CMD_SAVE: case CMD_SAVE_AS:
     case CMD_EXIT: case CMD_UNDO: case CMD_REDO: case CMD_CLEAR:
     case CMD_GRID: case CMD_ZOOM_IN: case CMD_ZOOM_OUT:

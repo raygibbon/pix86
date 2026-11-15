@@ -98,3 +98,30 @@ candidate names per suffix; exhausting them fails safely. Read-only, inaccessibl
 or non-file targets fail without truncating them. Filesystem/media failures
 that prevent rollback are reported explicitly; no software can guarantee a
 rename will succeed on failing media.
+
+## Version 2: opaque frame animation
+
+Version 1 above remains unchanged and is decoded as exactly one opaque square
+image, with an application default duration of 100 ms. New application saves
+use version 2, including single-frame and rectangular documents. A low-level
+legacy writer remains available for generating independent version 1 fixtures.
+
+Version 2 uses the same 24-byte little-endian header, signature, FG/BG and zero
+flags. Offset 4 is 2. Offset 20 is a two-byte frame count; bytes 22–23 remain zero.
+Supported dimensions are the three version 1 squares and 16x24, 16x32, 32x24.
+Frame count is 1..16, with width * height * count <= 16384. Offset 16 is the
+32-bit payload length, exactly count * (2 + width * height).
+
+The payload contains sequential frame records, each a two-byte little-endian
+unsigned duration in milliseconds (20..2000), followed by width * height indexed
+pixel bytes, row-major. There are no offsets, padding, chunks or trailing bytes.
+Frame i starts at 24 + i * (2 + width * height). All multiplication is bounded
+before reading; reject an invalid count, duration, length, reserved field,
+unsupported dimension, truncation or trailing byte before applying the result.
+Maximum version 2 file length is 16440 bytes (16 frames of 32x32 pixels).
+
+All 256 indices, including zero, are opaque colours in both versions. Blank
+frames are filled with the current background index. No transparency key,
+alpha, per-frame palette, onion skin, layers or export data is defined. Playback
+loops in record order; the selected frame and playing/view state are not stored.
+The fixed DAC semantics and TMP/BAK recovery transaction above apply unchanged.

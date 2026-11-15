@@ -66,6 +66,30 @@ int main(void)
             assert(memcmp(reference,screen,sizeof(screen)));
         }
     }
+    /* The native-size counters in a/e/o/p retain an enclosed paper pixel.
+       Flood paper from cell edges; some paper must remain inside the ink. */
+    {
+        const char *letters="aeop";
+        int i,j,k,changed,enclosed;
+        unsigned char outside[48];
+        for(i=0;letters[i];++i) {
+            memset(screen,0,sizeof(screen)); text[0]=letters[i]; video_text(0,0,text,173);
+            memset(outside,0,sizeof(outside));
+            for(j=0;j<48;++j) if(!screen[(j/6)*320+j%6] &&
+                (j<6 || j>=42 || j%6==0 || j%6==5)) outside[j]=1;
+            do {
+                changed=0;
+                for(j=0;j<48;++j) if(!outside[j] && !screen[(j/6)*320+j%6]) {
+                    k=(j>=6 && outside[j-6]) || (j<42 && outside[j+6]) ||
+                      (j%6 && outside[j-1]) || (j%6<5 && outside[j+1]);
+                    if(k) { outside[j]=1; changed=1; }
+                }
+            } while(changed);
+            enclosed=0;
+            for(j=0;j<48;++j) if(!outside[j] && !screen[(j/6)*320+j%6]) ++enclosed;
+            assert(enclosed);
+        }
+    }
     memset(screen,0,sizeof(screen)); video_text(10,10,"Abg 09!\\",173);
     memcpy(reference,screen,sizeof(screen));
     clipping(-3,-2); clipping(300,196); clipping(-40,80); clipping(0,0);
