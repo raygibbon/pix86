@@ -7,6 +7,7 @@
 
 #define VBE_MODE_640_480_256 0x0101
 
+extern void __far *_fmemcpy(void __far *,const void __far *,size_t);
 extern void __far *_fmemset(void __far *,int,size_t);
 
 static unsigned short vbe_segment, vbe_granularity, vbe_window_size;
@@ -181,5 +182,22 @@ void videovbe_rect(int x, int y, int width, int height, unsigned char colour)
             _fmemset(address,(int)colour,(size_t)run);
             xx+=(int)run;
         }
+    }
+}
+
+void videovbe_span(int x,int y,const unsigned char *pixels,int count)
+{
+    unsigned long offset,remaining;
+    unsigned run;
+    unsigned char __far *address;
+    offset=(unsigned long)y*vbe_stride+(unsigned)x;
+    while(count>0) {
+        address=vbe_address(offset);
+        if(!address) return;
+        remaining=(unsigned long)vbe_window_size*1024UL-(offset-current_bank_start);
+        run=(unsigned)count;
+        if((unsigned long)run>remaining) run=(unsigned)remaining;
+        _fmemcpy(address,pixels,run);
+        pixels+=run; offset+=run; count-=(int)run;
     }
 }

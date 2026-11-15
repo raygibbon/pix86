@@ -2,10 +2,12 @@
 #define PIX86_VIDEOINT_H
 
 int videovga_start(void);
+void videovga_span(int x,int y,const unsigned char *pixels,int count);
 void videovga_pixel(int x, int y, unsigned char colour);
 unsigned char videovga_read(int x, int y);
 void videovga_rect(int x, int y, int width, int height, unsigned char colour);
 
+void videovbe_span(int x,int y,const unsigned char *pixels,int count);
 int videovbe_start(unsigned char restore_mode);
 void videovbe_stop(void);
 int videovbe_failed(void);

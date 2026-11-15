@@ -186,16 +186,19 @@ unsigned editor_mouse(Editor *editor, int x, int y, unsigned buttons)
 
 unsigned editor_key(Editor *editor, int key)
 {
-    int zoom, tool;
+    int zoom, tool,had_selection;
     unsigned selection_flags;
     key = keyboard_command(key);
     if(selection_key(editor,key,&selection_flags)) return selection_flags;
     if(key>=CMD_SELECT_FRAME && key<CMD_SELECT_FRAME+ANIM_FRAMES)
         return editor_select(editor,(unsigned)(key-CMD_SELECT_FRAME));
     if(key>=CMD_FRAME_ADD && key<=CMD_SCROLL_RIGHT) {
+        had_selection=editor->selection.state!=0;
         selection_reset(editor);
-        if(key==CMD_PLAY) return editor_frame_command(editor,key);
-        return editor_frame_command(editor,key)|EDIT_CANVAS;
+        selection_flags=editor_frame_command(editor,key);
+        if(had_selection) selection_flags=(selection_flags&~EDIT_FRAME_SWITCH)|EDIT_CANVAS;
+        if(key!=CMD_PLAY) selection_flags|=EDIT_CANVAS;
+        return selection_flags;
     }
     editor->playing=0;
 
@@ -334,14 +337,16 @@ static void follow(Editor *e)
 }
 unsigned editor_select(Editor *e,unsigned frame)
 {
+    unsigned flags;
     if(frame>=e->document->frames) return 0;
     if(selection_floating(e)) return EDIT_STATUS;
+    flags=e->selection.state?0:EDIT_FRAME_SWITCH;
     selection_reset(e);
     editor_finish(e); e->playing=0; e->elapsed=0;
     editor_store(e);
     e->history.active=frame;
     editor_restore(e);
-    follow(e); return EDIT_CANVAS|EDIT_STATUS|EDIT_TIMELINE|EDIT_FRAME_SWITCH;
+    follow(e); return EDIT_CANVAS|EDIT_STATUS|EDIT_TIMELINE|flags;
 }
 static unsigned editor_frame_command(Editor *e,int key)
 {

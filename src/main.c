@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <dos.h>
-#include <time.h>
 #include "editor.h"
 #include "render.h"
 #include "video.h"
@@ -15,6 +14,7 @@
 #include "ui.h"
 #include "workpal.h"
 #include "profile.h"
+#include "timer.h"
 
 /* No large automatic objects or full-screen buffers in the small model. */
 static Editor editor;
@@ -126,7 +126,7 @@ int main(int argc, char **argv)
     UiState ui;
     unsigned char colour;
     int background, was_playing, hires, video_error;
-    clock_t last_tick,now;
+    unsigned long last_tick,now;
     unsigned long ticks,loop_ms,frame_elapsed;
     unsigned delay_ms,duration;
     side = height = 32;
@@ -169,7 +169,7 @@ int main(int argc, char **argv)
     screen_init(&screen,&editor,&mouse,has_mouse);
     if(has_mouse) cursor_show(mouse.x,mouse.y);
     previous = mouse;
-    last_tick=clock();
+    last_tick=timer_now();
     for (;;) {
         PROFILE_START(input_start);
         key = keyboard_poll();
@@ -179,8 +179,9 @@ int main(int argc, char **argv)
         consumed = ui_input(&ui,&editor,key,&mouse,&command);
         if(!consumed && !ui.menu.active && !(previous.buttons&1))
             consumed=ui_timeline(&ui,editor.timeline,editor.first_frame,editor.document->frames,&mouse,&command);
-        now=clock(); ticks=(unsigned long)(now-last_tick); last_tick=now;
-        flags=ui.menu.active?0:editor_tick(&editor,(unsigned)(ticks>60UL*CLOCKS_PER_SEC?60000UL:ticks*1000UL/CLOCKS_PER_SEC));
+        now=timer_now(); ticks=TIMER_MS(now-last_tick);
+        last_tick+=ticks*1193UL;
+        flags=ui.menu.active?0:editor_tick(&editor,(unsigned)(ticks>60000UL?60000UL:ticks));
         modal = 0;
         if (consumed) { editor_finish(&editor); if(command!=CMD_PLAY) editor.playing=0; }
         /* Restore an exposed menu only when a dialog will cover it. */
@@ -244,18 +245,18 @@ int main(int argc, char **argv)
         screen_present(&screen,&editor,&ui,flags,&mouse,has_mouse);
         PROFILE_STOP(input,input_start);
         if(video_failed()) { video_error=1; break; }
-        if(editor.playing && ((flags&EDIT_PLAYBACK) || (!was_playing && editor.playing)))
-            last_tick=clock();
+        if(!was_playing && editor.playing)
+            last_tick=timer_now();
         previous = mouse;
         if(editor.playing) {
-            now=clock(); ticks=(unsigned long)(now-last_tick);
-            loop_ms=ticks*1000UL/CLOCKS_PER_SEC;
+            now=timer_now(); ticks=(unsigned long)(now-last_tick);
+            loop_ms=TIMER_MS(ticks);
             duration=editor.document->duration[editor.history.active];
             frame_elapsed=(unsigned long)editor.elapsed+loop_ms;
             if(frame_elapsed<duration) {
                 delay_ms=duration-(unsigned)frame_elapsed;
                 if(delay_ms>10) delay_ms=10;
-                if(delay_ms) delay(delay_ms);
+                if(delay_ms && !timer_precise()) delay(delay_ms);
             }
         } else delay(10);
     }

@@ -2,13 +2,15 @@
 
 #ifdef PIX86_PROFILE
 #include <stdio.h>
-#include <time.h>
+#include "timer.h"
 
 ProfileStats pix86_profile;
+unsigned pix86_render_strategy;
 
 unsigned long profile_now(void)
 {
-    return (unsigned long)clock();
+    timer_precise();
+    return timer_now();
 }
 
 void profile_record(unsigned long *total,unsigned long *samples,
@@ -31,6 +33,10 @@ void profile_report(void)
            pix86_profile.canvas_cells,pix86_profile.canvas_compares,
            pix86_profile.timeline_full,
            pix86_profile.timeline_partial);
+    printf("PROFILE playback cells=%lu spans=%lu full-art=%lu\n",
+           pix86_profile.playback_cell_draws,
+           pix86_profile.playback_span_draws,
+           pix86_profile.playback_full_draws);
     printf("PROFILE UI full=%lu controls=%lu groups=%lu flyouts=%lu menus=%lu overlays=%lu\n",
            pix86_profile.ui_full,pix86_profile.ui_controls,
            pix86_profile.ui_groups,pix86_profile.ui_flyouts,
@@ -42,7 +48,7 @@ void profile_report(void)
            pix86_profile.screen_ticks,pix86_profile.screen_samples,
            pix86_profile.screen_max_ticks,pix86_profile.input_ticks,
            pix86_profile.input_samples,pix86_profile.input_max_ticks);
-    printf("PROFILE clock=%lu ticks/sec; DOS clock resolution is about 55ms\n",
-           (unsigned long)CLOCKS_PER_SEC);
+    printf("PROFILE timer=%lu units/sec precise=%d (read-only PIT on AT+)\n",
+           TIMER_HZ,timer_precise());
 }
 #endif

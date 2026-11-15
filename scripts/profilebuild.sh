@@ -16,7 +16,7 @@ wcl -bt=dos -ms -0 -za -wx -we -w4 -os -k4096 -DPIX86_PROFILE \
     "$ROOT/src/view.c" "$ROOT/src/layout.c" "$ROOT/src/flyout.c" \
     "$ROOT/src/select.c" "$ROOT/src/workpal.c" "$ROOT/src/editor.c" \
     "$ROOT/src/anim.c" "$ROOT/src/render.c" "$ROOT/src/region.c" \
-    "$ROOT/src/screen.c" "$ROOT/src/menu.c" "$ROOT/src/menudraw.c" \
+    "$ROOT/src/screen.c" "$ROOT/src/timer.c" "$ROOT/src/menu.c" "$ROOT/src/menudraw.c" \
     "$ROOT/src/uipaint.c" "$ROOT/src/keymap.c" \
     -fe="$ROOT/mnt/PERFDOS.EXE"
 echo "Built $ROOT/mnt/PERFDOS.EXE (instrumented 16-bit DOS profile harness)."

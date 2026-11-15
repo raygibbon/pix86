@@ -122,6 +122,23 @@ void video_clip(int x, int y, int width, int height)
         clip_right = clip_bottom = 0;
 }
 
+void video_span(int x,int y,const unsigned char *pixels,int count)
+{
+    int skip;
+    if(y<clip_y || y>=clip_bottom || count<=0 || x>=clip_right) return;
+    if(x<clip_x) {
+        if((long)x+count<=clip_x) return;
+        skip=clip_x-x;
+        if(skip>=count) return;
+        pixels+=skip; count-=skip; x=clip_x;
+    }
+    if(count>clip_right-x) count=clip_right-x;
+    PROFILE_ADD(framebuffer_pixel_writes,count);
+    PROFILE_COUNT(scanlines);
+    if(hires) videovbe_span(x,y,pixels,count);
+    else videovga_span(x,y,pixels,count);
+}
+
 void video_pixel(int x, int y, unsigned char colour)
 {
     if (x < clip_x || x >= clip_right || y < clip_y || y >= clip_bottom)

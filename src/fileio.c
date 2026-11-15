@@ -8,11 +8,10 @@
 #include <fcntl.h>
 #ifdef __WATCOMC__
 #include <io.h>
+#include <dos.h>
 #define host_open _open
 #define host_close _close
 #define host_fdopen _fdopen
-#define host_stat _stat
-#define StatInfo struct _stat
 #define CREATE_FLAGS (_O_CREAT | _O_EXCL | _O_WRONLY | _O_BINARY)
 #define CREATE_MODE (_S_IREAD | _S_IWRITE)
 #define PATH_SEP '\\'
@@ -212,17 +211,23 @@ int file_load(const char *path, P86Image *image)
 /* -1 means inaccessible, not evidence that it is safe to replace a file. */
 int file_exists(const char *path)
 {
-    StatInfo info;
-    if (host_stat(path, &info) == 0) {
 #ifdef __WATCOMC__
-        if ((info.st_mode & _S_IFMT) == _S_IFREG) return 1;
-#else
-        if (S_ISREG(info.st_mode)) return 1;
-#endif
+    unsigned attr;
+    if (_dos_getfileattr(path, &attr) == 0) {
+        if (!(attr & (_A_SUBDIR | _A_VOLID))) return 1;
         errno = EACCES;
         return -1;
     }
     return errno == ENOENT ? 0 : -1;
+#else
+    StatInfo info;
+    if (host_stat(path, &info) == 0) {
+        if (S_ISREG(info.st_mode)) return 1;
+        errno = EACCES;
+        return -1;
+    }
+    return errno == ENOENT ? 0 : -1;
+#endif
 }
 
 static FILE *create_new(const char *path)

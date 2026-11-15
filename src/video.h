@@ -17,6 +17,8 @@ void video_shutdown(void);
 void video_clear(unsigned char colour);
 void video_pixel(int x, int y, unsigned char colour);
 unsigned char video_read(int x, int y);
+/* Copy a bounded indexed scanline, clipped like video_rect. */
+void video_span(int x,int y,const unsigned char *pixels,int count);
 void video_rect(int x, int y, int width, int height, unsigned char colour);
 /* Original 6x8 font in font.c; transparent ink, clipped on all edges. */
 void video_text(int x, int y, const char *text, unsigned char colour);

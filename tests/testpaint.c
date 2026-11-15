@@ -56,6 +56,7 @@ void video_request(int hires) { (void)hires; }
 int video_width(void) { return 320; }
 int video_height(void) { return 200; }
 int video_failed(void) { return 0; }
+int video_hires(void) { return 0; }
 int video_init(void) { assert(!mode); mode=1; ++initializations; return 1; }
 void video_shutdown(void) { assert(mode && current==count-1); mode=0; ++shutdowns; }
 void delay(unsigned ms) { (void)ms; }
@@ -372,7 +373,7 @@ static void playback_render(void)
     assert(flags&EDIT_PLAYBACK);
     screen_present(&s,&editor,&ui,flags,&mouse,0);
     assert(editor.history.active==1 && editor.pixels[0]==201);
-    assert(writes-before>50000);
+    assert(writes-before<5000);
     before=writes; flags=editor_tick(&editor,editor.document->duration[1]);
     assert(flags&EDIT_PLAYBACK);
     screen_present(&s,&editor,&ui,flags,&mouse,0);
@@ -382,6 +383,85 @@ static void playback_render(void)
     assert(strstr(s.status,"D   0"));
     assert(!(editor_key(&editor,CMD_PLAY)&EDIT_CANVAS));
     screen_present(&s,&editor,&ui,EDIT_TIMELINE,&mouse,0);
+}
+static void selection_frame_restore(void)
+{
+    Screen s; Menu m; MouseState mouse;
+    unsigned route,flags,size;
+    for(route=0;route<3;++route) {
+        start(); editor_dispose(&editor); assert(editor_init(&editor,16,queue));
+        size=editor.history.size; editor_store(&editor); editor.document->frames=2;
+        memcpy(editor.document->pixels+size,editor.pixels,size);
+        editor.document->duration[1]=100;
+        menu_init(&m); mouse.x=mouse.y=mouse.buttons=0;
+        screen_init(&s,&editor,&mouse,0);
+        flags=editor_key(&editor,CMD_SELECT_ALL);
+        screen_update(&s,&editor,&m,flags,&mouse,0);
+        assert(editor.selection.state);
+        flags=route==0?editor_select(&editor,1):
+              editor_key(&editor,route==1?CMD_FRAME_NEXT:CMD_PLAY);
+        assert(!editor.selection.state && (flags&EDIT_CANVAS));
+        assert(!(flags&EDIT_FRAME_SWITCH));
+        screen_update(&s,&editor,&m,flags,&mouse,0);
+        memcpy(rendered_reference,pixels,sizeof(pixels)); render_canvas(&editor);
+        assert(!memcmp(rendered_reference,pixels,sizeof(pixels)));
+    }
+}
+static void adaptive_cursor(void)
+{
+    Screen s; Menu m; MouseState mouse;
+    unsigned size,flags,i;
+    start(); editor_dispose(&editor); assert(editor_init(&editor,16,queue));
+    size=editor.history.size;
+    editor_store(&editor); editor.document->frames=2;
+    memcpy(editor.document->pixels+size,editor.pixels,size);
+    memcpy(editor.document->mask+size/8,editor.mask,size/8);
+    editor.document->pixels[size]=141;
+    menu_init(&m); mouse.buttons=0;
+    mouse.x=editor.view.x+1; mouse.y=editor.view.y+1;
+    screen_init(&s,&editor,&mouse,1);
+    cursor_show(mouse.x,mouse.y);
+    flags=editor_select(&editor,1);
+    screen_update(&s,&editor,&m,flags,&mouse,1);
+    cursor_hide(); memcpy(rendered_reference,pixels,sizeof(pixels));
+    render_canvas(&editor);
+    assert(!memcmp(rendered_reference,pixels,sizeof(pixels)));
+    /* The scanline path may repaint unchanged cells in a dense row. Its
+       protection must include a cursor sitting in that unchanged tail. */
+    for(i=0;i<size;++i) {
+        editor.document->pixels[i]=(unsigned char)i;
+        editor.document->pixels[size+i]=(unsigned char)(i%16<12?i^0x55:i);
+    }
+    editor.history.active=0; editor_restore(&editor);
+    screen_update(&s,&editor,&m,EDIT_CANVAS,&mouse,0);
+    mouse.x=editor.view.x+14*editor.view.zoom;
+    mouse.y=editor.view.y+1;
+    cursor_show(mouse.x,mouse.y);
+    flags=editor_select(&editor,1);
+    screen_update(&s,&editor,&m,flags,&mouse,1);
+    cursor_hide(); memcpy(rendered_reference,pixels,sizeof(pixels));
+    render_canvas(&editor);
+    assert(!memcmp(rendered_reference,pixels,sizeof(pixels)));
+    memset(editor.document->pixels,0,size*2);
+    editor.document->pixels[size]=141;
+    editor_restore(&editor);
+    screen_update(&s,&editor,&m,EDIT_CANVAS,&mouse,0);
+    /* A sparse top-row change must leave a bottom-right cursor alone. */
+    mouse.x=editor.view.x+14*editor.view.zoom;
+    mouse.y=editor.view.y+14*editor.view.zoom;
+    cursor_show(mouse.x,mouse.y); reads=0;
+    flags=editor_select(&editor,0);
+    screen_update(&s,&editor,&m,flags,&mouse,1); assert(!reads);
+    cursor_hide(); memcpy(rendered_reference,pixels,sizeof(pixels));
+    render_canvas(&editor);
+    assert(!memcmp(rendered_reference,pixels,sizeof(pixels)));
+    cursor_show(mouse.x,mouse.y); reads=0;
+    for(i=0;i<4;++i) { editor.fill_queue[i]=(unsigned short)i; editor.pixels[i]=200; }
+    editor.dirty_count=4;
+    screen_update(&s,&editor,&m,EDIT_CELLS,&mouse,1); assert(!reads);
+    cursor_hide(); memcpy(rendered_reference,pixels,sizeof(pixels));
+    render_canvas(&editor);
+    assert(!memcmp(rendered_reference,pixels,sizeof(pixels)));
 }
 static void performance_results(void)
 {
@@ -540,8 +620,14 @@ static void application(void)
 }
 int main(void)
 {
-    geometry(); menus(); dialogs(); palette_overlay(); routing_status(); timeline(); export_overlay(); background_preview(); playback_render(); performance_results(); application();
+    geometry(); menus(); dialogs(); palette_overlay(); routing_status(); timeline(); export_overlay(); background_preview(); playback_render(); selection_frame_restore(); adaptive_cursor(); performance_results(); application();
     puts("PASS: dirty rectangles, idle stability, exact overlay/cursor restoration, one startup clear and deliberate exits/file workflow.");
     editor_dispose(&editor);
     return 0;
+}
+
+void video_span(int x,int y,const unsigned char *pixels,int count)
+{
+    int i;
+    for(i=0;i<count;++i) video_pixel(x+i,y,pixels[i]);
 }

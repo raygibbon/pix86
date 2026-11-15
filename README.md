@@ -313,3 +313,7 @@ underneath. Left/Right and Enter also choose flyout tools. Existing tool, frame,
 selection and file shortcuts remain available. Frame arrows advance the selected
 frame and reveal nearby numbers: up to five in Classic and sixteen in Enhanced.
 Tab independently opens the optional thumbnail timeline.
+
+Dense animation changes use adaptive cell, span and artwork-scanline rendering
+without a screen buffer. Playback diagnostics show render milliseconds, missed
+nominal deadlines and actual/target FPS. See [measured results and timing limits](docs/PERFORMANCE.md).

@@ -7,20 +7,24 @@
 #include "video.h"
 #include "theme.h"
 #include "workpal.h"
+#include "profile.h"
 
 static Editor editor;
 static unsigned short queue[4096];
 static unsigned char screen[640*480];
-static unsigned char expected[320*200];
+static unsigned char expected[640*480];
 static unsigned long writes;
+static unsigned long rectangles;
 static int clip_x,clip_y,clip_r=320,clip_b=200;
 void video_clip(int x,int y,int w,int h) { clip_x=x;clip_y=y;clip_r=x+w;clip_b=y+h; }
 void video_unclip(void) { clip_x=clip_y=0;clip_r=UI_WIDTH;clip_b=UI_HEIGHT; }
+int video_hires(void) { return UI_WIDTH==640; }
 void cursor_protect(int x,int y,int w,int h) { (void)x;(void)y;(void)w;(void)h; }
 
 void video_rect(int x, int y, int w, int h, unsigned char colour)
 {
     int xx, yy;
+    ++rectangles;
     for (yy = y; yy < y + h; ++yy)
         for (xx = x; xx < x + w; ++xx)
             if (xx >= clip_x && yy >= clip_y && xx < clip_r && yy < clip_b)
@@ -280,9 +284,119 @@ static void playback_heavy(unsigned width,unsigned height,int zoom)
     assert(!memcmp(expected,screen,sizeof(expected)));
     editor_dispose(&editor);
 }
+
+static void playback_strategy(unsigned width,unsigned height,int strategy)
+{
+    unsigned size,i;
+    unsigned long playback_rectangles;
+    editor_dispose(&editor); assert(editor_init(&editor,width,queue));
+    if(width!=height) assert(editor_new_shape(&editor,width,height));
+    size=editor.history.size;
+    memset(editor.pixels,7,size);
+    editor_store(&editor);
+    editor.document->frames=2;
+    memcpy(editor.document->pixels+size,editor.pixels,size);
+    if(strategy==0) {
+        editor.document->pixels[size+5]=9;
+        editor.document->pixels[size+37]=10;
+    } else if(strategy==1) {
+        for(i=0;i<6;++i) editor.document->pixels[size+i]=9;
+    } else {
+        for(i=0;i<size;++i) editor.document->pixels[size+i]=9;
+    }
+    editor.history.active=0; editor_restore(&editor);
+    assert(view_fit(&editor.view,&editor.canvas,0,0));
+    render_canvas(&editor);
+    editor.history.active=1; editor_restore(&editor);
+    rectangles=0;
+    render_playback_canvas(&editor,0);
+    playback_rectangles=rectangles;
+    memcpy(expected,screen,sizeof(expected));
+    render_canvas(&editor);
+    assert(!memcmp(expected,screen,sizeof(expected)));
+    if(strategy==0) assert(playback_rectangles==2);
+    else if(strategy==1) assert(playback_rectangles==1);
+    else assert(playback_rectangles==height);
+
+    editor.history.active=0;
+    editor.document->transparent=1;
+    editor.document->mask[0]=0;
+    editor_restore(&editor);
+    editor.checker=1;
+    render_canvas(&editor);
+    editor.history.active=1;
+    editor.document->mask[size/8]=1;
+    editor_restore(&editor);
+    rectangles=0;
+    render_playback_canvas(&editor,0);
+    memcpy(expected,screen,sizeof(expected));
+    render_canvas(&editor);
+    assert(!memcmp(expected,screen,sizeof(expected)));
+    assert(rectangles>0);
+
+    editor.history.active=0;
+    editor.document->mask[0]=1;
+    editor_restore(&editor);
+    render_canvas(&editor);
+    editor.history.active=1;
+    editor.document->mask[size/8]=0;
+    editor_restore(&editor);
+    rectangles=0;
+    render_playback_canvas(&editor,0);
+    memcpy(expected,screen,sizeof(expected));
+    render_canvas(&editor);
+    assert(!memcmp(expected,screen,sizeof(expected)));
+    assert(rectangles>0);
+    editor.document->transparent=0;
+    editor_dispose(&editor);
+}
+
+static void playback_density(unsigned width,unsigned height,unsigned percent,
+                             int pattern,int zoom)
+{
+    unsigned size,i,changed;
+    int selected;
+    editor_dispose(&editor); assert(editor_init(&editor,width,queue));
+    if(width!=height) assert(editor_new_shape(&editor,width,height));
+    size=editor.history.size;
+    for(i=0;i<size;++i)
+        editor.pixels[i]=pattern==2?
+            (unsigned char)(((i/width/4)&1)?32:200):
+            (unsigned char)((i*13UL+(i/width)*23UL)&255U);
+    if(pattern==4) memset(editor.mask,255,size/8);
+    if(pattern==6) memset(editor.mask,0x55,size/8);
+    editor_store(&editor);
+    editor.document->frames=2;
+    memcpy(editor.document->pixels+size,editor.pixels,size);
+    if(pattern==3) memset(editor.document->mask+size/8,255,size/8);
+    if(pattern==6) memset(editor.document->mask+size/8,0xaa,size/8);
+    if(pattern==5) { editor.grid=1; editor.guide=8; }
+    changed=(unsigned)((unsigned long)size*percent/100UL);
+    for(i=0;i<size;++i) {
+        if(pattern==2) {
+            editor.document->pixels[size+i]=
+                (unsigned char)(((i/width/4)&1)?200:32);
+        } else {
+            selected=pattern?((i*37UL)%size<changed):(i<changed);
+            if(selected)
+                editor.document->pixels[size+i]=
+                    (unsigned char)(editor.pixels[i]^0x55U);
+        }
+    }
+    editor.history.active=0; editor_restore(&editor);
+    assert(view_fit(&editor.view,&editor.canvas,0,zoom));
+    render_canvas(&editor);
+    editor.history.active=1; editor_restore(&editor);
+    render_playback_canvas(&editor,0);
+    memcpy(expected,screen,sizeof(expected));
+    render_canvas(&editor);
+    assert(!memcmp(expected,screen,sizeof(expected)));
+    editor_dispose(&editor);
+}
 int main(void)
 {
-    unsigned shapes[4][2],i;
+    static const unsigned percentages[5]={0,25,50,75,100};
+    unsigned shapes[4][2],i,j,strategy,mode;
     int zoom;
     test_render(16);
     test_render(32);
@@ -300,8 +414,44 @@ int main(void)
         playback_heavy(shapes[i][0],shapes[i][1],zoom);
         playback_heavy(shapes[i][0],shapes[i][1],1);
     }
+    playback_strategy(16,16,0);
+    playback_strategy(16,16,1);
+    playback_strategy(16,16,2);
+    for(i=0;i<4;++i) playback_strategy(shapes[i][0],shapes[i][1],2);
+    for(i=0;i<4;++i)
+        for(j=0;j<5;++j) {
+            playback_density(shapes[i][0],shapes[i][1],percentages[j],0,0);
+            playback_density(shapes[i][0],shapes[i][1],percentages[j],1,0);
+        }
+    for(i=0;i<4;++i)
+        playback_density(shapes[i][0],shapes[i][1],100,2,0);
+    for(j=0;j<5;++j)
+        playback_density(64,64,percentages[j],0,1);
     playback_timeline();
+    for(mode=0;mode<2;++mode) {
+        layout_set(mode?640:320,mode?480:200); video_unclip();
+        for(strategy=0;strategy<4;++strategy) {
+            pix86_render_strategy=strategy;
+            for(i=0;i<4;++i) for(j=0;j<5;++j) {
+                playback_density(shapes[i][0],shapes[i][1],percentages[j],0,0);
+                playback_density(shapes[i][0],shapes[i][1],percentages[j],1,0);
+                playback_density(shapes[i][0],shapes[i][1],percentages[j],0,1);
+            }
+            for(i=0;i<4;++i) {
+                playback_density(shapes[i][0],shapes[i][1],100,3,0);
+                playback_density(shapes[i][0],shapes[i][1],100,4,0);
+                playback_density(shapes[i][0],shapes[i][1],100,5,0);
+                playback_density(shapes[i][0],shapes[i][1],100,6,0);
+            }
+        }
+    }
     puts("PASS: canvas rendering at every zoom, grids and all palette indices.");
     editor_dispose(&editor);
     return 0;
+}
+
+void video_span(int x,int y,const unsigned char *pixels,int count)
+{
+    int i;
+    for(i=0;i<count;++i) video_pixel(x+i,y,pixels[i]);
 }

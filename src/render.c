@@ -21,6 +21,8 @@ static const unsigned short large_icons[7][16]={
  {256,896,1856,3376,6424,12556,24838,65535,24838,12556,6424,3376,1856,896,256,0},
  {65535,32769,32769,40957,40965,40965,40965,40965,40965,40965,40965,40957,32769,32769,32769,65535}};
 static int restoring;
+/* One display scanline, never an artwork or screen framebuffer. */
+static unsigned char artwork_row[VIDEO_MAX_WIDTH];
 static void protect(int x,int y,int w,int h)
 { if(!restoring) cursor_protect(x,y,w,h); }
 static void icon(int tool,int x,int y,int width,int height,int selected,int hover)
@@ -118,13 +120,13 @@ static unsigned char preview_colour(const Editor *e,int x,int y)
     }
     return colour;
 }
-static void preview_cell(const Editor *e,int sx,int sy,int zoom)
+static void preview_area(const Editor *e,int sx,int sy,int width,int height)
 {
     int x,y,w,h;
-    for(y=sy;y<sy+zoom;y+=h) {
-        h=8-y%8; if(h>sy+zoom-y) h=sy+zoom-y;
-        for(x=sx;x<sx+zoom;x+=w) {
-            w=8-x%8; if(w>sx+zoom-x) w=sx+zoom-x;
+    for(y=sy;y<sy+height;y+=h) {
+        h=8-y%8; if(h>sy+height-y) h=sy+height-y;
+        for(x=sx;x<sx+width;x+=w) {
+            w=8-x%8; if(w>sx+width-x) w=sx+width-x;
             video_rect(x,y,w,h,preview_colour(e,x,y));
         }
     }
@@ -138,7 +140,7 @@ static void canvas_cell(const Editor *editor,int x,int y)
     zoom=editor->view.zoom;
     sx=editor->view.x+x*zoom; sy=editor->view.y+y*zoom;
     selection_sample(editor,x,y,&colour,&transparent);
-    if(transparent) { preview_cell(editor,sx,sy,zoom); colour=preview_colour(editor,sx,sy); }
+    if(transparent) { preview_area(editor,sx,sy,zoom,zoom); colour=preview_colour(editor,sx,sy); }
     else video_rect(sx,sy,zoom,zoom,colour);
     grid=grid_colour(colour,0);
     if(editor->grid && zoom>=3) {
@@ -219,29 +221,106 @@ static void render_canvas_region(const Editor *editor,const Rect *r)
         for(x=x0;x<=x1;++x) canvas_cell(editor,x,y);
 }
 
-void render_playback_canvas(const Editor *editor,unsigned previous_frame)
+void render_playback_canvas(const Editor *e,unsigned previous_frame)
 {
-    unsigned x,y,offset,previous_offset,previous_mask_offset,mask_offset;
-    unsigned char bit,current_transparent,previous_transparent;
-    int sx,sy,zoom;
-    if(previous_frame>=editor->document->frames) return;
+    unsigned x,y,index,prior,prior_mask,changed,end,runs,dense;
+    unsigned char cells[64],bit,colour;
+    int fast,zoom,transparent,first,last,opaque,yy;
+    if(previous_frame>=e->document->frames) return;
     PROFILE_COUNT(canvas_partial);
-    PROFILE_ADD(canvas_compares,(unsigned long)editor->canvas.width*editor->canvas.height);
-    zoom=editor->view.zoom;
-    previous_offset=previous_frame*editor->history.size;
-    previous_mask_offset=previous_frame*editor->history.size/8;
-    for(y=0;y<editor->canvas.height;++y) for(x=0;x<editor->canvas.width;++x) {
-        offset=y*editor->canvas.width+x;
-        mask_offset=previous_mask_offset+offset/8;
-        bit=(unsigned char)(1U<<(offset%8));
-        current_transparent=(unsigned char)((editor->mask[offset/8]&bit)!=0);
-        previous_transparent=(unsigned char)((editor->document->mask[mask_offset]&bit)!=0);
-        if(current_transparent!=previous_transparent ||
-           (!current_transparent &&
-            editor->pixels[offset]!=editor->document->pixels[previous_offset+offset])) {
-            sx=editor->view.x+(int)x*zoom; sy=editor->view.y+(int)y*zoom;
-            cursor_protect(sx,sy,zoom,zoom);
-            canvas_cell(editor,(int)x,(int)y);
+    PROFILE_ADD(canvas_compares,e->history.size);
+    prior=previous_frame*e->history.size;
+    prior_mask=prior/8;
+    if(!anim_compare(e->mask,e->document->mask+prior_mask,e->history.size/8) &&
+       !anim_compare(e->pixels,e->document->pixels+prior,e->history.size)) {
+#ifdef PIX86_PROFILE
+        if(pix86_render_strategy!=3)
+#endif
+        return;
+    }
+    zoom=e->view.zoom;
+    dense=e->canvas.width/((video_hires() && zoom<=8)?8:4);
+    fast=!e->grid && !e->guide && !e->selection.state;
+    index=0;
+    for(y=0;y<e->canvas.height;++y) {
+        changed=0; runs=0; opaque=1; index=y*e->canvas.width;
+        for(x=0;x<e->canvas.width;++x,++index) {
+            bit=(unsigned char)(1U<<(index%8));
+            cells[x]=(unsigned char)(
+                ((e->mask[index/8]^e->document->mask[prior_mask+index/8])&bit) ||
+                (!(e->mask[index/8]&bit) &&
+                 e->pixels[index]!=e->document->pixels[prior+index]));
+            changed+=cells[x];
+        }
+#ifdef PIX86_PROFILE
+        if(pix86_render_strategy==3) {
+            memset(cells,1,e->canvas.width); changed=e->canvas.width;
+        }
+#endif
+        if(!changed) continue;
+        first=0; last=(int)e->canvas.width-1;
+        while(!cells[first]) ++first;
+        while(!cells[last]) --last;
+        PROFILE_ADD(canvas_cells,changed);
+        if(fast && changed>=dense
+#ifdef PIX86_PROFILE
+           && pix86_render_strategy!=1 && pix86_render_strategy!=2
+#endif
+           ) {
+            index=y*e->canvas.width;
+            for(x=0;x<e->canvas.width;++x,++index) {
+                if(!x || e->pixels[index]!=e->pixels[index-1]) ++runs;
+                if(e->mask[index/8]&(1U<<(index%8))) opaque=0;
+            }
+        }
+        if(fast && opaque && changed>=dense &&
+           runs>e->canvas.width/4 && (int)e->canvas.width*zoom<=VIDEO_MAX_WIDTH
+#ifdef PIX86_PROFILE
+           && pix86_render_strategy!=1 && pix86_render_strategy!=2
+#endif
+           ) {
+            PROFILE_COUNT(playback_full_draws);
+            cursor_protect(e->view.x,e->view.y+(int)y*zoom,
+                           (int)e->canvas.width*zoom,zoom);
+            for(x=0;x<e->canvas.width;++x)
+                memset(artwork_row+x*zoom,e->pixels[y*e->canvas.width+x],(size_t)zoom);
+            for(yy=0;yy<zoom;++yy)
+                video_span(e->view.x,e->view.y+(int)y*zoom+yy,
+                           artwork_row,(int)e->canvas.width*zoom);
+            continue;
+        }
+        cursor_protect(e->view.x+first*zoom,e->view.y+(int)y*zoom,
+                       (last-first+1)*zoom,zoom);
+        if(fast &&
+#ifdef PIX86_PROFILE
+           pix86_render_strategy!=1 && (pix86_render_strategy>=2 ||
+#endif
+           changed>=(e->canvas.width>>(video_hires()?1:2))
+#ifdef PIX86_PROFILE
+           )
+#endif
+           ) {
+            if(changed==e->canvas.width) PROFILE_COUNT(playback_full_draws);
+            else PROFILE_COUNT(playback_span_draws);
+            for(x=0;x<e->canvas.width;x=end) {
+                end=x+1;
+                if(!cells[x]) continue;
+                index=y*e->canvas.width+x;
+                colour=e->pixels[index];
+                transparent=(e->mask[index/8]>>(index%8))&1;
+                while(end<e->canvas.width && cells[end] &&
+                      (((e->mask[(y*e->canvas.width+end)/8]>>
+                         ((y*e->canvas.width+end)%8))&1)==transparent) &&
+                      (transparent || e->pixels[y*e->canvas.width+end]==colour)) ++end;
+                if(transparent) preview_area(e,e->view.x+(int)x*zoom,
+                    e->view.y+(int)y*zoom,(int)(end-x)*zoom,zoom);
+                else video_rect(e->view.x+(int)x*zoom,e->view.y+(int)y*zoom,
+                                (int)(end-x)*zoom,zoom,colour);
+            }
+        } else {
+            PROFILE_COUNT(playback_cell_draws);
+            for(x=0;x<e->canvas.width;++x)
+                if(cells[x]) canvas_cell(e,(int)x,(int)y);
         }
     }
 }
@@ -256,15 +335,31 @@ void render_stroke(const Editor *editor)
         for(x=editor->dirty_x0;x<=editor->dirty_x1;++x) canvas_cell(editor,x,y);
 }
 
-void render_cells(const Editor *editor)
+void render_cells(const Editor *e)
 {
     unsigned i,index;
+    int x,y,x0,y0,x1,y1;
     PROFILE_COUNT(canvas_partial);
-    PROFILE_ADD(canvas_cells,editor->dirty_count);
-    for(i=0;i<editor->dirty_count;++i) {
-        index=editor->fill_queue[i];
-        canvas_cell(editor,(int)(index%editor->canvas.width),
-                    (int)(index/editor->canvas.width));
+    PROFILE_ADD(canvas_cells,e->dirty_count);
+    if(!e->dirty_count) return;
+    x0=y0=0; x1=(int)e->canvas.width-1; y1=(int)e->canvas.height-1;
+    if(e->dirty_count<e->history.size) {
+        x0=x1=(int)(e->fill_queue[0]%e->canvas.width);
+        y0=y1=(int)(e->fill_queue[0]/e->canvas.width);
+        for(i=1;i<e->dirty_count;++i) {
+            x=(int)(e->fill_queue[i]%e->canvas.width);
+            y=(int)(e->fill_queue[i]/e->canvas.width);
+            if(x<x0) x0=x;
+            if(x>x1) x1=x;
+            if(y<y0) y0=y;
+            if(y>y1) y1=y;
+        }
+    }
+    cursor_protect(e->view.x+x0*e->view.zoom,e->view.y+y0*e->view.zoom,
+                   (x1-x0+1)*e->view.zoom,(y1-y0+1)*e->view.zoom);
+    for(i=0;i<e->dirty_count;++i) {
+        index=e->fill_queue[i];
+        canvas_cell(e,(int)(index%e->canvas.width),(int)(index/e->canvas.width));
     }
 }
 

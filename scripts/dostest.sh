@@ -72,3 +72,7 @@ wcl -bt=dos -ms -0 -za -wx -we -w4 -os -k4096 -I"$ROOT/src" \
 wcl -bt=dos -ms -0 -za -wx -we -w4 -os -k4096 -I"$ROOT/src" \
     "$ROOT/tests/testvideo.c" "$ROOT/src/video.c" "$ROOT/src/videovga.c" "$ROOT/src/videovbe.c" \
     -fe="$ROOT/mnt/VIDTEST.EXE"
+
+# Read-only PIT diagnostics, including monotonicity against the BIOS clock.
+wcl -bt=dos -ms -0 -za -wx -we -w4 -os -k4096 -I"$ROOT/src" \
+    "$ROOT/tests/testtime.c" "$ROOT/src/timer.c" -fe="$ROOT/mnt/TIMETEST.EXE"
