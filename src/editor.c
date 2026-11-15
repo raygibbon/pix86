@@ -21,7 +21,7 @@ int editor_init(Editor *editor, unsigned side, unsigned short *fill_queue)
     editor->background = 0;
     editor->foreground = 15;
     editor->tool = TOOL_PENCIL;
-    editor->grid = 0;
+    editor->grid = editor->guide = 0;
     editor->dragging = editor->segment_valid = 0;
     editor->previous_buttons = 0;
     editor->fill_queue = fill_queue;
@@ -127,6 +127,12 @@ unsigned editor_key(Editor *editor, int key)
         editor_finish(editor);
         editor->tool = tool;
         return EDIT_UI | EDIT_STATUS;
+    }
+    if(key==CMD_GUIDE8 || key==CMD_GUIDE16) {
+        editor_finish(editor);
+        zoom=key==CMD_GUIDE8?8:16;
+        editor->guide=editor->guide==zoom?0:zoom;
+        return EDIT_CANVAS | EDIT_STATUS;
     }
     if (key == 'g') {
         editor_finish(editor);

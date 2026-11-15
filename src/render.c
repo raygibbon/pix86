@@ -55,18 +55,14 @@ void render_ui(const Editor *editor)
     for(i=0;i<16;++i) swatch(editor,i);
     video_text_bg(PALETTE_X,PALETTE_MORE_Y+1,"A All ",UI_INK,UI_BAR);
 }
-/* Grid dots follow exact cell edges, using a nearby shade rather than a bright
-   continuous mesh. This is view-only and never writes to canvas storage. */
+/* Palette-derived luminance selects black/white without changing the DAC.
+   Fine mesh is dashed; tile boundaries are solid and two-tone. */
 static unsigned char grid_colour(unsigned char colour)
 {
-    unsigned n;
-    if(colour<16) return (unsigned char)(colour+(colour<8?1:-1));
-    n=colour-16;
-    if(colour>=232) return (unsigned char)(colour-180);
-    if(n%6) return (unsigned char)(colour-1);
-    if(n/6%6) return (unsigned char)(colour-6);
-    if(n/36) return (unsigned char)(colour-36);
-    return 17;
+    unsigned n,r,g,b;
+    if(colour<16) return colour<8?15:0;
+    n=colour-16; r=n%6; g=n/6%6; b=n/36;
+    return 3*r+6*g+b<25?15:0;
 }
 static void canvas_cell(const Editor *editor,int x,int y)
 {
@@ -76,11 +72,21 @@ static void canvas_cell(const Editor *editor,int x,int y)
     sx=editor->view.x+x*zoom; sy=editor->view.y+y*zoom;
     colour=editor->canvas.pixels[(unsigned)y*editor->canvas.width+x];
     video_rect(sx,sy,zoom,zoom,colour);
-    if(editor->grid && zoom>=2) {
-        grid=grid_colour(colour);
-        for(i=1;i<zoom;i+=2) {
+    grid=grid_colour(colour);
+    if(editor->grid && zoom>=3) {
+        for(i=0;i<zoom;++i) if(i%2) {
             video_pixel(sx+zoom-1,sy+i,grid);
             video_pixel(sx+i,sy+zoom-1,grid);
+        }
+    }
+    if(editor->guide && zoom>=2) {
+        if((x+1)%editor->guide==0) {
+            video_rect(sx+zoom-1,sy,1,zoom,grid);
+            for(i=0;i<zoom;i+=2) video_pixel(sx+zoom-2,sy+i,grid?0:15);
+        }
+        if((y+1)%editor->guide==0) {
+            video_rect(sx,sy+zoom-1,zoom,1,grid);
+            for(i=0;i<zoom;i+=2) video_pixel(sx+i,sy+zoom-2,grid?0:15);
         }
     }
 }

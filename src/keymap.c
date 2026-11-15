@@ -37,7 +37,10 @@ int keyboard_command(int key)
     if(key=='u') return CMD_UNDO;
     if(key=='r') return CMD_REDO;
     if(key=='=') return CMD_ZOOM_IN;
+    if(key=='8') return CMD_GUIDE8;
+    if(key=='6') return CMD_GUIDE16;
     switch(key) {
+    case CMD_GUIDE8: case CMD_GUIDE16:
     case CMD_NEW: case CMD_OPEN: case CMD_SAVE: case CMD_SAVE_AS:
     case CMD_EXIT: case CMD_UNDO: case CMD_REDO: case CMD_CLEAR:
     case CMD_GRID: case CMD_ZOOM_IN: case CMD_ZOOM_OUT:

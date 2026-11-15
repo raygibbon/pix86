@@ -25,7 +25,7 @@ typedef struct Editor {
     View view;
     unsigned short *fill_queue;
     unsigned char foreground, background, stroke_colour;
-    int tool, grid, dragging, segment_valid, last_x, last_y;
+    int guide, tool, grid, dragging, segment_valid, last_x, last_y;
     int dirty_x0, dirty_y0, dirty_x1, dirty_y1;
     unsigned previous_buttons;
 } Editor;
