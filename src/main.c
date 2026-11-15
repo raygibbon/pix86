@@ -95,13 +95,13 @@ static void export_command(void)
     editor_image(&editor,&scratch);
     status=export_run(&scratch,editor.history.active,path,&options,0,project.filename,&report);
     if(status==FILE_EXISTS) {
-        sprintf(message,"Replace existing BMP file(s)?\n%s",report.path);
+        sprintf(message,"Replace existing image file(s)?\n%s",report.path);
         if(!dialog_confirm("Overwrite export?",message)) return;
         status=export_run(&scratch,editor.history.active,path,&options,1,project.filename,&report);
     }
     sprintf(message,"%u of %u file(s) exported.\n%s\n%s",report.completed,report.total,
         status==FILE_OK?"Export complete":file_message(status),report.path);
-    dialog_message(status==FILE_OK?"BMP exported":"Export stopped",message,
+    dialog_message(status==FILE_OK?"Image exported":"Export stopped",message,
         status==FILE_OK?NULL:&report.recovery);
 }
 
